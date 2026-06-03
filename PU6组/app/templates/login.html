@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>登录 - PU6组工作集</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <script src="{{ url_for('static', filename='js/login.js') }}" defer></script>
+  </head>
+  <body class="login-body">
+    <main class="login-shell">
+      <section class="login-intro" aria-label="平台介绍">
+        <a class="help-link" href="mailto:leader@example.com">帮助中心</a>
+        <div class="brand login-brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>
+            <strong>PU6组工作集</strong>
+            <small>协作 · 效率 · 创新 · 共享</small>
+          </span>
+        </div>
+
+        <div class="intro-copy">
+          <h1>高效协作：<br>让团队创造更多价值</h1>
+          <p>共享知识、管理项目、跟踪进度，携手实现目标。</p>
+        </div>
+
+        <div class="workspace-visual" aria-hidden="true">
+          <div class="screen">
+            <span></span>
+            <span></span>
+            <span></span>
+            <div class="donut"></div>
+            <div class="line line-a"></div>
+            <div class="line line-b"></div>
+            <div class="line line-c"></div>
+          </div>
+          <div class="person person-left"></div>
+          <div class="person person-right"></div>
+          <div class="upload-cloud"></div>
+        </div>
+
+        <div class="feature-row" aria-label="核心能力">
+          <div>
+            <span class="module-icon team-icon" aria-hidden="true"></span>
+            <strong>团队协作</strong>
+            <small>高效沟通协同</small>
+          </div>
+          <div>
+            <span class="module-icon folder-icon" aria-hidden="true"></span>
+            <strong>项目管理</strong>
+            <small>规划与跟踪进度</small>
+          </div>
+          <div>
+            <span class="module-icon chart-icon" aria-hidden="true"></span>
+            <strong>数据洞察</strong>
+            <small>驱动决策发展</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="login-panel" aria-label="登录表单">
+        <div class="login-card">
+          <div class="login-title">
+            <span aria-hidden="true"></span>
+            <h2>欢迎登录</h2>
+            <p>登录 PU6组工作集，开启高效协作之旅</p>
+          </div>
+
+          {% if error %}
+            <p class="form-error" role="alert">{{ error }}</p>
+          {% endif %}
+
+          <form method="post" class="login-form">
+            <label for="username">账号</label>
+            <div class="input-field">
+              <span class="input-icon account-icon" aria-hidden="true"></span>
+              <input
+                id="username"
+                name="username"
+                value="{{ form_username }}"
+                autocomplete="username"
+                placeholder="请输入账号"
+                required
+              >
+            </div>
+
+            <label for="password">密码</label>
+            <div class="input-field">
+              <span class="input-icon lock-icon" aria-hidden="true"></span>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                placeholder="请输入密码"
+                required
+              >
+              <button type="button" class="password-toggle" data-password-toggle>显示</button>
+            </div>
+
+            <div class="form-row">
+              <label class="remember">
+                <input type="checkbox" name="remember">
+                <span>记住我</span>
+              </label>
+              <span class="reset-note">忘记密码请联系组长</span>
+            </div>
+
+            <button type="submit" class="primary-button">登录</button>
+            <p class="assignment-note">账号由组长统一分配，请向组长获取账号。</p>
+          </form>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
