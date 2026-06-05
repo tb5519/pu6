@@ -21,7 +21,6 @@ WEEKLY_SUMMARY_FIELDS = ["referral_leads", "referral_conversions", "renewal_orde
 DAILY_SAVE_LOCK = Lock()
 
 REPORT_FIELDS = [
-    {"key": "lesson_reminders", "label": "催课", "sub_label": "当天数据", "has_total": False},
     {"key": "weekly_comments", "label": "点评", "sub_label": "本周总点评量", "has_total": False},
     {"key": "learning_status", "label": "学情", "sub_label": "当天数据", "has_total": True},
     {"key": "referral_leads", "label": "转介绍线索", "sub_label": "当天数据", "has_total": True},
@@ -31,7 +30,6 @@ REPORT_FIELDS = [
 ]
 
 LEGACY_FIELD_MAP = {
-    "lesson_reminders": ["today_lesson_reminders"],
     "weekly_comments": ["weekly_comment_count", "comments", "today_comment_count"],
     "learning_status": ["today_learning_status_count"],
     "referral_leads": ["referral_new_leads"],

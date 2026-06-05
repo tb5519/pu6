@@ -219,6 +219,7 @@ def serialize_class(item, include_students=False):
     output = {
         "id": item["id"],
         "name": item["name"],
+        "note": str(item.get("note") or "").strip(),
         "teacher_id": teacher_id,
         "teacher_name": teacher_label(teacher_id),
         "student_count": len(students),
@@ -236,6 +237,13 @@ def find_owned_class(store, class_id):
     for item in store["classes"]:
         if item["id"] == class_id and item["owner"] == current_owner():
             return item
+    return None
+
+
+def find_student(target_class, student_id):
+    for student in target_class.get("students", []):
+        if student.get("id") == student_id:
+            return student
     return None
 
 
@@ -686,6 +694,7 @@ def create_class():
         "id": uuid.uuid4().hex,
         "owner": current_owner(),
         "name": name,
+        "note": "",
         "teacher_id": teacher_id,
         "students": [],
         "created_at": now_iso(),
@@ -705,6 +714,13 @@ def update_class(class_id):
     if item is None:
         return jsonify({"error": "班级不存在。"}), 404
 
+    if "name" in payload:
+        name = str(payload.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "请输入班级名称。"}), 400
+        item["name"] = name
+    if "note" in payload:
+        item["note"] = str(payload.get("note") or "").strip()[:300]
     if "teacher_id" in payload:
         item["teacher_id"] = normalize_teacher_id(payload.get("teacher_id"))
     if "completion_activity" in payload:
@@ -752,6 +768,34 @@ def clear_month_data(class_id):
     result = clear_current_month_data(item)
     save_store(store)
     return jsonify({"result": result, "class": serialize_class(item, include_students=True)})
+
+
+@classes_bp.patch("/<class_id>/students/<student_id>")
+@login_required
+def update_student(class_id, student_id):
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "请输入学员姓名。"}), 400
+
+    store = load_store()
+    item = find_owned_class(store, class_id)
+    if item is None:
+        return jsonify({"error": "班级不存在。"}), 404
+
+    student = find_student(item, student_id)
+    if student is None:
+        return jsonify({"error": "学员不存在。"}), 404
+
+    updated_at = now_iso()
+    student["name"] = name
+    student["updated_at"] = updated_at
+    item["updated_at"] = updated_at
+    save_store(store)
+    return jsonify({
+        "student": serialize_student(student),
+        "class": serialize_class(item, include_students=True),
+    })
 
 
 @classes_bp.post("/<class_id>/upload")

@@ -2173,12 +2173,12 @@
     {
       "id": "9ef1cb72465e4293b4faffb26dc108ff",
       "owner": "文云joanna",
-      "name": "雪梨老师陪跑营i6期L2-E班",
+      "name": "雪梨老师陪跑营86期L2-5班",
       "teacher_id": "wenyun_joanna",
       "students": [
         {
           "id": "683ba0277039489eb83165b8c2e278d2",
-          "name": "时瑞婕",
+          "name": "时瑞捷",
           "account": "13385474126",
           "months": {
             "2026-06": {
@@ -2219,7 +2219,7 @@
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-05T19:12:30"
         },
         {
           "id": "3731d5dc74bd4e478af4ff12a80bc4b2",
@@ -4293,13 +4293,14 @@
         }
       ],
       "created_at": "2026-06-02T23:25:44",
-      "updated_at": "2026-06-04T18:08:39",
-      "completion_activity": true
+      "updated_at": "2026-06-05T19:12:30",
+      "completion_activity": true,
+      "note": "雪梨老师陪跑营i6期L2-E班"
     },
     {
       "id": "f5ccc586553345acbc28e7ab42e15484",
       "owner": "文云joanna",
-      "name": "雪梨老师陪跑营G2期L2-E班",
+      "name": "雪梨老师陪跑营62期L2-5班",
       "teacher_id": "wenyun_joanna",
       "students": [
         {
@@ -6374,7 +6375,8 @@
         }
       ],
       "created_at": "2026-06-04T14:50:11",
-      "updated_at": "2026-06-04T14:52:13"
+      "updated_at": "2026-06-05T18:33:23",
+      "note": "雪梨老师陪跑营G2期L2-E班"
     }
   ]
 }

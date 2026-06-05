@@ -4,11 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260605-sidebar-cloud-fix') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260605-student-scroll-spacer-xl') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260605-learning-save-fix') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260604-activity-class-badge') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260603-daily-weekly-summary') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260605-student-scroll-spacer') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260605-daily-remove-reminder') }}" defer></script>
     <script src="{{ url_for('static', filename='js/database.js', v='20260604-gmv') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260604-account-admin') }}" defer></script>
@@ -327,10 +327,6 @@
               </section>
 
               <section class="completion-image-options">
-                <label class="image-option-toggle">
-                  <input id="cc-generateImage" type="checkbox">
-                  <span>上传后生成完课表图片</span>
-                </label>
                 <label class="image-week-field">
                   <span>图片数据周</span>
                   <select id="cc-imageWeekSelect" class="week-select" aria-label="选择生成哪一周的完课表">
@@ -557,7 +553,6 @@
                     <tr class="daily-group-header">
                       <th rowspan="2" class="sticky-daily-col">班主任</th>
                       <th rowspan="2" class="sticky-daily-col daily-student-col">带班人数</th>
-                      <th class="daily-topic topic-reminder">催课</th>
                       <th class="daily-topic topic-comment">点评</th>
                       <th class="daily-topic topic-learning" colspan="2">学情</th>
                       <th class="daily-topic topic-referral-lead" colspan="2">转介绍线索</th>
@@ -566,7 +561,6 @@
                       <th class="daily-topic topic-renewal" colspan="2">续费单量</th>
                     </tr>
                     <tr class="daily-sub-header">
-                      <th class="topic-reminder">当天数据</th>
                       <th class="topic-comment">本周总点评量</th>
                       <th class="topic-learning">当天数据</th>
                       <th class="topic-learning">累计数据</th>
@@ -684,7 +678,7 @@
             </section>
             <section id="db-completionCompareCards" class="completion-compare-grid" aria-label="完课数据对比"></section>
             <section class="database-block">
-              <div class="database-table-wrap">
+              <div class="database-table-wrap show-all-rows">
                 <table class="database-table">
                   <thead id="db-completionHead"></thead>
                   <tbody id="db-completionRows"></tbody>

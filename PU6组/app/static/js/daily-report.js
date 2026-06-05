@@ -17,7 +17,6 @@ const dailySummaryRenewal = document.querySelector("#dr-summaryRenewal");
 const dailySummaryRefunds = document.querySelector("#dr-summaryRefunds");
 
 const DAILY_FIELD_LABELS = [
-  { key: "lesson_reminders", label: "催课", sub_label: "当天数据", has_total: false },
   { key: "weekly_comments", label: "点评", sub_label: "本周总点评量", has_total: false },
   { key: "learning_status", label: "学情", sub_label: "当天数据", has_total: true },
   { key: "referral_leads", label: "转介绍线索", sub_label: "当天数据", has_total: true },

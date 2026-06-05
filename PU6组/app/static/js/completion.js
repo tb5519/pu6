@@ -53,6 +53,8 @@ const reminderArrangementBody = document.querySelector("#cc-reminderArrangementB
 const WEEK_KEYS = ["1", "2", "3", "4"];
 const DAY_COUNT = 6;
 const ACTIVITY_WEEK_GOAL = 6;
+const IMAGE_WEEK_MEMORY_KEY = "pu6.completion.imageWeekNumber";
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const PLANT_VARIETIES = [
   { name: "彩虹花", className: "plant-rainbow" },
   { name: "向日葵", className: "plant-sunflower" },
@@ -70,6 +72,7 @@ let reminderPlanLoading = false;
 let activeReminderClass = null;
 let activeReminderArrangement = null;
 let reminderActionIndex = new Map();
+let editingClassId = null;
 
 function setCompletionSection(sectionName) {
   completionSectionButtons.forEach((button) => {
@@ -198,6 +201,75 @@ function selectedImageWeek() {
   return classImageWeekSelect?.value || classWeekSelect?.value || "1";
 }
 
+function localDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDateKey(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+function exportCycleAnchor(date = new Date()) {
+  const anchor = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const mondayBasedDay = (anchor.getDay() + 6) % 7;
+  const offset = mondayBasedDay >= 4 ? 4 - mondayBasedDay : -(mondayBasedDay + 3);
+  anchor.setDate(anchor.getDate() + offset);
+  return anchor;
+}
+
+function parseImageWeekNumber(value) {
+  const match = String(value || "").trim().replace(/^w/i, "").match(/^\d+$/);
+  return match ? Number(match[0]) : null;
+}
+
+function readImageWeekMemory() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(IMAGE_WEEK_MEMORY_KEY) || "null");
+    if (!saved || !Number.isFinite(Number(saved.weekNumber))) return null;
+    return {
+      weekNumber: Number(saved.weekNumber),
+      anchor: saved.anchor || "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function rememberImageWeekNumber(value) {
+  const weekNumber = parseImageWeekNumber(value);
+  if (!weekNumber) return;
+  try {
+    localStorage.setItem(IMAGE_WEEK_MEMORY_KEY, JSON.stringify({
+      weekNumber,
+      anchor: localDateKey(exportCycleAnchor()),
+    }));
+  } catch {
+    // localStorage may be unavailable in some browser privacy modes.
+  }
+}
+
+function suggestedImageWeekNumber() {
+  const saved = readImageWeekMemory();
+  if (!saved) return "";
+  const savedAnchor = parseLocalDateKey(saved.anchor);
+  if (!savedAnchor) return saved.weekNumber;
+  const cycleCount = Math.max(0, Math.round((exportCycleAnchor() - savedAnchor) / WEEK_MS));
+  return saved.weekNumber + cycleCount;
+}
+
+function applyRememberedImageWeekNumber() {
+  if (!classImageWeekNumber || classImageWeekNumber.value.trim()) return;
+  const suggestion = suggestedImageWeekNumber();
+  if (suggestion) {
+    classImageWeekNumber.value = suggestion;
+  }
+}
+
 function normalizeWeeks(weeks = {}) {
   return WEEK_KEYS.reduce((output, week) => {
     const values = Array.isArray(weeks[week]) ? weeks[week] : [];
@@ -250,7 +322,7 @@ function studentWaterCount(student) {
 }
 
 function plantVariety(student) {
-  const source = `${student.id || ""}${student.account || ""}${student.name || ""}`;
+  const source = `${student.id || student.account || student.name || ""}`;
   let hash = 0;
   for (let index = 0; index < source.length; index += 1) {
     hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
@@ -289,7 +361,12 @@ function completionImageTitle() {
   const rawValue = classImageWeekNumber?.value.trim() || "";
   const weekNumber = rawValue.replace(/^w/i, "").trim();
   if (!weekNumber) return "";
-  return `${activeClass?.name || "完课表"} W${weekNumber}`;
+  const noteName = String(activeClass?.note || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  const className = noteName || activeClass?.name || "完课表";
+  return `${className} W${weekNumber}`;
 }
 
 function imageCellColor(rate) {
@@ -747,6 +824,7 @@ function generateCompletionImage() {
     classImageWeekNumber?.focus();
     return;
   }
+  rememberImageWeekNumber(classImageWeekNumber?.value || "");
 
   const week = selectedImageWeek();
   const students = activeClass.students || [];
@@ -858,31 +936,45 @@ function renderClassList() {
   }
 
   classList.innerHTML = classes
-    .map((item) => `
-      <article class="class-card ${item.completion_activity ? "is-activity-class" : ""}">
-        <div>
-          <div class="class-card-topline">
-            <span class="module-eyebrow">班级</span>
-            ${item.completion_activity ? '<span class="class-activity-badge">6月活动中</span>' : ""}
+    .map((item) => {
+      const isEditing = editingClassId === item.id;
+      const note = String(item.note || "").trim();
+      return `
+        <article class="class-card ${item.completion_activity ? "is-activity-class" : ""}">
+          <div>
+            <div class="class-card-topline">
+              <span class="module-eyebrow">班级</span>
+              ${item.completion_activity ? '<span class="class-activity-badge">6月活动中</span>' : ""}
+            </div>
+            ${isEditing ? `
+              <form class="class-edit-form" data-class-edit-form="${item.id}">
+                <label>
+                  <span>班级名称</span>
+                  <input name="name" type="text" value="${escapeText(item.name)}" autocomplete="off">
+                </label>
+                <label>
+                  <span>班级备注</span>
+                  <textarea name="note" rows="3" maxlength="300" placeholder="例如：重点关注周末完课、家长群节奏、特殊提醒">${escapeText(note)}</textarea>
+                </label>
+                <div class="class-edit-actions">
+                  <button type="submit" class="primary-button compact-button">保存</button>
+                  <button type="button" class="ghost-button compact-button" data-class-edit-cancel="${item.id}">取消</button>
+                </div>
+              </form>
+            ` : `
+              <h2>${escapeText(item.name)}</h2>
+              <p>${item.student_count || 0} 名学员${item.teacher_name ? ` · ${escapeText(item.teacher_name)}` : ""}</p>
+              <p class="class-note ${note ? "" : "is-empty"}">${escapeText(note || "暂无备注，点击编辑信息补充。")}</p>
+            `}
           </div>
-          <h2>${escapeText(item.name)}</h2>
-          <p>${item.student_count || 0} 名学员${item.teacher_name ? ` · ${escapeText(item.teacher_name)}` : ""}</p>
-          <label class="class-teacher-field">
-            <span>班主任</span>
-            <select data-class-teacher="${item.id}" aria-label="${escapeText(item.name)} 班主任">
-              <option value="">未选择</option>
-              ${classTeachers.map((teacher) => (
-                `<option value="${escapeText(teacher.id)}"${teacher.id === item.teacher_id ? " selected" : ""}>${escapeText(teacher.name)}</option>`
-              )).join("")}
-            </select>
-          </label>
-        </div>
-        <div class="class-card-actions">
-          <button type="button" class="primary-button compact-button" data-open-class="${item.id}">进入班级</button>
-          <button type="button" class="ghost-button" data-delete-class="${item.id}">删除</button>
-        </div>
-      </article>
-    `)
+          <div class="class-card-actions">
+            <button type="button" class="primary-button compact-button" data-open-class="${item.id}">进入班级</button>
+            <button type="button" class="ghost-button" data-edit-class="${item.id}">${isEditing ? "正在编辑" : "编辑信息"}</button>
+            <button type="button" class="ghost-button" data-delete-class="${item.id}">删除</button>
+          </div>
+        </article>
+      `;
+    })
     .join("");
 
   document.querySelectorAll("[data-open-class]").forEach((button) => {
@@ -894,8 +986,39 @@ function renderClassList() {
     button.addEventListener("click", () => deleteClass(button.dataset.deleteClass));
   });
 
-  document.querySelectorAll("[data-class-teacher]").forEach((select) => {
-    select.addEventListener("change", () => updateClassTeacher(select.dataset.classTeacher, select.value));
+  document.querySelectorAll("[data-edit-class]").forEach((button) => {
+    button.addEventListener("click", () => {
+      editingClassId = button.dataset.editClass;
+      renderClassList();
+    });
+  });
+
+  document.querySelectorAll("[data-class-edit-cancel]").forEach((button) => {
+    button.addEventListener("click", () => {
+      editingClassId = null;
+      renderClassList();
+    });
+  });
+
+  document.querySelectorAll("[data-class-edit-form]").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const name = form.elements.name.value.trim();
+      const note = form.elements.note.value.trim();
+      if (!name) {
+        setClassMessage("请输入班级名称。", true);
+        form.elements.name.focus();
+        return;
+      }
+      try {
+        await updateClassDetails(form.dataset.classEditForm, { name, note });
+        editingClassId = null;
+        renderClassList();
+        setClassMessage("班级信息已更新。");
+      } catch (error) {
+        setClassMessage(error.message, true);
+      }
+    });
   });
 }
 
@@ -1897,6 +2020,10 @@ function renderStudents() {
   studentStatus.textContent = selectedCategory
     ? `${visibleStudents.length} / ${students.length} 名学员${month}`
     : `${students.length} 名学员${month}`;
+  const columnCount = 4 + (activeClass?.completion_activity ? 1 : 0) + (WEEK_KEYS.length * DAY_COUNT);
+  const spacerRow = visibleStudents.length
+    ? `<tr class="student-scroll-spacer" aria-hidden="true"><td colspan="${columnCount}"></td></tr>`
+    : "";
   studentRows.innerHTML = visibleStudents
     .map((student) => {
       const weeks = normalizeWeeks(student.weeks);
@@ -1907,7 +2034,15 @@ function renderStudents() {
         .join("");
       return `
         <tr>
-          <td class="sticky-col student-name-cell">${escapeText(student.name)}</td>
+          <td class="sticky-col student-name-cell">
+            <input
+              class="student-name-input"
+              type="text"
+              value="${escapeText(student.name)}"
+              data-student-name="${escapeText(student.id)}"
+              aria-label="编辑学员姓名"
+            >
+          </td>
           <td class="sticky-col second-col">${escapeText(student.account)}</td>
           <td>${renderMonthlyCell(student.monthly_completion)}</td>
           <td>${renderHabitCell(student.habit_category)}</td>
@@ -1916,7 +2051,7 @@ function renderStudents() {
         </tr>
       `;
     })
-    .join("");
+    .join("") + spacerRow;
 
   if (!students.length) {
     studentEmpty.textContent = "当前班级暂无学员，请上传表格。";
@@ -1924,6 +2059,22 @@ function renderStudents() {
     studentEmpty.textContent = "当前筛选条件下暂无学员。";
   }
   studentEmpty.classList.toggle("is-hidden", visibleStudents.length > 0);
+
+  studentRows.querySelectorAll("[data-student-name]").forEach((input) => {
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+    input.addEventListener("change", () => {
+      updateStudentName(input.dataset.studentName, input.value).catch((error) => {
+        setDetailMessage(error.message, true);
+        const student = activeClass?.students?.find((item) => item.id === input.dataset.studentName);
+        input.value = student?.name || "";
+      });
+    });
+  });
 }
 
 async function loadClasses() {
@@ -1955,6 +2106,37 @@ async function updateClassTeacher(classId, teacherId) {
   }
   renderClassList();
   setClassMessage("班主任归属已更新，日报带班人数会同步变化。");
+}
+
+async function updateClassDetails(classId, payload) {
+  const data = await apiRequest(`/api/classes/${classId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  classes = classes.map((item) => (item.id === classId ? data.class : item));
+  if (activeClass?.id === classId) {
+    activeClass = data.class;
+    detailTitle.textContent = activeClass.name;
+  }
+  renderClassList();
+}
+
+async function updateStudentName(studentId, value) {
+  if (!activeClass?.id || !studentId) return;
+  const name = String(value || "").trim();
+  const student = activeClass.students?.find((item) => item.id === studentId);
+  if (!student || name === student.name) return;
+  if (!name) {
+    throw new Error("请输入学员姓名。");
+  }
+  const data = await apiRequest(`/api/classes/${activeClass.id}/students/${studentId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+  activeClass = data.class;
+  classes = classes.map((item) => (item.id === activeClass.id ? data.class : item));
+  renderStudents();
+  setDetailMessage("学员姓名已更新。");
 }
 
 async function deleteClass(classId) {
@@ -2021,6 +2203,8 @@ async function clearMonthData() {
 
 function initCompletion() {
   if (!classList) return;
+
+  applyRememberedImageWeekNumber();
 
   completionSectionButtons.forEach((button) => {
     button.addEventListener("click", () => setCompletionSection(button.dataset.completionSection));
@@ -2090,6 +2274,8 @@ function initCompletion() {
   });
 
   classImageWeekSelect?.addEventListener("change", clearCompletionImage);
+  classImageWeekNumber?.addEventListener("change", () => rememberImageWeekNumber(classImageWeekNumber.value));
+  classImageWeekNumber?.addEventListener("blur", () => rememberImageWeekNumber(classImageWeekNumber.value));
   studentCategoryFilter?.addEventListener("change", renderStudents);
 
   classClearMonthButton?.addEventListener("click", async () => {
