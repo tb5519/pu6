@@ -11,10 +11,10 @@ const dailySelectedDateTitle = document.querySelector("#dr-selectedDateTitle");
 const dailyReportStatus = document.querySelector("#dr-reportStatus");
 const dailyReportRows = document.querySelector("#dr-reportRows");
 const dailyReportEmpty = document.querySelector("#dr-reportEmpty");
-const dailySummaryReminder = document.querySelector("#dr-summaryReminder");
-const dailySummaryComment = document.querySelector("#dr-summaryComment");
-const dailySummaryLearning = document.querySelector("#dr-summaryLearning");
+const dailySummaryReferralLeads = document.querySelector("#dr-summaryReferralLeads");
+const dailySummaryReferralConversions = document.querySelector("#dr-summaryReferralConversions");
 const dailySummaryRenewal = document.querySelector("#dr-summaryRenewal");
+const dailySummaryRefunds = document.querySelector("#dr-summaryRefunds");
 
 const DAILY_FIELD_LABELS = [
   { key: "lesson_reminders", label: "催课", sub_label: "当天数据", has_total: false },
@@ -31,6 +31,14 @@ let dailySelectedDate = formatDate(today);
 let dailyCalendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 let dailyRows = [];
 let dailyFields = DAILY_FIELD_LABELS;
+let dailyWeeklyBase = {};
+let dailyDirtyRows = new Map();
+let dailyAutoSaveTimer = null;
+let dailyQueuedSave = null;
+let dailySaving = false;
+let dailySaveVersion = 0;
+
+const DAILY_AUTO_SAVE_DELAY = 900;
 
 function padNumber(value) {
   return String(value).padStart(2, "0");
@@ -77,6 +85,10 @@ async function dailyApiRequest(url, options = {}) {
   return data;
 }
 
+function waitDaily(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function renderTodayCard() {
   if (!dailyTodayDay || !dailyTodayText) return;
   dailyTodayDay.textContent = today.getDate();
@@ -116,7 +128,9 @@ function renderCalendar() {
   dailyCalendarGrid.innerHTML = cells.join("");
   dailyCalendarGrid.querySelectorAll("[data-daily-date]").forEach((button) => {
     button.addEventListener("click", async () => {
-      dailySelectedDate = button.dataset.dailyDate;
+      const targetDate = button.dataset.dailyDate;
+      await flushDailyAutoSave();
+      dailySelectedDate = targetDate;
       dailyCalendarMonth = new Date(parseDate(dailySelectedDate).getFullYear(), parseDate(dailySelectedDate).getMonth(), 1);
       renderCalendar();
       await loadDailyReport();
@@ -128,6 +142,42 @@ function numericValue(value) {
   const count = Number(value);
   if (Number.isNaN(count)) return 0;
   return Math.max(0, Math.trunc(count));
+}
+
+function dailyRowKey(row) {
+  return String(row.teacher_id || row.username || "").trim().toLowerCase();
+}
+
+function collectDailyRow(row) {
+  const output = {
+    username: row.username,
+    teacher_id: row.teacher_id || row.username,
+  };
+  dailyFields.forEach((field) => {
+    output[field.key] = numericValue(row[field.key]);
+  });
+  output.weekly_comments_manual = Boolean(row.weekly_comments_manual);
+  return output;
+}
+
+function markDailyRowDirty(row) {
+  const key = dailyRowKey(row);
+  if (!key) return;
+  dailySaveVersion += 1;
+  dailyDirtyRows.set(key, {
+    version: dailySaveVersion,
+    row: collectDailyRow(row),
+  });
+}
+
+function buildPendingDailySave() {
+  if (!dailyDirtyRows.size) return null;
+  const entries = Array.from(dailyDirtyRows.entries());
+  return {
+    date: dailySelectedDate,
+    rows: entries.map(([, item]) => item.row),
+    versions: Object.fromEntries(entries.map(([key, item]) => [key, item.version])),
+  };
 }
 
 function renderMetricInput(row, field) {
@@ -183,8 +233,12 @@ function renderDailyRows() {
       const row = dailyRows.find((item) => item.username === input.dataset.dailyUser);
       if (!row) return;
       row[input.dataset.dailyInput] = numericValue(input.value);
+      if (input.dataset.dailyInput === "weekly_comments") {
+        row.weekly_comments_manual = true;
+      }
       updateDailySummary();
-      setDailyMessage("当前日报有未保存修改。");
+      markDailyRowDirty(row);
+      scheduleDailyAutoSave();
     });
   });
 
@@ -192,15 +246,17 @@ function renderDailyRows() {
 
 function updateDailySummary() {
   const sum = (field) => dailyRows.reduce((total, row) => total + numericValue(row[field]), 0);
-  if (dailySummaryReminder) dailySummaryReminder.textContent = sum("lesson_reminders");
-  if (dailySummaryComment) dailySummaryComment.textContent = sum("weekly_comments");
-  if (dailySummaryLearning) dailySummaryLearning.textContent = sum("learning_status");
-  if (dailySummaryRenewal) dailySummaryRenewal.textContent = sum("renewal_orders");
+  const weeklyValue = (field) => numericValue(dailyWeeklyBase[field]) + sum(field);
+  if (dailySummaryReferralLeads) dailySummaryReferralLeads.textContent = weeklyValue("referral_leads");
+  if (dailySummaryReferralConversions) dailySummaryReferralConversions.textContent = weeklyValue("referral_conversions");
+  if (dailySummaryRenewal) dailySummaryRenewal.textContent = weeklyValue("renewal_orders");
+  if (dailySummaryRefunds) dailySummaryRefunds.textContent = weeklyValue("refunds");
 }
 
 function renderDailyReport(data) {
   dailyRows = data.rows || [];
   dailyFields = data.fields || dailyFields;
+  dailyWeeklyBase = data.weekly_base || {};
   if (dailySelectedDateTitle) {
     dailySelectedDateTitle.textContent = `${formatChineseDate(data.date)} 日报`;
   }
@@ -215,39 +271,96 @@ async function loadDailyReport() {
   if (!dailyReportRows) return;
   setDailyMessage("正在读取日报...");
   const data = await dailyApiRequest(`/api/daily-report?date=${encodeURIComponent(dailySelectedDate)}`);
+  dailyDirtyRows.clear();
+  dailyQueuedSave = null;
+  window.clearTimeout(dailyAutoSaveTimer);
   renderDailyReport(data);
   setDailyMessage("");
 }
 
-function collectDailyRows() {
-  return dailyRows.map((row) => {
-    const output = {
-      username: row.username,
-      teacher_id: row.teacher_id || row.username,
-    };
-    dailyFields.forEach((field) => {
-      output[field.key] = numericValue(row[field.key]);
-    });
-    return output;
-  });
+function collectDailyRows(sourceRows = dailyRows) {
+  return sourceRows.map((row) => collectDailyRow(row));
 }
 
-async function saveDailyReport() {
-  if (!dailySaveButton) return;
-  dailySaveButton.disabled = true;
-  setDailyMessage("正在保存日报...");
+function scheduleDailyAutoSave() {
+  dailyQueuedSave = buildPendingDailySave();
+  if (!dailyQueuedSave) return;
+  window.clearTimeout(dailyAutoSaveTimer);
+  dailyAutoSaveTimer = window.setTimeout(() => {
+    runDailyAutoSave();
+  }, DAILY_AUTO_SAVE_DELAY);
+  if (dailyReportStatus) dailyReportStatus.textContent = "等待自动保存...";
+  setDailyMessage("已记录修改，稍后自动保存。");
+}
+
+async function runDailyAutoSave() {
+  if (!dailyQueuedSave && dailyDirtyRows.size) {
+    dailyQueuedSave = buildPendingDailySave();
+  }
+  if (!dailyQueuedSave || dailySaving) return;
+  const pending = dailyQueuedSave;
+  dailyQueuedSave = null;
+  dailySaving = true;
+  let failed = false;
+  try {
+    await saveDailyReport(pending.date, pending.rows, { auto: true });
+    Object.entries(pending.versions || {}).forEach(([key, version]) => {
+      const current = dailyDirtyRows.get(key);
+      if (current && current.version === version) {
+        dailyDirtyRows.delete(key);
+      }
+    });
+  } catch (error) {
+    failed = true;
+    dailyQueuedSave = pending;
+    setDailyMessage(error.message, true);
+  } finally {
+    dailySaving = false;
+    if (failed) return;
+    if (!dailyQueuedSave && dailyDirtyRows.size) {
+      dailyQueuedSave = buildPendingDailySave();
+    }
+    if (dailyQueuedSave && !dailySaving) {
+      dailyAutoSaveTimer = window.setTimeout(() => {
+        runDailyAutoSave();
+      }, 300);
+    }
+  }
+}
+
+async function flushDailyAutoSave() {
+  window.clearTimeout(dailyAutoSaveTimer);
+  if (!dailyQueuedSave && dailyDirtyRows.size) {
+    dailyQueuedSave = buildPendingDailySave();
+  }
+  if (dailyQueuedSave && !dailySaving) {
+    await runDailyAutoSave();
+  }
+  while (dailySaving) {
+    await waitDaily(80);
+  }
+}
+
+async function saveDailyReport(date = dailySelectedDate, rows = collectDailyRows(), options = {}) {
+  if (dailySaveButton) dailySaveButton.disabled = true;
+  setDailyMessage(options.auto ? "正在自动保存日报..." : "正在保存日报...");
   try {
     const data = await dailyApiRequest("/api/daily-report", {
       method: "PUT",
       body: JSON.stringify({
-        date: dailySelectedDate,
-        rows: collectDailyRows(),
+        date,
+        rows,
       }),
     });
-    renderDailyReport(data);
-    setDailyMessage("日报已保存。");
+    if (data.date === dailySelectedDate && !dailyQueuedSave) {
+      renderDailyReport(data);
+    } else if (dailyReportStatus && data.date === dailySelectedDate) {
+      dailyReportStatus.textContent = data.updated_at ? `已保存：${data.updated_at}` : "已自动保存";
+    }
+    setDailyMessage(options.auto ? "日报已自动保存。" : "日报已保存。");
+    return data;
   } finally {
-    dailySaveButton.disabled = false;
+    if (dailySaveButton) dailySaveButton.disabled = false;
   }
 }
 
@@ -268,6 +381,7 @@ function initDailyReport() {
   });
 
   dailyTodayButton?.addEventListener("click", async () => {
+    await flushDailyAutoSave();
     dailySelectedDate = formatDate(today);
     dailyCalendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     renderCalendar();

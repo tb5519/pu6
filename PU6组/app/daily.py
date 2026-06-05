@@ -1,5 +1,6 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+from threading import Lock
 
 from flask import Blueprint, current_app, g, jsonify, request
 
@@ -15,6 +16,9 @@ from app.teachers import (
 
 daily_bp = Blueprint("daily", __name__, url_prefix="/api/daily-report")
 DAILY_ADMIN_ROLES = {"leader", "admin", "manager"}
+WEEKLY_COMMENTS_MANUAL_KEY = "weekly_comments_manual"
+WEEKLY_SUMMARY_FIELDS = ["referral_leads", "referral_conversions", "renewal_orders", "refunds"]
+DAILY_SAVE_LOCK = Lock()
 
 REPORT_FIELDS = [
     {"key": "lesson_reminders", "label": "催课", "sub_label": "当天数据", "has_total": False},
@@ -70,8 +74,10 @@ def load_daily_store():
 def save_daily_store(store):
     path = daily_report_file()
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
+    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    with temp_path.open("w", encoding="utf-8") as file:
         json.dump(store, file, ensure_ascii=False, indent=2)
+    temp_path.replace(path)
 
 
 def load_classes_store():
@@ -101,6 +107,22 @@ def field_value(source, key, default=0):
         if legacy_key in source:
             return source.get(legacy_key)
     return default
+
+
+def has_field_value(source, key):
+    if not isinstance(source, dict):
+        return False
+    if key in source:
+        return True
+    return any(legacy_key in source for legacy_key in LEGACY_FIELD_MAP.get(key, []))
+
+
+def weekly_comments_manual_flag(source):
+    if not isinstance(source, dict):
+        return False
+    if WEEKLY_COMMENTS_MANUAL_KEY in source:
+        return bool(source.get(WEEKLY_COMMENTS_MANUAL_KEY))
+    return has_field_value(source, "weekly_comments")
 
 
 def selected_month_key(report_date):
@@ -165,6 +187,7 @@ def sanitize_row(default, submitted=None):
     for field in REPORT_FIELDS:
         key = field["key"]
         row[key] = parse_count(field_value(submitted, key, default.get(key, 0)))
+    row[WEEKLY_COMMENTS_MANUAL_KEY] = weekly_comments_manual_flag(submitted)
     return row
 
 
@@ -197,6 +220,50 @@ def calculate_month_totals(store, report_date, rows):
                 key = field["key"]
                 totals[row["teacher_id"]][key] += parse_count(field_value(source, key))
     return totals
+
+
+def monday_key_for(report_date):
+    date_value = datetime.strptime(report_date, "%Y-%m-%d")
+    return (date_value - timedelta(days=date_value.weekday())).strftime("%Y-%m-%d")
+
+
+def should_inherit_monday_comments(report_date):
+    weekday = datetime.strptime(report_date, "%Y-%m-%d").weekday()
+    return 1 <= weekday <= 4
+
+
+def apply_weekly_comment_defaults(store, report_date, rows):
+    if not should_inherit_monday_comments(report_date):
+        return rows
+
+    monday_key = monday_key_for(report_date)
+    monday_report = store.get("reports", {}).get(monday_key, {})
+    monday_rows = saved_rows_by_teacher(monday_report)
+    if not monday_rows:
+        return rows
+
+    for row in rows:
+        if row.get(WEEKLY_COMMENTS_MANUAL_KEY):
+            continue
+        source = monday_rows.get(row["teacher_id"])
+        if not source:
+            continue
+        row["weekly_comments"] = parse_count(field_value(source, "weekly_comments"))
+        row["weekly_comments_inherited_from"] = monday_key
+    return rows
+
+
+def calculate_weekly_base_totals(store, report_date):
+    start_key = monday_key_for(report_date)
+    output = {key: 0 for key in WEEKLY_SUMMARY_FIELDS}
+    for date_key, report in store.get("reports", {}).items():
+        date_text = str(date_key)
+        if date_text < start_key or date_text >= report_date:
+            continue
+        for row in report.get("rows", []):
+            for key in WEEKLY_SUMMARY_FIELDS:
+                output[key] += parse_count(field_value(row, key))
+    return output
 
 
 def apply_totals(store, report_date, rows):
@@ -238,6 +305,7 @@ def build_report_rows(report_date, store=None, submitted_rows=None):
         default = default_row(teacher)
         source = submitted_by_teacher.get(teacher["teacher_id"], saved_by_teacher.get(teacher["teacher_id"]))
         rows.append(sanitize_row(default, source))
+    rows = apply_weekly_comment_defaults(store, report_date, rows)
     return apply_edit_permissions(apply_totals(store, report_date, rows))
 
 
@@ -267,6 +335,7 @@ def rows_for_storage(rows):
         for field in REPORT_FIELDS:
             key = field["key"]
             storage_row[key] = row[key]
+        storage_row[WEEKLY_COMMENTS_MANUAL_KEY] = bool(row.get(WEEKLY_COMMENTS_MANUAL_KEY))
         storage_rows.append(storage_row)
     return storage_rows
 
@@ -288,6 +357,7 @@ def get_daily_report():
             "fields": REPORT_FIELDS,
             "rows": rows,
             "teachers": teacher_options(),
+            "weekly_base": calculate_weekly_base_totals(store, report_date),
             "updated_at": saved_report.get("updated_at", ""),
         }
     )
@@ -302,25 +372,26 @@ def save_daily_report():
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
-    store = load_daily_store()
     submitted_rows = permitted_submitted_rows(payload.get("rows", []))
     if not submitted_rows:
         return jsonify({"error": "当前账号没有可填写的日报行。"}), 403
 
-    rows = build_report_rows(report_date, store=store, submitted_rows=submitted_rows)
-    store.setdefault("reports", {})[report_date] = {
-        "date": report_date,
-        "rows": rows_for_storage(rows),
-        "updated_at": now_iso(),
-    }
-    save_daily_store(store)
-    rows = build_report_rows(report_date, store=store)
-    return jsonify(
-        {
+    with DAILY_SAVE_LOCK:
+        store = load_daily_store()
+        rows = build_report_rows(report_date, store=store, submitted_rows=submitted_rows)
+        store.setdefault("reports", {})[report_date] = {
+            "date": report_date,
+            "rows": rows_for_storage(rows),
+            "updated_at": now_iso(),
+        }
+        save_daily_store(store)
+        rows = build_report_rows(report_date, store=store)
+        response = {
             "date": report_date,
             "fields": REPORT_FIELDS,
             "rows": rows,
             "teachers": teacher_options(),
+            "weekly_base": calculate_weekly_base_totals(store, report_date),
             "updated_at": store["reports"][report_date]["updated_at"],
         }
-    )
+    return jsonify(response)

@@ -30,12 +30,12 @@ flask --app run create-user zhangsan --name 张三 --role member
 创建可维护话术库的管理账号：
 
 ```bash
-flask --app run create-user lisi --name 李四 --role manager
+flask --app run create-user lisi --name 李四 --role leader
 ```
 
 角色说明：
 
-- `leader` / `admin` / `manager`：可新增、导入、删除和清空话术。
+- Joanna 超级管理员：可新增、导入、删除和清空话术。
 - `member`：只能进入专题、匹配话术和复制推荐结果。
 
 重置成员密码：
