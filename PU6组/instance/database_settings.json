@@ -1,0 +1,43 @@
+{
+  "learning": {
+    "classes": {
+      "9ef1cb72465e4293b4faffb26dc108ff": {
+        "coefficient": 1.0
+      }
+    },
+    "teachers": {
+      "wenyun_joanna": {
+        "target_rate": 0.26
+      },
+      "chenxiao_grace": {
+        "target_rate": 0.26
+      },
+      "xiaojun_linm": {
+        "target_rate": 0.26
+      },
+      "huxiaoran_serena": {
+        "target_rate": 0.26
+      },
+      "huchangjing_jean": {
+        "target_rate": 0.26
+      },
+      "dongjie_jackie": {
+        "target_rate": 0.26
+      }
+    }
+  },
+  "gmv": {
+    "2026-06": {
+      "referral": {
+        "xiaojun_linm": {
+          "week_totals": [
+            1980.0,
+            null,
+            null,
+            null
+          ]
+        }
+      }
+    }
+  }
+}

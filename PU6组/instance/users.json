@@ -1,0 +1,58 @@
+{
+  "文云joanna": {
+    "username": "文云joanna",
+    "display_name": "文云Joanna",
+    "role": "leader",
+    "teacher_id": "wenyun_joanna",
+    "active": true,
+    "password_hash": "scrypt:32768:8:1$fCxnfJVWUL76g5v4$f9d16c7c6022c69338a01f4952b1cd64ea6a76462fd4ed9e72027a214cd98fb6d72a9f7d1d3cc9a0879f373bcb15e0edb250bddb12c07f5b734b62a05c926eb6"
+  },
+  "陈晓grace": {
+    "username": "陈晓grace",
+    "display_name": "陈晓Grace",
+    "role": "member",
+    "teacher_id": "chenxiao_grace",
+    "active": true,
+    "password_hash": "scrypt:32768:8:1$VHz90abhz6hSHZPY$24a8cecd997d5043ca167d2eb01e9a17c240b91f69aea3880137c65b003ab14b00d48f997d2cc470dbfe27f46ac494092447d3c5b0a41002c80829e76f77a116"
+  },
+  "肖钧linm": {
+    "username": "肖钧linm",
+    "display_name": "肖钧Linm",
+    "role": "member",
+    "teacher_id": "xiaojun_linm",
+    "active": true,
+    "password_hash": "scrypt:32768:8:1$dT9GfZV2KT3AgBMI$ac7dd0356ea80c11d22290c8cd164eafb2f66d11034f5044cafa32626c3a1a19e167727be3d6e945ca9d8d6a3739a720a32a4744186327e84dda16be952fdaf8"
+  },
+  "胡小冉serena": {
+    "username": "胡小冉serena",
+    "display_name": "胡小冉Serena",
+    "role": "member",
+    "teacher_id": "huxiaoran_serena",
+    "active": true,
+    "password_hash": "scrypt:32768:8:1$ncy86KVfP1JYcap3$6626b414c28d978115263beff67f51e6aa43946b2fbe6b70cbbfd66659aeeb108b2241a8fe1b97936eda9c9bff9f345e132407e9144e26ed1b9f8d1cdf89daae"
+  },
+  "胡常菁jean": {
+    "username": "胡常菁jean",
+    "display_name": "胡常菁Jean",
+    "role": "member",
+    "teacher_id": "huchangjing_jean",
+    "active": true,
+    "password_hash": "scrypt:32768:8:1$MSmQDX9NhMGim0v6$254e0fae7f3cd0b583e709756b313aaf1e004293ec34a4a006f02035f2daac94594bc5b8ba3146bf4c39731cf08836c1a8df4f8f5b0557aaa16f3ee90e86d71e"
+  },
+  "董洁jackie": {
+    "username": "董洁jackie",
+    "display_name": "董洁Jackie",
+    "role": "member",
+    "teacher_id": "dongjie_jackie",
+    "active": true,
+    "password_hash": "scrypt:32768:8:1$FUIDztZtdqEDhYJZ$c57b1950e481b4499e67be071f442e21e3610f25371a459089ba4e0668135114b21ff779958f375cd62eb0e6e31e2eab5f21a59cebb2c88e07fe58f7b14595e2"
+  },
+  "leader": {
+    "username": "leader",
+    "display_name": "文云Joanna",
+    "role": "leader",
+    "teacher_id": "wenyun_joanna",
+    "active": true,
+    "password_hash": "scrypt:32768:8:1$6hJU8ZNDoBgZiHV1$475ce2cfea24d02dcbe1c9415dd4a1f923748c048781aa21d1ca3669d03739d9a52e02f3bec2bd27ace05d29086fb7fd9cd57f0e33145e20e549267b4c6182cd"
+  }
+}

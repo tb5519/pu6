@@ -1,0 +1,118 @@
+{
+  "source": "class_assignment.xlsx",
+  "updated_at": "2026-06-03T22:35:04",
+  "classes": [
+    {
+      "id": "completion-b1a49722ad34c88d",
+      "teacher_raw": "L2 陈晓Grace",
+      "teacher_id": "chenxiao_grace",
+      "teacher_name": "陈晓Grace",
+      "name": "雪梨老师陪跑营81期PU1-2班"
+    },
+    {
+      "id": "completion-2ff34d18716b010a",
+      "teacher_raw": "L2 陈晓Grace",
+      "teacher_id": "chenxiao_grace",
+      "teacher_name": "陈晓Grace",
+      "name": "雪梨老师陪跑营90期PU1-1班"
+    },
+    {
+      "id": "completion-baa11c1396f563ee",
+      "teacher_raw": "L2 胡小冉Serena",
+      "teacher_id": "huxiaoran_serena",
+      "teacher_name": "胡小冉Serena",
+      "name": "雪梨老师陪跑营77期PU1-3班"
+    },
+    {
+      "id": "completion-aca86c48f345badc",
+      "teacher_raw": "L2 胡小冉Serena",
+      "teacher_id": "huxiaoran_serena",
+      "teacher_name": "胡小冉Serena",
+      "name": "雪梨老师陪跑营72期PU1-2班"
+    },
+    {
+      "id": "completion-7fec34d81410ba74",
+      "teacher_raw": "L2 胡小冉Serena",
+      "teacher_id": "huxiaoran_serena",
+      "teacher_name": "胡小冉Serena",
+      "name": "雪梨老师陪跑营79期PU1-1班"
+    },
+    {
+      "id": "completion-0942a3b5dd7940f7",
+      "teacher_raw": "L2 文云Joanna",
+      "teacher_id": "wenyun_joanna",
+      "teacher_name": "文云Joanna",
+      "name": "雪梨老师陪跑营86期PU1-5班"
+    },
+    {
+      "id": "completion-13115cfe423d1a1b",
+      "teacher_raw": "L2董洁Jackie",
+      "teacher_id": "dongjie_jackie",
+      "teacher_name": "董洁Jackie",
+      "name": "雪梨老师陪跑营87期PU1-5班"
+    },
+    {
+      "id": "completion-9cce3ec1e3fc939b",
+      "teacher_raw": "L2董洁Jackie",
+      "teacher_id": "dongjie_jackie",
+      "teacher_name": "董洁Jackie",
+      "name": "雪梨老师陪跑营87期PU1-6班"
+    },
+    {
+      "id": "completion-4eacd550ec37b8f4",
+      "teacher_raw": "L2董洁Jackie",
+      "teacher_id": "dongjie_jackie",
+      "teacher_name": "董洁Jackie",
+      "name": "雪梨老师陪跑营81期PU1-5班"
+    },
+    {
+      "id": "completion-1c6d0eed2e67419c",
+      "teacher_raw": "L2董洁Jackie",
+      "teacher_id": "dongjie_jackie",
+      "teacher_name": "董洁Jackie",
+      "name": "雪梨老师陪跑营94期L2-7班"
+    },
+    {
+      "id": "completion-48d3a0c00472796d",
+      "teacher_raw": "L2董洁Jackie",
+      "teacher_id": "dongjie_jackie",
+      "teacher_name": "董洁Jackie",
+      "name": "雪梨老师陪跑营82期PU1-2班"
+    },
+    {
+      "id": "completion-4051841b0495eb6c",
+      "teacher_raw": "L2胡常菁Jean",
+      "teacher_id": "huchangjing_jean",
+      "teacher_name": "胡常菁Jean",
+      "name": "雪梨老师陪跑营87期PU1-1班"
+    },
+    {
+      "id": "completion-27634fda36ae1d02",
+      "teacher_raw": "L2胡常菁Jean",
+      "teacher_id": "huchangjing_jean",
+      "teacher_name": "胡常菁Jean",
+      "name": "雪梨老师陪跑营87期PU1-2班"
+    },
+    {
+      "id": "completion-a253455c2e42d672",
+      "teacher_raw": "L2胡常菁Jean",
+      "teacher_id": "huchangjing_jean",
+      "teacher_name": "胡常菁Jean",
+      "name": "雪梨老师陪跑营91期PU1-4班"
+    },
+    {
+      "id": "completion-a36043c70d827f04",
+      "teacher_raw": "L2胡常菁Jean",
+      "teacher_id": "huchangjing_jean",
+      "teacher_name": "胡常菁Jean",
+      "name": "雪梨老师陪跑营71期PU1-4班"
+    },
+    {
+      "id": "completion-804f02ff7638d991",
+      "teacher_raw": "L2胡常菁Jean",
+      "teacher_id": "huchangjing_jean",
+      "teacher_name": "胡常菁Jean",
+      "name": "雪梨老师陪跑营83期PU1-4班"
+    }
+  ]
+}
