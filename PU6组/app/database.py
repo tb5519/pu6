@@ -1514,6 +1514,7 @@ def reminder_priority_row(row, index):
         "last_month_completion": row.get("last_month_completion"),
         "change_from_last_month": change,
         "gap_from_last_month": gap,
+        "completion_activity": bool(row.get("completion_activity")),
         "source": "database",
         "source_label": "数据库",
     }
@@ -1532,6 +1533,7 @@ def reminder_database_fallback_row(row):
         "last_month_completion": row.get("last_month_completion"),
         "change_from_last_month": row.get("change_from_last_month"),
         "gap_from_last_month": None,
+        "completion_activity": bool(row.get("completion_activity")),
         "source": "database",
         "source_label": "数据库",
     }
@@ -1551,6 +1553,7 @@ def reminder_home_class_row(item):
         "last_month_completion": None,
         "change_from_last_month": None,
         "gap_from_last_month": None,
+        "completion_activity": bool(item.get("completion_activity")),
         "source": "my_class",
         "source_label": "我的班级",
     }
@@ -1568,6 +1571,7 @@ def reminder_class_ref(row, day_key="", task_label="", action_records=None, reco
         "completion_rate": row.get("completion_rate"),
         "last_month_completion": row.get("last_month_completion"),
         "change_from_last_month": row.get("change_from_last_month"),
+        "completion_activity": bool(row.get("completion_activity")),
         "source": row.get("source", "database"),
         "source_label": row.get("source_label", "数据库"),
     }
@@ -1587,15 +1591,40 @@ def build_reminder_schedule(schedule_rows, action_records=None):
     cursor = 0
     buckets = {}
     output = []
+    activity_signatures = {
+        reminder_schedule_row_signature(row)
+        for row in schedule_rows
+        if row.get("completion_activity")
+    }
+    activity_rows = []
+    seen_activity_signatures = set()
+    for row in schedule_rows:
+        signature = reminder_schedule_row_signature(row)
+        if signature not in activity_signatures or signature in seen_activity_signatures:
+            continue
+        seen_activity_signatures.add(signature)
+        activity_rows.append(row)
+    regular_rows = [
+        row
+        for row in schedule_rows
+        if reminder_schedule_row_signature(row) not in activity_signatures
+    ]
+
     for item in REMINDER_WEEK_FLOW:
         new_classes = []
+        if item["key"] == "monday":
+            new_classes.extend(activity_rows)
         if item["new_count"]:
-            new_classes = schedule_rows[cursor:cursor + item["new_count"]]
-            cursor += len(new_classes)
+            regular_new_classes = regular_rows[cursor:cursor + item["new_count"]]
+            cursor += len(regular_new_classes)
+            new_classes.extend(regular_new_classes)
+        if item["key"] == "friday":
+            new_classes.extend(activity_rows)
+        if new_classes:
             buckets[item["key"]] = new_classes
 
         recover_classes = buckets.get(item["recover_from"] or "", [])
-        focus_classes = schedule_rows[: item["focus_count"]] if item["focus_count"] else []
+        focus_classes = regular_rows[: item["focus_count"]] if item["focus_count"] else []
         output.append(
             {
                 "key": item["key"],
@@ -1618,6 +1647,21 @@ def build_reminder_schedule(schedule_rows, action_records=None):
     return output
 
 
+def reminder_schedule_row_signature(row):
+    class_keys = sorted(reminder_class_match_keys(row.get("class_name") or row.get("name", "")))
+    if class_keys:
+        return "|".join(class_keys)
+    class_id = str(row.get("class_id") or row.get("id") or "").strip()
+    teacher_id = normalize_teacher_id(row.get("teacher_id"))
+    class_name = str(row.get("class_name") or row.get("name") or "").strip()
+    return f"{teacher_id}|{class_id}|{class_name}"
+
+
+def reminder_class_is_in_activity(class_name, activity_keys):
+    class_keys = reminder_class_match_keys(class_name)
+    return bool(class_keys and class_keys & activity_keys)
+
+
 def reminder_home_classes(visible_teacher_ids):
     store = load_json(classes_file(), {"classes": []})
     rows = []
@@ -1635,6 +1679,13 @@ def build_completion_reminder_plan(month_key, report_date):
     completion = build_completion_summary(month_key, report_date)
     visible_teacher_ids = reminder_visible_teacher_ids()
     action_records = reminder_schedule_action_records(visible_teacher_ids)
+    home_classes = reminder_home_classes(visible_teacher_ids)
+    activity_keys_by_teacher = {teacher_id: set() for teacher_id in visible_teacher_ids}
+    for item in home_classes:
+        if not item.get("completion_activity"):
+            continue
+        teacher_id = class_teacher_id(item)
+        activity_keys_by_teacher.setdefault(teacher_id, set()).update(reminder_class_match_keys(item.get("name", "")))
     teacher_lookup = {
         teacher_id: reminder_teacher_seed(teacher_id)
         for teacher_id in visible_teacher_ids
@@ -1647,6 +1698,13 @@ def build_completion_reminder_plan(month_key, report_date):
         teacher_id = normalize_teacher_id(row.get("teacher_id"))
         if visible_teacher_ids and teacher_id not in visible_teacher_ids:
             continue
+        row = {
+            **row,
+            "completion_activity": reminder_class_is_in_activity(
+                row.get("name", ""),
+                activity_keys_by_teacher.get(teacher_id, set()),
+            ),
+        }
         is_database_row = database_roster_is_authoritative or bool(row.get("lookup_matched"))
         if not is_database_row:
             continue
@@ -1671,7 +1729,7 @@ def build_completion_reminder_plan(month_key, report_date):
             continue
         teacher_lookup[teacher_id]["priorities"].append(row)
 
-    for item in reminder_home_classes(visible_teacher_ids):
+    for item in home_classes:
         teacher_id = class_teacher_id(item)
         if teacher_id not in teacher_lookup:
             teacher_lookup[teacher_id] = reminder_teacher_seed(teacher_id)
