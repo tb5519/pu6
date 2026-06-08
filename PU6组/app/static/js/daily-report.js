@@ -395,6 +395,22 @@ function initDailyReport() {
     }
   });
 
+  window.addEventListener("pu6:monthly-archived", async (event) => {
+    const nextDate = event.detail?.nextDate;
+    if (!nextDate) return;
+    try {
+      await flushDailyAutoSave();
+      dailySelectedDate = nextDate;
+      const parsedDate = parseDate(nextDate);
+      dailyCalendarMonth = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1);
+      renderCalendar();
+      await loadDailyReport();
+      setDailyMessage(`已切换到 ${formatChineseDate(nextDate)}，新月份累计从 0 开始。`);
+    } catch (error) {
+      setDailyMessage(error.message, true);
+    }
+  });
+
   loadDailyReport().catch((error) => setDailyMessage(error.message, true));
 }
 

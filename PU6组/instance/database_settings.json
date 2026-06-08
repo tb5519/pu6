@@ -37,6 +37,10 @@
             null
           ]
         }
+      },
+      "targets": {
+        "renewal": 300000.0,
+        "referral": 28000.0
       }
     }
   }

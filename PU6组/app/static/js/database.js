@@ -1,6 +1,7 @@
 const databaseMonthInput = document.querySelector("#db-monthInput");
 const databaseDateInput = document.querySelector("#db-dateInput");
 const databaseRefreshButton = document.querySelector("#db-refreshButton");
+const databaseArchiveMonthButton = document.querySelector("#db-archiveMonthButton");
 const databaseMessage = document.querySelector("#db-message");
 const databaseViews = document.querySelectorAll("[data-db-view]");
 const databaseTopicButtons = document.querySelectorAll("[data-db-topic]");
@@ -43,6 +44,7 @@ const databaseRenewalRows = document.querySelector("#db-renewalRows");
 const databaseReferralRows = document.querySelector("#db-referralRows");
 const databaseGmvRenewalRows = document.querySelector("#db-gmvRenewalRows");
 const databaseGmvReferralRows = document.querySelector("#db-gmvReferralRows");
+const databaseGmvTargetSummary = document.querySelector("#db-gmvTargetSummary");
 const databaseGmvEditButton = document.querySelector("#db-gmvEditButton");
 const databaseGmvSaveButton = document.querySelector("#db-gmvSaveButton");
 const databaseGmvCancelButton = document.querySelector("#db-gmvCancelButton");
@@ -51,6 +53,7 @@ const databaseUpdatedAt = document.querySelector("#db-updatedAt");
 
 const DATABASE_CATEGORIES = ["完课超赞", "异常断课", "长期不上课", "周末欠缺", "偶尔断课", "暂无数据"];
 const LEARNING_TARGET_RATES = [0.26, 0.28, 0.3];
+const GMV_SECTION_LABELS = { renewal: "续费", referral: "转介绍" };
 let currentDatabaseData = null;
 let selectedCompletionCompareDate = "";
 let showOlderCompletionDates = false;
@@ -137,6 +140,19 @@ function formatDatabaseMoney(value) {
   const number = Number(value || 0);
   if (Number.isNaN(number)) return "¥0";
   return `¥${Math.round(number).toLocaleString("zh-CN")}`;
+}
+
+function formatDatabaseMoneyOptional(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  return formatDatabaseMoney(value);
+}
+
+function formatDatabaseMoneyDelta(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  const number = Number(value);
+  if (Number.isNaN(number)) return "-";
+  const prefix = number > 0 ? "+" : number < 0 ? "-" : "";
+  return `${prefix}¥${Math.round(Math.abs(number)).toLocaleString("zh-CN")}`;
 }
 
 function formatTargetRate(value) {
@@ -574,6 +590,58 @@ function renderReferralRows(rows = []) {
     .join("");
 }
 
+function gmvGapClass(value) {
+  if (value === null || value === undefined || value === "") return "is-neutral";
+  return Number(value) >= 0 ? "is-positive" : "is-negative";
+}
+
+function renderGmvTargetSummary(gmv = {}) {
+  if (!databaseGmvTargetSummary) return;
+  const canEdit = Boolean(gmv.can_edit);
+  databaseGmvTargetSummary.innerHTML = ["renewal", "referral"].map((sectionKey) => {
+    const section = gmv[sectionKey] || {};
+    const targetValue = section.target_amount;
+    const targetGap = section.target_gap;
+    const inputValue = targetValue === null || targetValue === undefined ? "" : formatDatabaseNumber(targetValue);
+    const targetContent = canEdit && gmvEditMode
+      ? `
+        <input
+          class="gmv-target-input"
+          type="number"
+          min="0"
+          step="1"
+          value="${escapeDatabaseText(inputValue)}"
+          placeholder="填写本月目标"
+          data-gmv-target-input="${escapeDatabaseText(sectionKey)}"
+        >
+      `
+      : `<strong>${formatDatabaseMoneyOptional(targetValue)}</strong>`;
+    return `
+      <article class="gmv-target-card" data-gmv-target-card="${escapeDatabaseText(sectionKey)}">
+        <span>${escapeDatabaseText(GMV_SECTION_LABELS[sectionKey])}GMV目标</span>
+        <div class="gmv-target-values">
+          <div>
+            <em>当前</em>
+            <strong>${formatDatabaseMoney(section.month_total)}</strong>
+          </div>
+          <div>
+            <em>目标</em>
+            ${targetContent}
+          </div>
+          <div>
+            <em>目标差值</em>
+            <strong class="${gmvGapClass(targetGap)}" data-gmv-target-gap="${escapeDatabaseText(sectionKey)}">${formatDatabaseMoneyDelta(targetGap)}</strong>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  databaseGmvTargetSummary.querySelectorAll("[data-gmv-target-input]").forEach((input) => {
+    input.addEventListener("input", recalculateGmvEditor);
+  });
+}
+
 function renderGmvCell(row, sectionKey, weekIndex, canEdit) {
   const amount = Number(row.week_totals?.[weekIndex] || 0);
   const defaultAmount = Number(row.default_week_totals?.[weekIndex] || 0);
@@ -612,7 +680,7 @@ function renderGmvRows(section = {}, target, sectionKey) {
 
   target.innerHTML = rows
     .map((row) => `
-      <tr data-gmv-row data-gmv-section="${escapeDatabaseText(sectionKey)}" data-teacher-id="${escapeDatabaseText(row.teacher_id)}">
+      <tr data-gmv-row data-gmv-section="${escapeDatabaseText(sectionKey)}" data-teacher-id="${escapeDatabaseText(row.teacher_id)}" data-gmv-row-total-value="${formatDatabaseNumber(row.month_total)}">
         <td class="database-strong-cell">${escapeDatabaseText(row.teacher_name)}</td>
         ${[0, 1, 2, 3].map((weekIndex) => `<td>${renderGmvCell(row, sectionKey, weekIndex, canEdit)}</td>`).join("")}
         <td class="database-strong-cell" data-gmv-row-total>${formatDatabaseMoney(row.month_total)}</td>
@@ -629,6 +697,7 @@ function renderGmv(data = currentDatabaseData) {
   const gmv = data?.gmv || {};
   renderGmvRows(gmv.renewal || {}, databaseGmvRenewalRows, "renewal");
   renderGmvRows(gmv.referral || {}, databaseGmvReferralRows, "referral");
+  renderGmvTargetSummary(gmv);
   recalculateGmvEditor();
 }
 
@@ -640,8 +709,27 @@ function recalculateGmvEditor() {
       const value = Math.max(0, Number(input.value || 0));
       return sum + (Number.isNaN(value) ? 0 : value);
     }, 0);
+    row.dataset.gmvRowTotalValue = formatDatabaseNumber(total);
     const totalCell = row.querySelector("[data-gmv-row-total]");
     if (totalCell) totalCell.textContent = formatDatabaseMoney(total);
+  });
+
+  ["renewal", "referral"].forEach((sectionKey) => {
+    const rowTotals = Array.from(document.querySelectorAll(`[data-gmv-row][data-gmv-section="${sectionKey}"]`))
+      .reduce((sum, row) => sum + Number(row.dataset.gmvRowTotalValue || 0), 0);
+    const targetInput = document.querySelector(`[data-gmv-target-input="${sectionKey}"]`);
+    const targetValue = targetInput
+      ? (targetInput.value === "" ? null : Number(targetInput.value || 0))
+      : currentDatabaseData?.gmv?.[sectionKey]?.target_amount;
+    const gapElement = document.querySelector(`[data-gmv-target-gap="${sectionKey}"]`);
+    if (!gapElement) return;
+    const gapValue = targetValue === null || targetValue === undefined || Number.isNaN(Number(targetValue))
+      ? null
+      : rowTotals - Number(targetValue);
+    gapElement.textContent = formatDatabaseMoneyDelta(gapValue);
+    gapElement.classList.toggle("is-positive", gapValue !== null && Number(gapValue) >= 0);
+    gapElement.classList.toggle("is-negative", gapValue !== null && Number(gapValue) < 0);
+    gapElement.classList.toggle("is-neutral", gapValue === null);
   });
 }
 
@@ -675,22 +763,34 @@ function collectGmvAdjustments() {
   return sections;
 }
 
+function collectGmvTargets() {
+  const targets = {};
+  document.querySelectorAll("[data-gmv-target-input]").forEach((input) => {
+    const sectionKey = input.dataset.gmvTargetInput;
+    if (!sectionKey) return;
+    const rawValue = Math.max(0, Number(input.value || 0));
+    targets[sectionKey] = input.value === "" || Number.isNaN(rawValue) ? null : rawValue;
+  });
+  return targets;
+}
+
 async function saveGmvAdjustments() {
   if (!databaseGmvSaveButton || !databaseMonthInput) return;
   databaseGmvSaveButton.disabled = true;
-  setDatabaseMessage("正在保存GMV修正...");
+  setDatabaseMessage("正在保存GMV目标和修正...");
   try {
     await databaseApiRequest("/api/database/gmv-adjustments", {
       method: "PUT",
       body: JSON.stringify({
         month: databaseMonthInput.value,
         sections: collectGmvAdjustments(),
+        targets: collectGmvTargets(),
       }),
     });
     gmvEditMode = false;
     await loadDatabaseSummary();
     setGmvEditMode(false);
-    setDatabaseMessage("GMV修正已保存。");
+    setDatabaseMessage("GMV目标和修正已保存。");
   } finally {
     databaseGmvSaveButton.disabled = false;
   }
@@ -705,9 +805,9 @@ function renderDatabase(data) {
   if (databaseLearningToday) databaseLearningToday.textContent = formatDatabasePercent(data.learning?.achievement_rate);
   if (databaseLearningMonth) databaseLearningMonth.textContent = databaseCount(data.learning, "month_total");
   if (databaseLearningBase) databaseLearningBase.textContent = formatDatabaseNumber(data.learning?.learning_base_total);
-  if (databaseRenewalToday) databaseRenewalToday.textContent = databaseCount(data.renewal, "today_total");
+  if (databaseRenewalToday) databaseRenewalToday.textContent = databaseCount(data.renewal, "month_total");
   if (databaseRenewalMonth) databaseRenewalMonth.textContent = databaseCount(data.renewal, "month_total");
-  if (databaseReferralToday) databaseReferralToday.textContent = databaseCount(data.referral, "leads_today_total");
+  if (databaseReferralToday) databaseReferralToday.textContent = databaseCount(data.referral, "conversions_month_total");
   if (databaseReferralMonth) databaseReferralMonth.textContent = databaseCount(data.referral, "leads_month_total");
   if (databaseReferralConversionToday) {
     databaseReferralConversionToday.textContent = databaseCount(data.referral, "conversions_today_total");
@@ -753,6 +853,45 @@ async function loadDatabaseSummary() {
     setDatabaseMessage("");
   } finally {
     if (databaseRefreshButton) databaseRefreshButton.disabled = false;
+  }
+}
+
+async function archiveCurrentDatabaseMonth() {
+  if (!databaseArchiveMonthButton || !databaseMonthInput || !databaseDateInput) return;
+  const monthValue = databaseMonthInput.value || formatDatabaseMonth(new Date());
+  const dateValue = databaseDateInput.value || `${monthValue}-01`;
+  const confirmed = window.confirm(`${monthValue} 的日报和数据库统计将被保存为月度存档，并切换到下个月重新开始统计。历史数据不会删除，继续吗？`);
+  if (!confirmed) return;
+
+  databaseArchiveMonthButton.disabled = true;
+  setDatabaseMessage("正在进行月度存档...");
+  try {
+    const data = await databaseApiRequest("/api/database/monthly-archives", {
+      method: "POST",
+      body: JSON.stringify({
+        month: monthValue,
+        date: dateValue,
+      }),
+    });
+    const nextMonth = data.next_month || "";
+    const nextDate = data.next_date || (nextMonth ? `${nextMonth}-01` : "");
+    if (nextMonth) databaseMonthInput.value = nextMonth;
+    if (nextDate) databaseDateInput.value = nextDate;
+    selectedCompletionCompareDate = "";
+    showOlderCompletionDates = false;
+    await loadDatabaseSummary();
+    window.dispatchEvent(new CustomEvent("pu6:monthly-archived", {
+      detail: {
+        month: monthValue,
+        date: dateValue,
+        nextMonth,
+        nextDate,
+      },
+    }));
+    const reportCount = data.archive?.daily_report_count ?? 0;
+    setDatabaseMessage(`${monthValue} 已存档，共保存 ${reportCount} 天日报；当前已切换到 ${nextMonth || "下个月"}。`);
+  } finally {
+    databaseArchiveMonthButton.disabled = false;
   }
 }
 
@@ -836,6 +975,9 @@ function initDatabase() {
 
   databaseRefreshButton?.addEventListener("click", () => {
     loadDatabaseSummary().catch((error) => setDatabaseMessage(error.message, true));
+  });
+  databaseArchiveMonthButton?.addEventListener("click", () => {
+    archiveCurrentDatabaseMonth().catch((error) => setDatabaseMessage(error.message, true));
   });
 
   showDatabaseView("home");

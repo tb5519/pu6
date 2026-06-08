@@ -16,6 +16,7 @@ def create_app():
         COMPLETION_REMINDER_ACTIONS_FILE=Path(app.instance_path) / "completion_reminder_actions.json",
         DAILY_REPORT_FILE=Path(app.instance_path) / "daily_reports.json",
         DATABASE_SETTINGS_FILE=Path(app.instance_path) / "database_settings.json",
+        MONTHLY_ARCHIVES_FILE=Path(app.instance_path) / "monthly_archives.json",
         TALK_LIBRARY_FILE=Path(app.instance_path) / "talk_library.json",
         VIDEOS_FILE=Path(app.instance_path) / "videos.json",
         VIDEO_DOWNLOAD_DIR=Path(app.instance_path) / "video_downloads",

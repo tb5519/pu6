@@ -8,8 +8,8 @@
     <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260605-learning-save-fix') }}" defer></script>
     <script src="{{ url_for('static', filename='js/completion.js', v='20260605-student-scroll-spacer') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260605-daily-remove-reminder') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260604-gmv') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260607-monthly-archive') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/database.js', v='20260607-monthly-archive') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260604-account-admin') }}" defer></script>
     {% endif %}
@@ -599,6 +599,9 @@
                 <input id="db-dateInput" type="date">
               </label>
               <button id="db-refreshButton" class="primary-button compact-button" type="button">刷新统计</button>
+              {% if can_upload_completion_data %}
+              <button id="db-archiveMonthButton" class="ghost-button compact-button" type="button">存档本月</button>
+              {% endif %}
             </div>
           </header>
 
@@ -619,15 +622,15 @@
                 <button type="button" data-db-topic="learning">进入学情专区</button>
               </article>
               <article class="database-topic-card topic-renewal">
-                <span>续费数据</span>
+                <span>续费总单量</span>
                 <strong id="db-renewalToday">0</strong>
-                <small>本月累计 <em id="db-renewalMonth">0</em></small>
+                <small>按日报累计至所选日期</small>
                 <button type="button" data-db-topic="renewal">进入续费专区</button>
               </article>
               <article class="database-topic-card topic-referral">
-                <span>转介绍数据</span>
+                <span>转介绍总单量</span>
                 <strong id="db-referralToday">0</strong>
-                <small>本月线索 <em id="db-referralMonth">0</em> · 转化 <em id="db-referralConversionToday">0</em>/<em id="db-referralConversionMonth">0</em></small>
+                <small>本月线索 <em id="db-referralMonth">0</em></small>
                 <button type="button" data-db-topic="referral">进入转介绍专区</button>
               </article>
               <article class="database-topic-card topic-gmv">
@@ -818,7 +821,7 @@
               <button class="back-button" type="button" data-db-topic="home">返回数据库首页</button>
               <div>
                 <h2>GMV专区</h2>
-                <span class="tool-status">默认按日报单量 × 2980 计算，Joanna可手动修正特殊订单金额</span>
+                <span class="tool-status">默认按日报单量 × 2980 计算，Joanna可设置目标并修正特殊订单金额</span>
               </div>
               {% if can_upload_completion_data %}
               <div class="database-learning-actions">
@@ -828,6 +831,7 @@
               </div>
               {% endif %}
             </div>
+            <section id="db-gmvTargetSummary" class="gmv-target-summary" aria-label="GMV目标概览"></section>
             <section class="database-metric-grid gmv-grid">
               <section class="database-block">
                 <div class="panel-title-row">

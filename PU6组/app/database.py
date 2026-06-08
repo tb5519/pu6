@@ -21,6 +21,7 @@ database_bp = Blueprint("database", __name__, url_prefix="/api/database")
 COMPLETION_SNAPSHOTS_LOCK = Lock()
 DATABASE_SETTINGS_LOCK = Lock()
 REMINDER_ACTIONS_LOCK = Lock()
+MONTHLY_ARCHIVES_LOCK = Lock()
 LEARNING_TARGET_RATES = {0.26, 0.28, 0.3}
 DEFAULT_LEARNING_TARGET_RATE = 0.26
 COMPLETION_UPLOAD_TEACHER_ID = "wenyun_joanna"
@@ -108,6 +109,10 @@ def database_settings_file():
     return current_app.config["DATABASE_SETTINGS_FILE"]
 
 
+def monthly_archives_file():
+    return current_app.config["MONTHLY_ARCHIVES_FILE"]
+
+
 def load_json(path, default):
     if not path.exists():
         return default
@@ -166,6 +171,16 @@ def save_database_settings(settings):
     save_json(database_settings_file(), settings)
 
 
+def load_monthly_archives():
+    store = load_json(monthly_archives_file(), {})
+    store.setdefault("archives", {})
+    return store
+
+
+def save_monthly_archives(store):
+    save_json(monthly_archives_file(), store)
+
+
 def normalize_month(value):
     raw_value = str(value or "").strip()
     if not raw_value:
@@ -207,6 +222,17 @@ def previous_month_key(month_key):
     if month == 1:
         return f"{year - 1}-12"
     return f"{year}-{month - 1:02d}"
+
+
+def next_month_key(month_key):
+    year, month = [int(part) for part in month_key.split("-")]
+    if month == 12:
+        return f"{year + 1}-01"
+    return f"{year}-{month + 1:02d}"
+
+
+def next_month_start_date(month_key):
+    return f"{next_month_key(month_key)}-01"
 
 
 def current_user_teacher_id():
@@ -1202,13 +1228,21 @@ def build_referral_summary(month_key, report_date, completion_teachers):
     }
 
 
-def gmv_month_adjustments(month_key, section_key):
+def gmv_month_settings(month_key):
     settings = load_database_settings()
     return (
         settings.get("gmv", {})
         .get(month_key, {})
-        .get(section_key, {})
     )
+
+
+def gmv_month_adjustments(month_key, section_key):
+    return gmv_month_settings(month_key).get(section_key, {})
+
+
+def gmv_month_targets(month_key):
+    targets = gmv_month_settings(month_key).get("targets", {})
+    return targets if isinstance(targets, dict) else {}
 
 
 def normalize_gmv_week_overrides(raw_values):
@@ -1277,6 +1311,11 @@ def build_gmv_section(month_key, report_date, completion_teachers, section_key):
         rounded_metric(sum(row["default_week_totals"][index] for row in row_list))
         for index in range(4)
     ]
+    month_total = rounded_metric(sum(row["month_total"] for row in row_list))
+    default_month_total = rounded_metric(sum(row["default_month_total"] for row in row_list))
+    target_amount = parse_gmv_amount(gmv_month_targets(month_key).get(section_key))
+    target_gap = rounded_metric(month_total - target_amount) if target_amount is not None else None
+
     return {
         "key": section_key,
         "label": config["label"],
@@ -1285,8 +1324,10 @@ def build_gmv_section(month_key, report_date, completion_teachers, section_key):
         "can_edit": can_manage_gmv(),
         "week_totals": week_totals,
         "default_week_totals": default_week_totals,
-        "month_total": rounded_metric(sum(row["month_total"] for row in row_list)),
-        "default_month_total": rounded_metric(sum(row["default_month_total"] for row in row_list)),
+        "month_total": month_total,
+        "default_month_total": default_month_total,
+        "target_amount": target_amount,
+        "target_gap": target_gap,
         "rows": row_list,
     }
 
@@ -1294,14 +1335,73 @@ def build_gmv_section(month_key, report_date, completion_teachers, section_key):
 def build_gmv_summary(month_key, report_date, completion_teachers):
     renewal = build_gmv_section(month_key, report_date, completion_teachers, "renewal")
     referral = build_gmv_section(month_key, report_date, completion_teachers, "referral")
+    target_values = [
+        section["target_amount"]
+        for section in (renewal, referral)
+        if section.get("target_amount") is not None
+    ]
+    target_amount = rounded_metric(sum(target_values)) if target_values else None
+    month_total = rounded_metric(renewal["month_total"] + referral["month_total"])
     return {
         "unit_price": GMV_UNIT_PRICE,
         "can_edit": can_manage_gmv(),
         "renewal": renewal,
         "referral": referral,
-        "month_total": rounded_metric(renewal["month_total"] + referral["month_total"]),
+        "month_total": month_total,
         "default_month_total": rounded_metric(renewal["default_month_total"] + referral["default_month_total"]),
+        "target_amount": target_amount,
+        "target_gap": rounded_metric(month_total - target_amount) if target_amount is not None else None,
     }
+
+
+def monthly_daily_reports(month_key, report_date):
+    store = load_json(daily_report_file(), {"reports": {}})
+    reports = {}
+    for date_key, report in store.get("reports", {}).items():
+        date_text = str(date_key)
+        if date_text.startswith(f"{month_key}-") and date_text <= report_date:
+            reports[date_text] = report
+    return reports
+
+
+def monthly_archive_settings(month_key):
+    settings = load_database_settings()
+    return {
+        "learning": json.loads(json.dumps(settings.get("learning", {}), ensure_ascii=False)),
+        "gmv": json.loads(json.dumps(settings.get("gmv", {}).get(month_key, {}), ensure_ascii=False)),
+    }
+
+
+def build_monthly_archive(month_key, report_date):
+    completion = build_completion_summary(month_key, report_date)
+    completion_teachers = completion["teachers"]
+    archive = {
+        "month": month_key,
+        "date": report_date,
+        "archived_at": datetime.now().isoformat(timespec="seconds"),
+        "archived_by": g.user.get("username", ""),
+        "next_month": next_month_key(month_key),
+        "next_date": next_month_start_date(month_key),
+        "daily_reports": monthly_daily_reports(month_key, report_date),
+        "database": {
+            "completion": completion,
+            "learning": build_learning_summary(month_key, report_date, completion),
+            "renewal": build_renewal_summary(month_key, report_date, completion_teachers),
+            "referral": build_referral_summary(month_key, report_date, completion_teachers),
+            "gmv": build_gmv_summary(month_key, report_date, completion_teachers),
+        },
+        "settings": monthly_archive_settings(month_key),
+    }
+    archive["daily_report_count"] = len(archive["daily_reports"])
+    archive["summary"] = {
+        "learning_achievement_rate": archive["database"]["learning"].get("achievement_rate"),
+        "learning_month_total": archive["database"]["learning"].get("month_total"),
+        "renewal_orders": archive["database"]["renewal"].get("month_total"),
+        "referral_leads": archive["database"]["referral"].get("leads_month_total"),
+        "referral_conversions": archive["database"]["referral"].get("conversions_month_total"),
+        "gmv_total": archive["database"]["gmv"].get("month_total"),
+    }
+    return archive
 
 
 def current_reminder_cycle_key():
@@ -1967,6 +2067,7 @@ def update_gmv_adjustments():
     else:
         section_key = str(payload.get("section") or "").strip()
         sections_payload = {section_key: payload.get("rows", [])}
+    targets_payload = payload.get("targets")
 
     with DATABASE_SETTINGS_LOCK:
         settings = load_database_settings()
@@ -1992,6 +2093,19 @@ def update_gmv_adjustments():
             else:
                 month_settings.pop(section_key, None)
 
+        if isinstance(targets_payload, dict):
+            target_settings = {}
+            for section_key in GMV_SECTIONS:
+                if section_key not in targets_payload:
+                    continue
+                target_value = parse_gmv_amount(targets_payload.get(section_key))
+                if target_value is not None:
+                    target_settings[section_key] = target_value
+            if target_settings:
+                month_settings["targets"] = target_settings
+            else:
+                month_settings.pop("targets", None)
+
         if month_settings:
             gmv_settings[month_key] = month_settings
         else:
@@ -2000,6 +2114,50 @@ def update_gmv_adjustments():
         save_database_settings(settings)
 
     return jsonify({"ok": True})
+
+
+@database_bp.post("/monthly-archives")
+@login_required
+def create_monthly_archive():
+    if not can_upload_completion_data():
+        return jsonify({"error": "只有文云Joanna账号可以进行月度存档。"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        month_key = normalize_month(payload.get("month"))
+        report_date = normalize_date(payload.get("date") or month_end_date(month_key))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    if not report_date.startswith(f"{month_key}-"):
+        report_date = month_end_date(month_key)
+
+    archive = build_monthly_archive(month_key, report_date)
+    with MONTHLY_ARCHIVES_LOCK:
+        store = load_monthly_archives()
+        previous_archive = store.get("archives", {}).get(month_key)
+        if previous_archive:
+            store.setdefault("history", []).append(previous_archive)
+        store.setdefault("archives", {})[month_key] = archive
+        store["updated_at"] = archive["archived_at"]
+        save_monthly_archives(store)
+
+    return jsonify(
+        {
+            "ok": True,
+            "archive": {
+                "month": archive["month"],
+                "date": archive["date"],
+                "archived_at": archive["archived_at"],
+                "archived_by": archive["archived_by"],
+                "daily_report_count": archive["daily_report_count"],
+                "summary": archive["summary"],
+            },
+            "next_month": archive["next_month"],
+            "next_date": archive["next_date"],
+            "message": f"{archive['month']} 已完成存档，已为下个月重新开始统计。",
+        }
+    )
 
 
 @database_bp.get("/summary")
