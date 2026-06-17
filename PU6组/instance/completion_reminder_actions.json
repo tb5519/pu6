@@ -1418,7 +1418,5263 @@
       "completed_by": "文云joanna",
       "recovered_at": "2026-06-04T18:09:45",
       "recovered_by": "文云joanna"
+    },
+    {
+      "id": "5fdca3c8793e4a9290f83212312f3a97",
+      "cycle_key": "2026-06-15",
+      "teacher_id": "chenxiao_grace",
+      "teacher_name": "陈晓Grace",
+      "class_id": "b6939acd48ca402b90edb401488dc7c5",
+      "class_name": "雪梨老师陪跑营67期PU1-2班",
+      "local_class_id": "b6939acd48ca402b90edb401488dc7c5",
+      "local_class_name": "雪梨老师陪跑营67期PU1-2班",
+      "class_keys": [
+        "雪梨老师陪跑营67期pu12班"
+      ],
+      "source": "my_class",
+      "origin_day_key": "tuesday",
+      "origin_day_label": "周二",
+      "recovery_day_key": "thursday",
+      "recovery_day_label": "周四",
+      "task_label": "催课",
+      "completion_rate": null,
+      "last_month_completion": null,
+      "change_from_last_month": null,
+      "students": [
+        {
+          "id": "9de42a09d81a47678e9b3b7b4f54d2bd",
+          "name": "史雯月",
+          "account": "15961812068",
+          "category": "断续上课",
+          "monthly_completion": 21.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              20.0,
+              20.0,
+              0,
+              20.0,
+              25.0,
+              0
+            ],
+            "2": [
+              25.0,
+              25.0,
+              25.0,
+              50.0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 25.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 50.0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 25.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 50.0
+            }
+          ]
+        },
+        {
+          "id": "a271cb8032964b5fb6a89ee34c8a8f9f",
+          "name": "阳阳Haley",
+          "account": "a13956619825",
+          "category": "断续上课",
+          "monthly_completion": 42.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              80.0,
+              80.0,
+              25.0,
+              60.0,
+              50.0,
+              0
+            ],
+            "2": [
+              25.0,
+              0,
+              25.0,
+              75.0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 25.0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 50.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 75.0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 25.0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 50.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 75.0
+            }
+          ]
+        },
+        {
+          "id": "65a3f56ed2aa43098fecda736670139f",
+          "name": "潘柚",
+          "account": "15228099870",
+          "category": "断续上课",
+          "monthly_completion": 31.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              60.0,
+              80.0,
+              75.0,
+              20.0,
+              25.0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              50.0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 75.0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 25.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 50.0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 75.0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 25.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 50.0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "4244e89dc70c4801824baccad20f2d68",
+          "name": "张艺腾",
+          "account": "13701039205",
+          "category": "断续上课",
+          "monthly_completion": 2.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              20.0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "e3787267ef0f426fbe5f20ba1efbdd57",
+          "name": "罗浩然",
+          "account": "13329195258",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "e05061b0f10d489ea999650a861f7250",
+          "name": "郭艿函",
+          "account": "13525834252",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "b5786674b4404b3b8e49c826a871da8a",
+          "name": "康航瑜Henry",
+          "account": "13706693595",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "05361b95e80a46f98e1d67b65419aabd",
+          "name": "罗紫浠",
+          "account": "13757018982",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "f4d4699e051f4e538a89f57317880321",
+          "name": "李明哲Liam",
+          "account": "13850218733",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "6d7f355ed34e45029cd492e19ab9e0ca",
+          "name": "小宝",
+          "account": "13879653366",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "b66e98020f654dfaa9a86ca1d3f85a0c",
+          "name": "贾蓓霖",
+          "account": "15010252289",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "b1cbf9313a1a4a139460fabf0d3f27d7",
+          "name": "镜依",
+          "account": "15258118412",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "1243824812f446cda808d83a4290b923",
+          "name": "。",
+          "account": "15808817829",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "bbcd307b836843a185b478193bf1f89d",
+          "name": "苏哲毅",
+          "account": "15985913179",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "1d9ece4e85db420d991ffccbe927aa0d",
+          "name": "张淏钧",
+          "account": "18219933853",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "16cb4823e61c4fd6845c294a46d79ee3",
+          "name": "峻铭",
+          "account": "18277202152",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "4692b2f24e2b4ef792524861e32ff82b",
+          "name": "杨佳熙Owen",
+          "account": "18391619717",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "d39e2f860e5448ac893a38d261643c0e",
+          "name": "任紫涵",
+          "account": "a15199093630",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "f23bcb867d0548a6af89f34230fcdf19",
+          "name": "柯昱琛Ethan",
+          "account": "jxczyw18959245065",
+          "category": "长期不上课",
+          "monthly_completion": 0,
+          "prompt": "建议去电了解：孩子这段时间没有上课，是怎么了？",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "0311e7f1337e40b297224a82d49acc26",
+          "name": "和和",
+          "account": "13698892576",
+          "category": "断续上课",
+          "monthly_completion": 37.5,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              20.0,
+              100,
+              75.0,
+              80.0,
+              100,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 75.0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 75.0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "ff15b86019644c818582a4f927801f88",
+          "name": "张芸芳",
+          "account": "15835700848",
+          "category": "断续上课",
+          "monthly_completion": 27.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              50.0,
+              20.0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 50.0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 50.0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 20.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "0de9089f095a49a8aed8d89783c17e02",
+          "name": "宋治函",
+          "account": "15905720925",
+          "category": "断续上课",
+          "monthly_completion": 30.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              0,
+              0,
+              0,
+              100,
+              100,
+              0
+            ],
+            "2": [
+              100,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "fbc881adef23457a8a1d5e1bbfad3c0e",
+          "name": "林佑怡",
+          "account": "13861370158",
+          "category": "异常断课",
+          "monthly_completion": 30.0,
+          "prompt": "建议去电了解：小朋友之前完成得不错，最近落下进度了呢，是怎么了？",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              0,
+              0,
+              0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "95cd284f6a414cd4a40b6121b9718306",
+          "name": "赵莳宸",
+          "account": "13126675006",
+          "category": "断续上课",
+          "monthly_completion": 51.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              60.0,
+              100,
+              50.0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "9844272986684e2aae147636b71e69b7",
+          "name": "杨惠缨Hayley",
+          "account": "13365737198",
+          "category": "断续上课",
+          "monthly_completion": 56.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              60.0,
+              100,
+              0
+            ],
+            "2": [
+              100,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "676c44d507a74418a1ccf1c9109e58ea",
+          "name": "崔宸瑜",
+          "account": "18235101288",
+          "category": "断续上课",
+          "monthly_completion": 58.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              80.0,
+              100,
+              100,
+              100,
+              0,
+              0
+            ],
+            "2": [
+              100,
+              100,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "61adbb3e2bdf423eaba5708c3d5bb59e",
+          "name": "邓振荣",
+          "account": "13711600741",
+          "category": "断续上课",
+          "monthly_completion": 55.0,
+          "prompt": "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              50.0
+            ],
+            "2": [
+              0,
+              0,
+              0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "c27ea966235b494d90d4675ec6be0a82",
+          "name": "崔馨元",
+          "account": "18610880622",
+          "category": "偶尔断课",
+          "monthly_completion": 91.0,
+          "prompt": "宝贝上课整体不错，中间会有些遗漏，有计划什么时间补上呢？",
+          "weeks": {
+            "1": [
+              60.0,
+              100,
+              100,
+              100,
+              100,
+              50.0
+            ],
+            "2": [
+              100,
+              100,
+              100,
+              100,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 60.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 100
+            }
+          ]
+        },
+        {
+          "id": "f5ef45b19d82432eaf6f3eb87ca688e6",
+          "name": "随政航",
+          "account": "13937095084",
+          "category": "偶尔断课",
+          "monthly_completion": 88.0,
+          "prompt": "宝贝上课整体不错，中间会有些遗漏，有计划什么时间补上呢？",
+          "weeks": {
+            "1": [
+              80.0,
+              100,
+              100,
+              100,
+              100,
+              0
+            ],
+            "2": [
+              100,
+              100,
+              100,
+              100,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 80.0
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 100
+            }
+          ]
+        },
+        {
+          "id": "023f10851d6a4c31976d64ceddc89d69",
+          "name": "王一涵 Cayla",
+          "account": "a15046084169",
+          "category": "偶尔断课",
+          "monthly_completion": 82.5,
+          "prompt": "宝贝上课整体不错，中间会有些遗漏，有计划什么时间补上呢？",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              100
+            ],
+            "2": [
+              100,
+              100,
+              25.0,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 25.0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "dcbfca40a344451d81b1ac31c202ad5f",
+          "name": "颜欣奕",
+          "account": "13771780363",
+          "category": "偶尔断课",
+          "monthly_completion": 80.0,
+          "prompt": "宝贝上课整体不错，中间会有些遗漏，有计划什么时间补上呢？",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              100
+            ],
+            "2": [
+              0,
+              100,
+              100,
+              0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 0
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": "fdb0cb92affd44218cdb2616669e7bac",
+          "name": "孙睿东",
+          "account": "15016867584",
+          "category": "偶尔断课",
+          "monthly_completion": 97.5,
+          "prompt": "宝贝上课整体不错，中间会有些遗漏，有计划什么时间补上呢？",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              100
+            ],
+            "2": [
+              100,
+              100,
+              100,
+              75.0,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 75.0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 75.0
+            }
+          ]
+        },
+        {
+          "id": "713a31b72ad642158722f7bd2142c98a",
+          "name": "轩轩",
+          "account": "15223240559",
+          "category": "周末欠缺",
+          "monthly_completion": 97.5,
+          "prompt": "宝贝上课完成得不错哟，周末的作业没有提交哦。",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              75.0
+            ],
+            "2": [
+              100,
+              100,
+              100,
+              100,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 75.0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 75.0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 100
+            }
+          ]
+        },
+        {
+          "id": "4b2e4f59c6e54563a19bb032db4c90a2",
+          "name": "林立言",
+          "account": "15916462848",
+          "category": "周末欠缺",
+          "monthly_completion": 95.0,
+          "prompt": "宝贝上课完成得不错哟，周末的作业没有提交哦。",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              50.0
+            ],
+            "2": [
+              100,
+              100,
+              100,
+              100,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 100
+            }
+          ]
+        },
+        {
+          "id": "8dbfc923cd6341689a72222e20443380",
+          "name": "包宇航Jasper",
+          "account": "18867900657",
+          "category": "周末欠缺",
+          "monthly_completion": 95.0,
+          "prompt": "宝贝上课完成得不错哟，周末的作业没有提交哦。",
+          "weeks": {
+            "1": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              50.0
+            ],
+            "2": [
+              100,
+              100,
+              100,
+              100,
+              null,
+              null
+            ],
+            "3": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "4": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "incomplete_days": [
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            }
+          ],
+          "uploaded_days": [
+            {
+              "week": "1",
+              "day": 1,
+              "label": "第一周第1天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 2,
+              "label": "第一周第2天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 3,
+              "label": "第一周第3天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 4,
+              "label": "第一周第4天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 5,
+              "label": "第一周第5天",
+              "value": 100
+            },
+            {
+              "week": "1",
+              "day": 6,
+              "label": "第一周第6天",
+              "value": 50.0
+            },
+            {
+              "week": "2",
+              "day": 1,
+              "label": "第二周第1天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 2,
+              "label": "第二周第2天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 3,
+              "label": "第二周第3天",
+              "value": 100
+            },
+            {
+              "week": "2",
+              "day": 4,
+              "label": "第二周第4天",
+              "value": 100
+            }
+          ]
+        }
+      ],
+      "status": "pending_recovery",
+      "created_at": "2026-06-15T17:20:27",
+      "completed_at": "2026-06-15T17:20:27",
+      "completed_by": "陈晓grace"
     }
   ],
-  "updated_at": "2026-06-04T18:09:45"
+  "updated_at": "2026-06-15T17:20:27"
 }

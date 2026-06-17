@@ -337,6 +337,47 @@ const sampleTalkTracks = [
   }
 ];
 
+const renewalMessageSeedTracks = [
+  {
+    "分类": "续费",
+    "类型": "留言推荐",
+    "场景": "课程衔接提醒",
+    "关键词": "衔接 L3 课程规划",
+    "问题示例": "主动留言：课程衔接",
+    "标准话术": "xx妈妈，今天想和您同步一下宝贝后续课程衔接的安排。咱们现在L2阶段打下来的词汇、句型和阅读基础，接下来到L3会继续往语法专题和写作专题里运用。如果中间断开，孩子重新进入学习状态会需要一段适应期，所以我会更建议咱们趁着现在节奏稳定，顺势往下衔接。",
+    "优先级": 15
+  },
+  {
+    "分类": "续费",
+    "类型": "留言推荐",
+    "场景": "学习表现夸奖",
+    "关键词": "表现 进步 坚持",
+    "问题示例": "主动留言：夸表现后铺垫续报",
+    "标准话术": "xx妈妈，今天看了一下宝贝最近的学习情况，整体坚持得还是很不错的。能持续跟着每天的节奏完成学习，其实已经比很多孩子稳定了。这个阶段最重要的是让孩子把已经建立起来的学习习惯继续保持住，后面衔接到L3的时候，也会更容易把现在学到的内容真正用起来。",
+    "优先级": 14
+  },
+  {
+    "分类": "续费",
+    "类型": "留言推荐",
+    "场景": "续报权益提醒",
+    "关键词": "优惠 权益 名额 礼品",
+    "问题示例": "主动留言：提醒续报权益",
+    "标准话术": "xx妈妈，提醒您一下，咱们这个班期现在是在续报期，老学员的价格和赠品权益都会优先保留。后续如果错过续报时间，再衔接班期、价格和赠品我这边就不一定能帮咱们锁定了。您这两天可以先和宝贝沟通一下，我也会把后续学习安排再同步给您参考。",
+    "优先级": 13
+  },
+  {
+    "分类": "续费",
+    "类型": "留言推荐",
+    "场景": "未回复轻提醒",
+    "关键词": "未回复 提醒 考虑",
+    "问题示例": "主动留言：家长未回复",
+    "标准话术": "xx妈妈，前面和您同步的L3衔接安排您可以先看看。主要是想帮宝贝把现在已经养成的学习节奏延续下去，避免中间断开后又要重新适应。您这边如果还有顾虑，也可以直接和我说，我看看怎么帮咱们一起梳理。",
+    "优先级": 12
+  }
+];
+
+const seededTalkTracks = [...sampleTalkTracks, ...renewalMessageSeedTracks];
+
 const synonymGroups = [
   ["没时间", "没空", "忙", "排不开", "来不及", "作业多"],
   ["没效果", "进步慢", "没提升", "看不到效果", "没变化"],
@@ -347,10 +388,13 @@ const synonymGroups = [
 
 const talkStorageKey = "pu6_talktracks_v2";
 const talkStorageVersionKey = "pu6_talktracks_version";
-const talkStorageVersion = "20260605-learning-feishu";
+const talkStorageVersion = "20260612-renewal-message-recommend";
 const talkCategories = ["续费", "转介绍", "学情", "挽单"];
 const removedTalkCategories = ["催课"];
 const defaultTalkCategory = "续费";
+const renewalTalkTypes = ["问答话术", "留言推荐"];
+const defaultRenewalTalkType = renewalTalkTypes[0];
+const renewalMessageTalkType = renewalTalkTypes[1];
 const talkCategoryDetails = {
   续费: "续报沟通、课程衔接、权益说明",
   转介绍: "老带新邀约、家长推荐、报名转化沟通",
@@ -386,11 +430,20 @@ function isRemovedTalkTrack(track) {
   return removedTalkCategories.includes(track?.分类);
 }
 
+function getRenewalTrackType(track) {
+  const type = String(track?.类型 || track?.type || "").trim();
+  return renewalTalkTypes.includes(type) ? type : defaultRenewalTalkType;
+}
+
 function normalizeTrack(track) {
-  return {
+  const normalized = {
     ...track,
     分类: getTrackCategory(track),
   };
+  if (normalized.分类 === defaultTalkCategory) {
+    normalized.类型 = getRenewalTrackType(track);
+  }
+  return normalized;
 }
 
 function normalizeTrackIdentityText(value) {
@@ -404,6 +457,7 @@ function trackIdentity(track) {
   const normalized = normalizeTrack(track);
   return [
     normalized.分类,
+    normalized.类型,
     normalized.场景,
     normalized.问题示例,
     normalized.标准话术,
@@ -424,7 +478,7 @@ function loadTalkTracks() {
 
   if (!Array.isArray(storedTracks)) {
     localStorage.setItem(talkStorageVersionKey, talkStorageVersion);
-    return sampleTalkTracks.map(normalizeTrack);
+    return seededTalkTracks.map(normalizeTrack);
   }
 
   const normalizedStored = storedTracks
@@ -434,7 +488,7 @@ function loadTalkTracks() {
 
   const seen = new Set(normalizedStored.map(trackIdentity));
   const mergedTracks = [...normalizedStored];
-  sampleTalkTracks.map(normalizeTrack).forEach((track) => {
+  seededTalkTracks.map(normalizeTrack).forEach((track) => {
     const identity = trackIdentity(track);
     if (seen.has(identity)) return;
     seen.add(identity);
@@ -461,6 +515,7 @@ const talkTool = document.querySelector("[data-can-manage-talk]");
 const talkSearchPanel = document.querySelector(".talk-search");
 const talkAdminPanel = document.querySelector(".talk-admin");
 const talkHeaderActions = document.querySelector("[data-talk-actions]");
+const talkTypeField = document.querySelector(".talk-type-field");
 let learningCallGuide = document.querySelector("[data-learning-call-guide]");
 const canManageTalk = talkTool?.dataset.canManageTalk === "true";
 
@@ -472,6 +527,16 @@ function currentCategoryTracks() {
 
 function isLearningCategory() {
   return selectedTalkCategory === learningTalkCategory;
+}
+
+function syncTalkTypeField() {
+  if (!talkTypeField) return;
+  const shouldShow = selectedTalkCategory === defaultTalkCategory;
+  talkTypeField.classList.toggle("is-hidden", !shouldShow);
+  const trackTypeSelect = tl("trackType");
+  if (trackTypeSelect && !shouldShow) {
+    trackTypeSelect.value = defaultRenewalTalkType;
+  }
 }
 
 function learningCallLabel(title) {
@@ -864,6 +929,7 @@ function setTalkCategory(category) {
   if (searchTitle) searchTitle.textContent = `${selectedTalkCategory}问题匹配`;
   if (resultTitle) resultTitle.textContent = `${selectedTalkCategory}推荐结果`;
 
+  syncTalkTypeField();
   talkTool?.classList.toggle("is-learning-guide", learningMode);
   talkSearchPanel?.classList.toggle("is-hidden", learningMode);
   talkAdminPanel?.classList.toggle("is-hidden", learningMode);
@@ -897,6 +963,43 @@ function saveTalkTracks() {
   localStorage.setItem(talkStorageKey, JSON.stringify(talkState.tracks));
   localStorage.setItem(talkStorageVersionKey, talkStorageVersion);
 }
+
+function talkTrackOptionId(track, index) {
+  const normalized = normalizeTrack(track);
+  const source = [
+    normalized.分类,
+    normalized.场景,
+    normalized.关键词,
+    normalized.问题示例,
+    normalized.标准话术,
+  ].map(normalizeTrackIdentityText).join("|");
+  let hash = 0;
+  for (let offset = 0; offset < source.length; offset += 1) {
+    hash = ((hash * 31) + source.charCodeAt(offset)) >>> 0;
+  }
+  return `talk-${index}-${hash.toString(36)}`;
+}
+
+window.getRenewalTalkTracks = function getRenewalTalkTracks(category = defaultTalkCategory, type = "") {
+  const normalizedType = renewalTalkTypes.includes(type) ? type : "";
+  return (talkState.tracks || [])
+    .map((track, index) => ({ track: normalizeTrack(track), index }))
+    .filter(({ track }) => (
+      track.分类 === category
+      && (!normalizedType || getRenewalTrackType(track) === normalizedType)
+      && String(track.标准话术 || "").trim()
+    ))
+    .map(({ track, index }) => ({
+      id: talkTrackOptionId(track, index),
+      category: track.分类,
+      type: getRenewalTrackType(track),
+      scene: String(track.场景 || track.问题示例 || track.关键词 || "续费话术").trim(),
+      keywords: String(track.关键词 || "").trim(),
+      example: String(track.问题示例 || "").trim(),
+      text: String(track.标准话术 || "").trim(),
+      priority: Number(track.优先级 || 0),
+    }));
+};
 
 function splitKeywords(text) {
   return String(text || "")
@@ -1040,7 +1143,10 @@ function renderLibrary() {
   tl("library").innerHTML = tracks
     .map(({ track, index }) => `
       <article class="talk-library-item">
-        <strong>${escapeHtml(track.场景 || "未分类")}</strong>
+        <div class="talk-library-item-head">
+          <strong>${escapeHtml(track.场景 || "未分类")}</strong>
+          ${track.分类 === defaultTalkCategory ? `<em>${escapeHtml(getRenewalTrackType(track))}</em>` : ""}
+        </div>
         <span>${escapeHtml(track.关键词 || "")}</span>
         <button type="button" data-delete-talk="${index}">删除</button>
       </article>
@@ -1134,9 +1240,13 @@ function addTrack() {
   const keywords = tl("keywords").value.trim();
   const example = tl("example").value.trim();
   const answer = tl("talktrack").value.trim();
+  const trackType = selectedTalkCategory === defaultTalkCategory
+    ? getRenewalTrackType({ 类型: tl("trackType")?.value })
+    : "";
 
   const item = {
     分类: selectedTalkCategory,
+    ...(trackType ? { 类型: trackType } : {}),
     场景: example || keywords || "新增话术",
     关键词: keywords,
     问题示例: example,
@@ -1168,7 +1278,7 @@ function initTalkLibrary() {
 
   if (canManageTalk) {
     tl("loadSample")?.addEventListener("click", () => {
-      talkState.tracks = sampleTalkTracks.map(normalizeTrack);
+      talkState.tracks = seededTalkTracks.map(normalizeTrack);
       selectedTalkCategory = defaultTalkCategory;
       saveTalkTracks();
       showTalkDetail(defaultTalkCategory);
@@ -1192,6 +1302,7 @@ function initTalkLibrary() {
       const importedTracks = rows
         .map((row) => normalizeTrack({
           分类: row.分类 || row.category || selectedTalkCategory,
+          类型: row.类型 || row.type || row.话术类型 || defaultRenewalTalkType,
           场景: row.场景 || row.scene || "",
           关键词: row.关键词 || row.keywords || "",
           问题示例: row.问题示例 || row.example || "",

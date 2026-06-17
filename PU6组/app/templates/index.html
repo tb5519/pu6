@@ -4,12 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260605-student-scroll-spacer-xl') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260617-ranking-widths') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/talk-library.js', v='20260605-learning-save-fix') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260605-student-scroll-spacer') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/talk-library.js', v='20260612-renewal-message-type') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260616-admin-hide-priority') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260607-monthly-archive') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260607-monthly-archive') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/database.js', v='20260617-class-rankings') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260617-closing-followup') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260604-account-admin') }}" defer></script>
     {% endif %}
@@ -45,6 +46,11 @@
           <button class="side-menu-item" type="button" data-module="数据库">
             <span class="menu-icon database-icon" aria-hidden="true"></span>
             <span>数据库</span>
+          </button>
+          <button class="side-menu-item" type="button" data-module="续费">
+            <span class="menu-icon renewal-icon" aria-hidden="true"></span>
+            <span>续费</span>
+            <span id="renewal-menuBadge" class="side-menu-badge is-hidden" aria-label="待处理盘单提醒"></span>
           </button>
           <button class="side-menu-item" type="button" data-module="话术库">
             <span class="menu-icon chat-icon" aria-hidden="true"></span>
@@ -137,11 +143,19 @@
                     <label for="tl-keywords">关键词</label>
                     <input id="tl-keywords" type="text" placeholder="没时间, 忙, 作业多">
 
+                    <label class="talk-type-field" for="tl-trackType">
+                      <span>话术类型</span>
+                      <select id="tl-trackType">
+                        <option value="问答话术">问答话术</option>
+                        <option value="留言推荐">留言推荐</option>
+                      </select>
+                    </label>
+
                     <label for="tl-example">问题示例</label>
-                    <input id="tl-example" type="text" placeholder="孩子没时间学怎么办">
+                    <input id="tl-example" type="text" placeholder="孩子没时间学怎么办 / 留言标题">
 
                     <label for="tl-talktrack">答案</label>
-                    <textarea id="tl-talktrack" placeholder="输入对应答案"></textarea>
+                    <textarea id="tl-talktrack" placeholder="输入对应答案或留言内容"></textarea>
 
                     <button id="tl-addTrack" class="success-button" type="button">添加</button>
                   </section>
@@ -252,19 +266,27 @@
 
           <section class="completion-section" data-completion-section-panel="classes">
             <section data-class-home>
-              <header class="module-head">
+              <header class="module-head class-home-head">
                 <div>
                   <span class="module-eyebrow">完课</span>
                   <h1>我的班级</h1>
                   <p>添加自己的班级，进入班级后查看学员信息和一周完课百分比。</p>
                 </div>
+                <form class="class-create-form class-create-inline" data-class-create-form>
+                  <input id="cc-className" name="name" type="text" placeholder="例如：PU6-L3-A班" autocomplete="off">
+                  <button class="primary-button compact-button" type="submit">添加</button>
+                </form>
               </header>
 
-              <section class="completion-activity-notice">
+              {% if can_manage_accounts %}
+              <section class="team-class-overview" id="cc-teamClassOverview" aria-label="组员班级概览"></section>
+              {% endif %}
+
+              <section class="completion-activity-notice is-hidden" id="cc-activityNotice">
                 <div>
-                  <span class="module-eyebrow">6月完课活动</span>
-                  <h2>盲盒种子成长计划</h2>
-                  <p>参与班级的每位学员获得 1 颗虚拟盲盒种子。每周任务完成可获得 1 次浇水机会，满 4 次后植物长大；补交完成后也会自动补上进度。</p>
+                  <span class="module-eyebrow" id="cc-activityEyebrow">完课活动</span>
+                  <h2 id="cc-activityTitle">盲盒种子成长计划</h2>
+                  <p id="cc-activityDescription"></p>
                 </div>
                 <form class="activity-join-form" data-activity-join-form>
                   <select id="cc-activityClassSelect" aria-label="选择参与活动的班级">
@@ -274,25 +296,67 @@
                 </form>
               </section>
 
-              <section class="class-create-card">
-                <div>
-                  <h2>添加班级</h2>
-                  <p>选择班主任后，日报会自动按该班级当前学员数统计带班人数。</p>
+              {% if can_manage_accounts %}
+              <section class="completion-activity-admin is-collapsed" data-activity-admin>
+                <div class="activity-admin-head">
+                  <div>
+                    <span class="module-eyebrow">活动管理</span>
+                    <h2>完课活动发布</h2>
+                  </div>
+                  <div class="activity-admin-head-actions">
+                    <span class="activity-status-pill" id="cc-activityAdminStatus">未加载</span>
+                    <button class="ghost-button compact-button" type="button" id="cc-activityAdminToggle">打开管理</button>
+                  </div>
                 </div>
-                <form class="class-create-form" data-class-create-form>
-                  <input id="cc-className" name="name" type="text" placeholder="例如：PU6-L3-A班" autocomplete="off">
-                  <select id="cc-classTeacher" name="teacher_id" aria-label="选择班主任">
-                    <option value="">选择班主任</option>
-                    <option value="wenyun_joanna">文云Joanna</option>
-                    <option value="chenxiao_grace">陈晓Grace</option>
-                    <option value="xiaojun_linm">肖钧Linm</option>
-                    <option value="huxiaoran_serena">胡小冉Serena</option>
-                    <option value="huchangjing_jean">胡常菁Jean</option>
-                    <option value="dongjie_jackie">董洁Jackie</option>
-                  </select>
-                  <button class="primary-button compact-button" type="submit">添加</button>
-                </form>
+                <div class="activity-admin-body">
+                  <form class="activity-admin-form" data-activity-admin-form>
+                    <label>
+                      <span>活动标签</span>
+                      <input id="cc-activityEyebrowInput" name="eyebrow" type="text" maxlength="40" placeholder="例如：7月完课活动" autocomplete="off">
+                    </label>
+                    <label>
+                      <span>活动标题</span>
+                      <input id="cc-activityTitleInput" name="title" type="text" maxlength="80" placeholder="例如：盲盒种子成长计划" autocomplete="off">
+                    </label>
+                    <label class="activity-description-field">
+                      <span>活动说明</span>
+                      <textarea id="cc-activityDescriptionInput" name="description" rows="3" maxlength="500" placeholder="写给老师看的活动规则说明"></textarea>
+                    </label>
+                    <section class="activity-visual-editor">
+                      <div class="activity-visual-head">
+                        <div>
+                          <strong>活动展示图素材</strong>
+                          <span>仅草稿活动可上传；发布后老师端生成展示图会自动使用这些图片。</span>
+                        </div>
+                      </div>
+                      <label class="activity-description-field">
+                        <span>阶段名称</span>
+                        <input id="cc-activityStageLabels" type="text" placeholder="盲盒种子、发芽、抽枝、神秘小树苗、惊喜绽放">
+                      </label>
+                      <label class="activity-description-field">
+                        <span>最终结果名称</span>
+                        <input id="cc-activityResultLabels" type="text" placeholder="彩虹花、向日葵、樱花树、蓝绣球、小橘树、紫铃兰">
+                      </label>
+                      <label class="activity-description-field">
+                        <span>展示图说明</span>
+                        <input id="cc-activityImageNote" type="text" maxlength="120" placeholder="例如：每完成一周任务即可推进一次进度，满进度后揭晓专属结果">
+                      </label>
+                      <label class="activity-description-field">
+                        <span>底部提示</span>
+                        <input id="cc-activityImageFooter" type="text" maxlength="160" placeholder="例如：本图统计本月当前累计活动进度，补交完成后会自动更新">
+                      </label>
+                      <div class="activity-visual-slots" id="cc-activityVisualSlots"></div>
+                    </section>
+                    <div class="activity-admin-actions">
+                      <button class="ghost-button compact-button" type="submit">保存为草稿</button>
+                      <button class="primary-button compact-button" type="button" id="cc-activityPublish">发布活动</button>
+                      <button class="danger-button compact-button" type="button" id="cc-activityEnd">结束当前活动</button>
+                    </div>
+                  </form>
+                  <div class="activity-archive-list" id="cc-activityArchive" aria-label="历史完课活动"></div>
+                </div>
               </section>
+              {% endif %}
 
               <div id="cc-message" class="tool-note"></div>
               <section id="cc-classList" class="class-grid" aria-label="班级列表"></section>
@@ -304,7 +368,6 @@
                   <button class="back-button" type="button" data-class-back>返回班级</button>
                   <span class="module-eyebrow">完课</span>
                   <h1 id="cc-detailTitle">班级学员信息</h1>
-                  <p>上传 Excel 或 CSV 前先选择本月周数，系统会按表格同步班级名单，并更新对应周的 Day1-Day6 完成度。</p>
                 </div>
                 <div class="module-actions">
                   <select id="cc-weekSelect" class="week-select" aria-label="选择本月第几周">
@@ -320,11 +383,6 @@
               </header>
 
               <div id="cc-detailMessage" class="tool-note detail-tool-note"></div>
-
-              <section class="class-upload-hint">
-                <strong>表格格式</strong>
-                <span>支持两行表头：上方“第一天 05-11周一”，下方“当日完成度”，系统会提取到 Day1；没有上传或没有填写的 Day 会显示为空。</span>
-              </section>
 
               <section class="completion-image-options">
                 <label class="image-week-field">
@@ -367,6 +425,7 @@
                         <option value="">全部分类</option>
                         <option value="长期不上课">长期不上课</option>
                         <option value="异常断课">异常断课</option>
+                        <option value="断续上课">断续上课</option>
                         <option value="周末欠缺">周末欠缺</option>
                         <option value="偶尔断课">偶尔断课</option>
                         <option value="完课超赞">完课超赞</option>
@@ -640,6 +699,87 @@
                 <button type="button" data-db-topic="gmv">进入GMV专区</button>
               </article>
             </section>
+
+            <section class="database-rankings" aria-label="数据排名">
+              <div class="panel-title-row">
+                <div>
+                  <h2>各板块排名</h2>
+                </div>
+              </div>
+              <div class="database-ranking-grid">
+                <section class="database-ranking-panel topic-completion">
+                  <h3>完课排名</h3>
+                  <span>按一档目标达成率</span>
+                  <table class="database-ranking-table">
+                    <thead>
+                      <tr>
+                        <th>排名</th>
+                        <th>班主任</th>
+                        <th>班级</th>
+                        <th>达成率</th>
+                      </tr>
+                    </thead>
+                    <tbody id="db-rankCompletionRows"></tbody>
+                  </table>
+                </section>
+                <section class="database-ranking-panel topic-learning">
+                  <h3>学情排名</h3>
+                  <span>按沟通个数</span>
+                  <table class="database-ranking-table">
+                    <thead>
+                      <tr>
+                        <th>排名</th>
+                        <th>班主任</th>
+                        <th>个数</th>
+                      </tr>
+                    </thead>
+                    <tbody id="db-rankLearningRows"></tbody>
+                  </table>
+                </section>
+                <section class="database-ranking-panel topic-renewal">
+                  <h3>续费排名</h3>
+                  <span>按本月总单量</span>
+                  <table class="database-ranking-table">
+                    <thead>
+                      <tr>
+                        <th>排名</th>
+                        <th>班主任</th>
+                        <th>单量</th>
+                      </tr>
+                    </thead>
+                    <tbody id="db-rankRenewalRows"></tbody>
+                  </table>
+                </section>
+                <section class="database-ranking-panel topic-referral">
+                  <h3>转介绍排名</h3>
+                  <span>按报名单量</span>
+                  <table class="database-ranking-table">
+                    <thead>
+                      <tr>
+                        <th>排名</th>
+                        <th>班主任</th>
+                        <th>单量</th>
+                      </tr>
+                    </thead>
+                    <tbody id="db-rankReferralRows"></tbody>
+                  </table>
+                </section>
+                <section class="database-ranking-panel topic-gmv">
+                  <h3>GMV排名</h3>
+                  <span>按总金额</span>
+                  <table class="database-ranking-table">
+                    <thead>
+                      <tr>
+                        <th>排名</th>
+                        <th>班主任</th>
+                        <th>金额</th>
+                      </tr>
+                    </thead>
+                    <tbody id="db-rankGmvRows"></tbody>
+                  </table>
+                </section>
+              </div>
+            </section>
           </section>
 
           <section class="database-topic-view is-hidden" data-db-view="completion" aria-label="完课专区">
@@ -685,6 +825,31 @@
                 <table class="database-table">
                   <thead id="db-completionHead"></thead>
                   <tbody id="db-completionRows"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="database-block completion-performance-block" aria-label="完课绩效">
+              <div class="panel-title-row">
+                <div>
+                  <h2>完课绩效</h2>
+                </div>
+              </div>
+              <div class="database-table-wrap completion-performance-wrap">
+                <table class="database-table completion-performance-table">
+                  <thead>
+                    <tr>
+                      <th>班主任</th>
+                      <th>班级名称</th>
+                      <th>W数</th>
+                      <th>完成度</th>
+                      <th>一档目标</th>
+                      <th>达成档位</th>
+                      <th>距下一档</th>
+                      <th>对应门槛</th>
+                      <th>绩效奖金</th>
+                    </tr>
+                  </thead>
+                  <tbody id="db-completionPerformanceRows"></tbody>
                 </table>
               </div>
             </section>
@@ -879,6 +1044,89 @@
                   </table>
                 </div>
               </section>
+            </section>
+          </section>
+        </section>
+
+        <section class="module-panel renewal-module" data-module-panel="续费">
+          <header class="module-head">
+            <div>
+              <span class="module-eyebrow">续费</span>
+              <h1>续费项目跟进</h1>
+              <p>从完课的“我的班级”中添加需要续费跟进的班级，并按当前续费阶段推进。</p>
+            </div>
+          </header>
+
+          <section id="renewal-teacherPanel" class="renewal-teacher-panel is-hidden" aria-label="管理员老师续费入口">
+            <div class="renewal-teacher-panel-head">
+              <div>
+                <h2>老师续费跟进</h2>
+                <p>选择老师后，只展示该老师的续费班级，进入班级即可盘单留言。</p>
+              </div>
+              <span id="renewal-teacherActiveLabel">全部老师</span>
+            </div>
+            <div id="renewal-teacherList" class="renewal-teacher-list"></div>
+          </section>
+
+          <section id="renewal-historyUploadPanel" class="renewal-upload-panel is-hidden" aria-label="续费历史数据上传">
+            <div>
+              <h2>上传续费历史数据</h2>
+              <p>支持 xlsx/csv，按班主任、班级、学员账号或姓名匹配，导入铺垫、报名、卡点、跟进和备注。</p>
+            </div>
+            <div class="renewal-upload-actions">
+              <input id="renewal-historyFileInput" class="is-hidden" type="file" accept=".xlsx,.csv,text/csv">
+              <button id="renewal-historyUploadButton" class="ghost-button compact-button" type="button">上传历史表格</button>
+            </div>
+          </section>
+
+          <section class="renewal-add-panel">
+            <div>
+              <h2>添加我的续费班级</h2>
+              <p>班级来源于完课里的班级数据；已加入续费项目的班级不会重复出现。</p>
+            </div>
+            <form id="renewal-addForm" class="renewal-add-form">
+              <select id="renewal-classSelect" aria-label="选择续费班级">
+                <option value="">选择我的完课班级</option>
+              </select>
+              <select id="renewal-stageSelect" aria-label="选择续费阶段">
+                <option value="铺垫阶段">铺垫阶段</option>
+                <option value="续报首月">续报首月</option>
+                <option value="续报次月">续报次月</option>
+                <option value="结营续报">结营续报</option>
+              </select>
+              <button class="primary-button compact-button" type="submit">添加到续费项目</button>
+            </form>
+          </section>
+
+          <div id="renewal-message" class="tool-note renewal-message"></div>
+          <section id="renewal-stageBoard" class="renewal-stage-board" aria-label="续费阶段跟进"></section>
+          <section id="renewal-detailView" class="renewal-detail-view is-hidden" aria-label="续费班级报名明细">
+            <header class="module-head detail-head">
+              <div>
+                <button id="renewal-backButton" class="back-button" type="button">返回续费项目</button>
+                <span class="module-eyebrow">续费班级</span>
+                <h1 id="renewal-detailTitle">班级续费明细</h1>
+                <p id="renewal-detailMeta">记录每位学员的铺垫情况、报名状态和每周跟进，外层卡片会按“是否报名”自动同步已报名人数和续报率。</p>
+              </div>
+            </header>
+            <section id="renewal-detailSummary" class="renewal-detail-summary" aria-label="续费数据汇总"></section>
+            <section class="database-block renewal-student-block">
+              <div class="panel-title-row">
+                <div>
+                  <h2>学员跟进情况</h2>
+                  <span class="tool-status">选择铺垫情况、报名状态、卡点或每周跟进后自动保存</span>
+                </div>
+                <label class="renewal-week-picker is-hidden">
+                  <span>跟进周数</span>
+                  <select id="renewal-weekSelect" aria-label="选择跟进周数">
+                    <option value="1">第一周</option>
+                    <option value="2">第二周</option>
+                    <option value="3">第三周</option>
+                    <option value="4">第四周</option>
+                  </select>
+                </label>
+              </div>
+              <div id="renewal-studentList" class="renewal-student-list"></div>
             </section>
           </section>
         </section>

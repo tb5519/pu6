@@ -33,6 +33,7 @@ const databaseCompletionCompareDate = document.querySelector("#db-completionComp
 const databaseCompletionHistoryToggle = document.querySelector("#db-completionHistoryToggle");
 const databaseCompletionCompareCards = document.querySelector("#db-completionCompareCards");
 const databaseCompletionHead = document.querySelector("#db-completionHead");
+const databaseCompletionPerformanceRows = document.querySelector("#db-completionPerformanceRows");
 const databaseLearningRows = document.querySelector("#db-learningRows");
 const databaseLearningEditButton = document.querySelector("#db-learningEditButton");
 const databaseLearningEditor = document.querySelector("#db-learningEditor");
@@ -48,10 +49,15 @@ const databaseGmvTargetSummary = document.querySelector("#db-gmvTargetSummary");
 const databaseGmvEditButton = document.querySelector("#db-gmvEditButton");
 const databaseGmvSaveButton = document.querySelector("#db-gmvSaveButton");
 const databaseGmvCancelButton = document.querySelector("#db-gmvCancelButton");
+const databaseRankCompletionRows = document.querySelector("#db-rankCompletionRows");
+const databaseRankLearningRows = document.querySelector("#db-rankLearningRows");
+const databaseRankRenewalRows = document.querySelector("#db-rankRenewalRows");
+const databaseRankReferralRows = document.querySelector("#db-rankReferralRows");
+const databaseRankGmvRows = document.querySelector("#db-rankGmvRows");
 const databaseCategoryList = document.querySelector("#db-categoryList");
 const databaseUpdatedAt = document.querySelector("#db-updatedAt");
 
-const DATABASE_CATEGORIES = ["完课超赞", "异常断课", "长期不上课", "周末欠缺", "偶尔断课", "暂无数据"];
+const DATABASE_CATEGORIES = ["完课超赞", "异常断课", "断续上课", "长期不上课", "周末欠缺", "偶尔断课", "暂无数据"];
 const LEARNING_TARGET_RATES = [0.26, 0.28, 0.3];
 const GMV_SECTION_LABELS = { renewal: "续费", referral: "转介绍" };
 let currentDatabaseData = null;
@@ -104,6 +110,11 @@ function completionHistoryValue(row, dateText) {
 function formatDatabasePercent(value) {
   if (value === null || value === undefined || value === "") return "-";
   return `${Number(value).toFixed(1).replace(/\.0$/, "")}%`;
+}
+
+function formatDatabasePercentFixed(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  return `${Number(value).toFixed(2)}%`;
 }
 
 function escapeDatabaseText(value) {
@@ -796,6 +807,167 @@ async function saveGmvAdjustments() {
   }
 }
 
+function performanceStatusClass(status) {
+  if (status === "achieved") return "is-achieved";
+  if (status === "not_reached") return "is-missed";
+  return "is-muted";
+}
+
+function formatPerformanceNextTier(row) {
+  if (row.next_tier_gap === null || row.next_tier_gap === undefined || row.next_tier_gap === "") return "-";
+  if (row.next_tier_label === "已最高档") return "已最高档";
+  const gap = Number(row.next_tier_gap || 0);
+  if (!gap) return `已达${row.next_tier_label || "下一档"}`;
+  return `差${formatDatabasePercentFixed(gap)}`;
+}
+
+function renderCompletionPerformanceRows(rows = []) {
+  if (!databaseCompletionPerformanceRows) return;
+  if (!rows.length) {
+    databaseCompletionPerformanceRows.innerHTML = `<tr><td colspan="9" class="database-empty-cell">暂无完课绩效数据。</td></tr>`;
+    return;
+  }
+
+  databaseCompletionPerformanceRows.innerHTML = rows.map((row) => {
+    const classTitle = row.local_class_name && row.local_class_name !== row.class_name
+      ? ` title="本地班级：${escapeDatabaseText(row.local_class_name)}"`
+      : "";
+    const statusLabel = row.tier_label || row.status_label || "-";
+    const nextTierTitle = row.next_tier_target
+      ? ` title="${escapeDatabaseText(row.next_tier_label)}门槛：${formatDatabasePercentFixed(row.next_tier_target)}"`
+      : "";
+    return `
+      <tr>
+        <td>${escapeDatabaseText(row.teacher_name)}</td>
+        <td class="database-strong-cell"${classTitle}>${escapeDatabaseText(row.class_name)}</td>
+        <td>${escapeDatabaseText(row.title_week_label || "-")}</td>
+        <td class="database-percent-cell">${formatDatabasePercentFixed(row.completion_rate)}</td>
+        <td>${formatDatabasePercentFixed(row.base_target)}</td>
+        <td>
+          <span class="performance-tier-badge ${performanceStatusClass(row.status)}">
+            ${escapeDatabaseText(statusLabel)}
+          </span>
+        </td>
+        <td class="performance-gap-cell"${nextTierTitle}>${escapeDatabaseText(formatPerformanceNextTier(row))}</td>
+        <td>${formatDatabasePercentFixed(row.target_rate)}</td>
+        <td class="database-strong-cell">${formatDatabaseMoney(row.reward)}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderCompletionPerformance(performance = {}) {
+  renderCompletionPerformanceRows(performance.rows || []);
+}
+
+function rankedRows(rows = []) {
+  let lastValue = null;
+  let lastRank = 0;
+  return rows
+    .map((row) => ({ ...row, value: Number(row.value || 0) }))
+    .sort((first, second) => second.value - first.value || String(first.teacher_name || "").localeCompare(String(second.teacher_name || ""), "zh-CN"))
+    .map((row, index) => {
+      const rank = index > 0 && row.value === lastValue ? lastRank : index + 1;
+      lastValue = row.value;
+      lastRank = rank;
+      return { ...row, rank };
+    });
+}
+
+function renderRankingRows(target, rows = [], formatter = formatDatabaseNumber, emptyText = "暂无排名数据") {
+  if (!target) return;
+  const sortedRows = rankedRows(rows);
+  if (!sortedRows.length) {
+    target.innerHTML = `<tr><td colspan="3" class="database-ranking-empty">${escapeDatabaseText(emptyText)}</td></tr>`;
+    return;
+  }
+  target.innerHTML = sortedRows.map((row) => `
+    <tr>
+      <td><span class="database-rank-badge rank-${Math.min(row.rank, 3)}">${row.rank}</span></td>
+      <td>${escapeDatabaseText(row.teacher_name || "未分配")}</td>
+      <td class="database-ranking-value">${escapeDatabaseText(formatter(row.value, row))}</td>
+    </tr>
+  `).join("");
+}
+
+function renderCompletionRankingRows(target, rows = []) {
+  if (!target) return;
+  const sortedRows = rankedRows(rows);
+  if (!sortedRows.length) {
+    target.innerHTML = `<tr><td colspan="4" class="database-ranking-empty">暂无可核算完课排名</td></tr>`;
+    return;
+  }
+  target.innerHTML = sortedRows.map((row) => `
+    <tr>
+      <td><span class="database-rank-badge rank-${Math.min(row.rank, 3)}">${row.rank}</span></td>
+      <td>${escapeDatabaseText(row.teacher_name || "未分配")}</td>
+      <td title="${escapeDatabaseText(row.class_name || "")}">${escapeDatabaseText(row.class_name || "-")}</td>
+      <td class="database-ranking-value">${formatDatabasePercentFixed(row.value)}</td>
+    </tr>
+  `).join("");
+}
+
+function completionRankingRows(performance = {}) {
+  return (performance.rows || [])
+    .map((row) => {
+      const completionRate = Number(row.completion_rate);
+      const baseTarget = Number(row.base_target);
+      if (!row.counted || !baseTarget || Number.isNaN(completionRate)) return null;
+      return {
+        teacher_id: row.teacher_id,
+        teacher_name: row.teacher_name || "未分配",
+        class_id: row.class_id,
+        class_name: row.class_name || row.local_class_name || "-",
+        value: completionRate / baseTarget * 100,
+      };
+    })
+    .filter(Boolean);
+}
+
+function gmvRankingRows(gmv = {}) {
+  const groups = {};
+  ["renewal", "referral"].forEach((sectionKey) => {
+    (gmv[sectionKey]?.rows || []).forEach((row) => {
+      const teacherId = row.teacher_id || row.teacher_name || "unknown";
+      const group = groups[teacherId] || {
+        teacher_id: teacherId,
+        teacher_name: row.teacher_name || "未分配",
+        value: 0,
+      };
+      group.value += Number(row.month_total || 0);
+      groups[teacherId] = group;
+    });
+  });
+  return Object.values(groups);
+}
+
+function renderDatabaseRankings(data = {}) {
+  renderCompletionRankingRows(
+    databaseRankCompletionRows,
+    completionRankingRows(data.completion_performance || {})
+  );
+  renderRankingRows(
+    databaseRankLearningRows,
+    (data.learning?.rows || []).map((row) => ({ ...row, value: row.month_total })),
+    (value) => `${formatDatabaseInteger(value)}个`
+  );
+  renderRankingRows(
+    databaseRankRenewalRows,
+    (data.renewal?.rows || []).map((row) => ({ ...row, value: row.month_total })),
+    (value) => `${formatDatabaseInteger(value)}单`
+  );
+  renderRankingRows(
+    databaseRankReferralRows,
+    (data.referral?.rows || []).map((row) => ({ ...row, value: row.conversions_month_total })),
+    (value) => `${formatDatabaseInteger(value)}单`
+  );
+  renderRankingRows(
+    databaseRankGmvRows,
+    gmvRankingRows(data.gmv || {}),
+    (value) => formatDatabaseMoney(value)
+  );
+}
+
 function renderDatabase(data) {
   currentDatabaseData = data;
   const completionSummary = data.completion?.summary || {};
@@ -833,6 +1005,8 @@ function renderDatabase(data) {
   renderRenewalRows(data.renewal?.rows || []);
   renderReferralRows(data.referral?.rows || []);
   renderGmv(data);
+  renderCompletionPerformance(data.completion_performance || {});
+  renderDatabaseRankings(data);
 }
 
 async function loadDatabaseSummary() {

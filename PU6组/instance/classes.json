@@ -2178,7 +2178,7 @@
       "students": [
         {
           "id": "683ba0277039489eb83165b8c2e278d2",
-          "name": "时瑞捷",
+          "name": "时瑞婕",
           "account": "13385474126",
           "months": {
             "2026-06": {
@@ -2192,34 +2192,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-05T19:12:30"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "3731d5dc74bd4e478af4ff12a80bc4b2",
@@ -2237,34 +2237,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "5c43f8064f6f4b7b9f37500ff185bfc3",
@@ -2282,34 +2282,34 @@
                   33.33
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "6b57ca9982c240bcaeb3179cb1783b8d",
@@ -2327,34 +2327,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "563591c4b6a44c0ba504f6be39eaabd4",
@@ -2372,34 +2372,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "dee0795e1abd4934a04d67b01b6a4a24",
@@ -2417,34 +2417,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "61332fbe76414f67b79171f6fc3ab068",
@@ -2462,34 +2462,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "2a5bf272b0974abd880261fb3412d12d",
@@ -2507,34 +2507,34 @@
                   33.33
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "d8d0d05164274b4ab9a7c742399c19b1",
@@ -2552,34 +2552,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "4bbef01782af4b79acfda1d42992fc42",
@@ -2597,34 +2597,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "90670974ea204977a47719264ebf754f",
@@ -2642,43 +2642,6 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ]
-              }
-            }
-          },
-          "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
-        },
-        {
-          "id": "761a4b5485af4b4591bfae6808598ca4",
-          "name": "吴雨宸",
-          "account": "13910659983",
-          "months": {
-            "2026-06": {
-              "weeks": {
-                "1": [
                   100,
                   100,
                   100,
@@ -2686,35 +2649,27 @@
                   100,
                   100
                 ],
-                "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "700d0892bc4f4c29bfb4f311023db5b2",
@@ -2732,34 +2687,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "f2d95c03163b4c7bb5b09ff7173e9b95",
@@ -2777,34 +2732,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "56fec3cfab834232b32be1c3f0757f4a",
@@ -2822,34 +2777,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "2ddece506cb040d78d1ecbbaeb1284c3",
@@ -2867,124 +2822,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
-        },
-        {
-          "id": "740b43991b8f4fa2b39602ef0e9c5efd",
-          "name": "徐梓晗",
-          "account": "15550922633",
-          "months": {
-            "2026-06": {
-              "weeks": {
-                "1": [
-                  100,
-                  100,
-                  66.66,
-                  100,
-                  100,
-                  33.33
-                ],
-                "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ]
-              }
-            }
-          },
-          "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
-        },
-        {
-          "id": "368b5ccc8a584b65b4ad18dbe947b797",
-          "name": "吕心嫒",
-          "account": "15757951290",
-          "months": {
-            "2026-06": {
-              "weeks": {
-                "1": [
-                  100,
-                  100,
-                  100,
-                  100,
-                  100,
-                  66.66
-                ],
-                "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ]
-              }
-            }
-          },
-          "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "4a5a2466c4744cd7b2d1e8b07d149ecf",
@@ -3002,34 +2867,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "1e007ea9aae8497e967c36a37832b2da",
@@ -3047,34 +2912,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "98a890af204445e09936097cfa733687",
@@ -3092,34 +2957,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "e4feb9416d2e490188a3113174dbb88a",
@@ -3137,34 +3002,34 @@
                   33.33
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  25.0
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  25.0
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0,
+                  33.33
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "18c1ac5bc5db481d83739ada3f564acf",
@@ -3182,34 +3047,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "b8aa077922e141f889a5616ddea4db4a",
@@ -3227,34 +3092,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "22eff5876081412c96377bbaef1b2606",
@@ -3272,34 +3137,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "53378919d36f4fdeab619f521adcf074",
@@ -3317,34 +3182,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "148666f4a2864425885e5e7bcbe91139",
@@ -3362,34 +3227,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  75.0
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "a9976a5b8ef144ce90bc6e1db3ce474c",
@@ -3407,34 +3272,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "6748330bf75641c39136b7322757970b",
@@ -3452,79 +3317,34 @@
                   33.33
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  25.0
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  25.0
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
-        },
-        {
-          "id": "480fb62b010b4a08ae5b662a80a24b2c",
-          "name": "田锐烨",
-          "account": "jxczyw13581693973",
-          "months": {
-            "2026-06": {
-              "weeks": {
-                "1": [
-                  100,
-                  100,
-                  100,
-                  100,
-                  100,
-                  100
-                ],
-                "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ]
-              }
-            }
-          },
-          "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "416b47474864448e9080a858a3a2f22c",
@@ -3542,34 +3362,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "e7fa033cfec540f890222935707da1ed",
@@ -3587,43 +3407,6 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ]
-              }
-            }
-          },
-          "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
-        },
-        {
-          "id": "51b1bc1f51f04f0e8f2bcb61f70579fc",
-          "name": "郭媛圆",
-          "account": "jxczyw15276485213",
-          "months": {
-            "2026-06": {
-              "weeks": {
-                "1": [
                   100,
                   100,
                   100,
@@ -3631,80 +3414,27 @@
                   100,
                   100
                 ],
-                "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
-        },
-        {
-          "id": "9b962bcacaf44baa9eff7d95cb113eae",
-          "name": "李亿燊",
-          "account": "jxczyw15280451807",
-          "months": {
-            "2026-06": {
-              "weeks": {
-                "1": [
-                  100,
-                  100,
-                  100,
-                  100,
-                  100,
-                  66.66
-                ],
-                "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ]
-              }
-            }
-          },
-          "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "162c922a0aa84ff0aec504761e985033",
@@ -3722,34 +3452,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "b105500ff6a744628991c3e52e60d205",
@@ -3767,34 +3497,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "def013edfc994f518e30b1c6f84ba4a8",
@@ -3812,34 +3542,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "2b5a5f18645a4105a3a8f725c29a8f22",
@@ -3857,43 +3587,6 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ]
-              }
-            }
-          },
-          "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
-        },
-        {
-          "id": "5512b9633bc44cfabf1e85cba37f24c0",
-          "name": "张疏桐Isabelle",
-          "account": "jxczyw18719893789",
-          "months": {
-            "2026-06": {
-              "weeks": {
-                "1": [
                   100,
                   100,
                   100,
@@ -3901,35 +3594,27 @@
                   100,
                   100
                 ],
-                "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "051ff7e61e3548068dcb593682e65bd5",
@@ -3947,34 +3632,34 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "553486c370fb4644be871c1862ce2fab",
@@ -3992,34 +3677,214 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  75.0
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
+        },
+        {
+          "id": "740b43991b8f4fa2b39602ef0e9c5efd",
+          "name": "徐梓晗",
+          "account": "15550922633",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  66.66,
+                  100,
+                  100,
+                  33.33
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  25.0
+                ],
+                "3": [
+                  100,
+                  100,
+                  66.66,
+                  100,
+                  66.66,
+                  25.0
+                ],
+                "4": [
+                  50.0,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-02T23:35:12",
+          "updated_at": "2026-06-13T22:14:17"
+        },
+        {
+          "id": "761a4b5485af4b4591bfae6808598ca4",
+          "name": "吴雨宸",
+          "account": "13910659983",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "4": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  0
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-02T23:35:12",
+          "updated_at": "2026-06-13T22:14:17"
+        },
+        {
+          "id": "368b5ccc8a584b65b4ad18dbe947b797",
+          "name": "吕心嫒",
+          "account": "15757951290",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  66.66
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  75.0
+                ],
+                "3": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  25.0
+                ],
+                "4": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  0
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-02T23:35:12",
+          "updated_at": "2026-06-13T22:14:17"
+        },
+        {
+          "id": "9b962bcacaf44baa9eff7d95cb113eae",
+          "name": "李亿燊",
+          "account": "jxczyw15280451807",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  66.66
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  75.0
+                ],
+                "3": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  75.0
+                ],
+                "4": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  0
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-02T23:35:12",
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "f5246635e1bb415389cc25ff9792e3a0",
@@ -4037,39 +3902,39 @@
                   100
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  33.33,
+                  100,
+                  33.33,
+                  50.0
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  75.0,
+                  100,
+                  75.0,
+                  100,
+                  25.0
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  50.0,
+                  50.0,
+                  66.66,
+                  33.33,
+                  0,
+                  33.33
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
-          "id": "be7e93d2e2cd4c2682543c7e452ae598",
-          "name": "张天逸",
-          "account": "jxczyw15621370976",
+          "id": "51b1bc1f51f04f0e8f2bcb61f70579fc",
+          "name": "郭媛圆",
+          "account": "jxczyw15276485213",
           "months": {
             "2026-06": {
               "weeks": {
@@ -4078,83 +3943,38 @@
                   100,
                   100,
                   100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  0,
+                  25.0,
                   0,
                   0
                 ],
-                "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ]
-              }
-            }
-          },
-          "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
-        },
-        {
-          "id": "7d2e75fd6aa547f98de4f2c69f622a90",
-          "name": "孙浚皓",
-          "account": "15053627650",
-          "months": {
-            "2026-06": {
-              "weeks": {
-                "1": [
-                  75.0,
+                  100,
+                  100,
+                  100,
+                  100,
                   50.0,
-                  0,
-                  66.66,
-                  0,
                   33.33
-                ],
-                "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
-                ],
-                "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "1c2f16bf35744a74955883796a4a9ed8",
@@ -4172,34 +3992,169 @@
                   0
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  25.0,
+                  75.0,
+                  33.33,
+                  75.0,
+                  33.33,
+                  25.0
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  33.33,
+                  0,
+                  33.33,
+                  25.0,
+                  33.33,
+                  25.0
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  0,
+                  0,
+                  33.33,
+                  0,
+                  0,
+                  0
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
+        },
+        {
+          "id": "5512b9633bc44cfabf1e85cba37f24c0",
+          "name": "张疏桐Isabelle",
+          "account": "jxczyw18719893789",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0
+                ],
+                "3": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  25.0
+                ],
+                "4": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-02T23:35:12",
+          "updated_at": "2026-06-13T22:14:17"
+        },
+        {
+          "id": "7d2e75fd6aa547f98de4f2c69f622a90",
+          "name": "孙浚皓",
+          "account": "15053627650",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  75.0,
+                  50.0,
+                  0,
+                  66.66,
+                  0,
+                  33.33
+                ],
+                "2": [
+                  75.0,
+                  75.0,
+                  66.66,
+                  50.0,
+                  33.33,
+                  0
+                ],
+                "3": [
+                  0,
+                  100,
+                  33.33,
+                  50.0,
+                  33.33,
+                  25.0
+                ],
+                "4": [
+                  50.0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-02T23:35:12",
+          "updated_at": "2026-06-13T22:14:17"
+        },
+        {
+          "id": "be7e93d2e2cd4c2682543c7e452ae598",
+          "name": "张天逸",
+          "account": "jxczyw15621370976",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  0,
+                  0
+                ],
+                "2": [
+                  75.0,
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0
+                ],
+                "3": [
+                  33.33,
+                  25.0,
+                  33.33,
+                  25.0,
+                  33.33,
+                  0
+                ],
+                "4": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-02T23:35:12",
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "ca5eb932236a455dbb9150c60a5d3123",
@@ -4217,34 +4172,79 @@
                   0
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  0,
+                  50.0,
+                  0,
+                  25.0,
+                  0,
+                  0
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  0,
+                  0,
+                  0,
+                  33.33,
+                  0,
+                  0
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
+        },
+        {
+          "id": "480fb62b010b4a08ae5b662a80a24b2c",
+          "name": "田锐烨",
+          "account": "jxczyw13581693973",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  0,
+                  0,
+                  0
+                ],
+                "3": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "4": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-02T23:35:12",
+          "updated_at": "2026-06-13T22:14:17"
         },
         {
           "id": "6b7f2bd775434ad2a4d6c2c0afeef2c1",
@@ -4262,45 +4262,47 @@
                   0
                 ],
                 "2": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
                 ],
                 "3": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
                 ],
                 "4": [
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
                 ]
               }
             }
           },
           "created_at": "2026-06-02T23:35:12",
-          "updated_at": "2026-06-04T18:08:39"
+          "updated_at": "2026-06-13T22:14:17"
         }
       ],
       "created_at": "2026-06-02T23:25:44",
-      "updated_at": "2026-06-05T19:12:30",
-      "completion_activity": true,
-      "note": "雪梨老师陪跑营i6期L2-E班"
+      "updated_at": "2026-06-13T22:38:26",
+      "completion_activity": false,
+      "note": "雪梨老师陪跑营i6期L2-E班",
+      "title_week_base_number": 23,
+      "title_week_anchor": "2026-06-12"
     },
     {
       "id": "f5ccc586553345acbc28e7ab42e15484",
       "owner": "文云joanna",
-      "name": "雪梨老师陪跑营62期L2-5班",
+      "name": "雪梨老师陪跑营62期PU1-5班",
       "teacher_id": "wenyun_joanna",
       "students": [
         {
@@ -6375,8 +6377,4268 @@
         }
       ],
       "created_at": "2026-06-04T14:50:11",
-      "updated_at": "2026-06-05T18:33:23",
-      "note": "雪梨老师陪跑营G2期L2-E班"
+      "updated_at": "2026-06-17T19:12:47",
+      "note": "雪梨老师陪跑营G2期L2-E班",
+      "completion_activity": false,
+      "title_week_base_number": 50,
+      "title_week_anchor": "2026-06-12"
+    },
+    {
+      "id": "b6939acd48ca402b90edb401488dc7c5",
+      "owner": "陈晓grace",
+      "name": "雪梨老师陪跑营67期PU1-2班",
+      "note": "",
+      "teacher_id": "chenxiao_grace",
+      "students": [
+        {
+          "id": "a8827004e6cf449cad82c555f03cde4f",
+          "name": "吴彦彤",
+          "account": "13417000110",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "111f9dfb86b4479581fa8f3d4ae230ae",
+          "name": "岳思宇Alex",
+          "account": "13477185340",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "abb49dd36be14c0f8c72c5e24e38709e",
+          "name": "TY",
+          "account": "13477316788",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "1625c345ac484f32b30556f96c1c2794",
+          "name": "Rain",
+          "account": "13633072921",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "ec05d341d1134e708dc6d340b43a0568",
+          "name": "张倚琛",
+          "account": "13810878516",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "3dfb7ee2605447c986baabd7a2bae214",
+          "name": "赖佳怡",
+          "account": "13966216982",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "fdb0cb92affd44218cdb2616669e7bac",
+          "name": "孙睿东",
+          "account": "15016867584",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  75.0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "e7266762a24d47e1881fae1bee523ac2",
+          "name": "赵泽楷",
+          "account": "15158026862",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "f5692a9a1d624a28abbab7247c625b39",
+          "name": "张逸萱",
+          "account": "15221579870",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "713a31b72ad642158722f7bd2142c98a",
+          "name": "轩轩",
+          "account": "15223240559",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  75.0
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "3fb441bf06014a5a8f39fb189d861568",
+          "name": "王明贤Asher",
+          "account": "15824310598",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "668946eef44c4d64a5afdac7dc3304f4",
+          "name": "瀚博alan",
+          "account": "15841100109",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "5a8cbbf7a72b431a875a6c52e0811795",
+          "name": "侯雨彤 Shirley",
+          "account": "15855915871",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "4b2e4f59c6e54563a19bb032db4c90a2",
+          "name": "林立言",
+          "account": "15916462848",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "559b5d36ab3b439383ec6dfdb23bdada",
+          "name": "郝泊楷",
+          "account": "18138854615",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "c27ea966235b494d90d4675ec6be0a82",
+          "name": "崔馨元",
+          "account": "18610880622",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  60.0,
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "f1e74a21ea21417abf85b360d7418d98",
+          "name": "费洛邑",
+          "account": "18626149606",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "088fe428e3a4430badb60733701221d1",
+          "name": "岗儿@灵湃",
+          "account": "18692251080",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "8dbfc923cd6341689a72222e20443380",
+          "name": "包宇航Jasper",
+          "account": "18867900657",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "84aa67c956f5489597aed164cc436248",
+          "name": "顾姝曼winnie",
+          "account": "a13957218812",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "f5ef45b19d82432eaf6f3eb87ca688e6",
+          "name": "随政航",
+          "account": "13937095084",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  80.0,
+                  100,
+                  100,
+                  100,
+                  100,
+                  0
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "023f10851d6a4c31976d64ceddc89d69",
+          "name": "王一涵 Cayla",
+          "account": "a15046084169",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  25.0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "9de42a09d81a47678e9b3b7b4f54d2bd",
+          "name": "史雯月",
+          "account": "15961812068",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  20.0,
+                  20.0,
+                  0,
+                  20.0,
+                  25.0,
+                  0
+                ],
+                "2": [
+                  25.0,
+                  25.0,
+                  25.0,
+                  50.0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "a271cb8032964b5fb6a89ee34c8a8f9f",
+          "name": "阳阳Haley",
+          "account": "a13956619825",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  80.0,
+                  80.0,
+                  25.0,
+                  60.0,
+                  50.0,
+                  0
+                ],
+                "2": [
+                  25.0,
+                  0,
+                  25.0,
+                  75.0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "dcbfca40a344451d81b1ac31c202ad5f",
+          "name": "颜欣奕",
+          "account": "13771780363",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  0,
+                  100,
+                  100,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "9844272986684e2aae147636b71e69b7",
+          "name": "杨惠缨Hayley",
+          "account": "13365737198",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  60.0,
+                  100,
+                  0
+                ],
+                "2": [
+                  100,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "676c44d507a74418a1ccf1c9109e58ea",
+          "name": "崔宸瑜",
+          "account": "18235101288",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  80.0,
+                  100,
+                  100,
+                  100,
+                  0,
+                  0
+                ],
+                "2": [
+                  100,
+                  100,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "95cd284f6a414cd4a40b6121b9718306",
+          "name": "赵莳宸",
+          "account": "13126675006",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  60.0,
+                  100,
+                  50.0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "61adbb3e2bdf423eaba5708c3d5bb59e",
+          "name": "邓振荣",
+          "account": "13711600741",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "65a3f56ed2aa43098fecda736670139f",
+          "name": "潘柚",
+          "account": "15228099870",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  60.0,
+                  80.0,
+                  75.0,
+                  20.0,
+                  25.0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  50.0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "0311e7f1337e40b297224a82d49acc26",
+          "name": "和和",
+          "account": "13698892576",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  20.0,
+                  100,
+                  75.0,
+                  80.0,
+                  100,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "ff15b86019644c818582a4f927801f88",
+          "name": "张芸芳",
+          "account": "15835700848",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  50.0,
+                  20.0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "0de9089f095a49a8aed8d89783c17e02",
+          "name": "宋治函",
+          "account": "15905720925",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  100,
+                  100,
+                  0
+                ],
+                "2": [
+                  100,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "fbc881adef23457a8a1d5e1bbfad3c0e",
+          "name": "林佑怡",
+          "account": "13861370158",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "4244e89dc70c4801824baccad20f2d68",
+          "name": "张艺腾",
+          "account": "13701039205",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  20.0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "e3787267ef0f426fbe5f20ba1efbdd57",
+          "name": "罗浩然",
+          "account": "13329195258",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "e05061b0f10d489ea999650a861f7250",
+          "name": "郭艿函",
+          "account": "13525834252",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "b5786674b4404b3b8e49c826a871da8a",
+          "name": "康航瑜Henry",
+          "account": "13706693595",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "05361b95e80a46f98e1d67b65419aabd",
+          "name": "罗紫浠",
+          "account": "13757018982",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "f4d4699e051f4e538a89f57317880321",
+          "name": "李明哲Liam",
+          "account": "13850218733",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "6d7f355ed34e45029cd492e19ab9e0ca",
+          "name": "小宝",
+          "account": "13879653366",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "b66e98020f654dfaa9a86ca1d3f85a0c",
+          "name": "贾蓓霖",
+          "account": "15010252289",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "b1cbf9313a1a4a139460fabf0d3f27d7",
+          "name": "镜依",
+          "account": "15258118412",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "1243824812f446cda808d83a4290b923",
+          "name": "。",
+          "account": "15808817829",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "bbcd307b836843a185b478193bf1f89d",
+          "name": "苏哲毅",
+          "account": "15985913179",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "1d9ece4e85db420d991ffccbe927aa0d",
+          "name": "张淏钧",
+          "account": "18219933853",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "16cb4823e61c4fd6845c294a46d79ee3",
+          "name": "峻铭",
+          "account": "18277202152",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "4692b2f24e2b4ef792524861e32ff82b",
+          "name": "杨佳熙Owen",
+          "account": "18391619717",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "d39e2f860e5448ac893a38d261643c0e",
+          "name": "任紫涵",
+          "account": "a15199093630",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        },
+        {
+          "id": "f23bcb867d0548a6af89f34230fcdf19",
+          "name": "柯昱琛Ethan",
+          "account": "jxczyw18959245065",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  null,
+                  null
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-12T11:18:46",
+          "updated_at": "2026-06-12T11:19:00"
+        }
+      ],
+      "created_at": "2026-06-12T11:17:40",
+      "updated_at": "2026-06-12T17:14:46",
+      "title_week_base_number": 17,
+      "title_week_anchor": "2026-06-12",
+      "completion_activity": false
+    },
+    {
+      "id": "e1d7213af6a149fbb190eda21cc4f4c0",
+      "owner": "陈晓grace",
+      "name": "雪梨老师陪跑营90期PU1-1班",
+      "note": "雪梨老师陪跑营i10期L2-A班",
+      "teacher_id": "chenxiao_grace",
+      "students": [
+        {
+          "id": "cbd8a7fadf7e43afbe19c074ad35b30c",
+          "name": "孙艺格",
+          "account": "13550257002",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "1ec53d85c7904559bb9c29e682bc3ff9",
+          "name": "杨诺伊",
+          "account": "15261709871",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "8ef71e06be654e11b03d161dc136ec09",
+          "name": "潘慧琳",
+          "account": "15819500630",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  25.0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "343167b214414195a7988cb78bc0750d",
+          "name": "李梓萌",
+          "account": "15827872008",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "5ee42bd89c614979ae7297ec6c3717ee",
+          "name": "刘子豪",
+          "account": "17393285440",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "17f2d99b6b6f43719319b04640c6d52c",
+          "name": "洪皓轩",
+          "account": "18045094438",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "a9fc9c8b37544fcea2ff11c9ddfbe523",
+          "name": "Lucy",
+          "account": "a15082579425",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "ae83280f98e04a2db9878fd05ad9d5c9",
+          "name": "陈悦庭Lena",
+          "account": "jxczyw18079272567",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "b23a1854833142d698e5c423bccd4028",
+          "name": "何周春",
+          "account": "13427652563",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "efe4a245107b4eba84a6de7a88efbbe8",
+          "name": "伍依伊",
+          "account": "13908189572",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  66.66
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  25.0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "fc56c14886bf4931a5acf49190df3bb1",
+          "name": "李梦岩",
+          "account": "13920743721",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "00b265c9e0604d9caef763df8cc2db78",
+          "name": "陈佳铭",
+          "account": "15012980757",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "f1250b420cf24042af083ad2a94a8630",
+          "name": "周俊希",
+          "account": "15921650686",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "9148dab8e4c04024a3559461434a5e9c",
+          "name": "李佳诺",
+          "account": "15981960221",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "6c9505b426e44089a2d8ed22ea2a564d",
+          "name": "李兴陈",
+          "account": "18611750645",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "136a8e0a1943424bb51cab37f886f09a",
+          "name": "黄梦琦",
+          "account": "18785198470",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "37587b2ecce84eb9ac09abfb77368bcf",
+          "name": "汉堡",
+          "account": "18858740865",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "bae77165e3874fde900c376a0bdbb9a7",
+          "name": "Tulip-",
+          "account": "18863597399",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "5c0d2febd5a6425bb156666481dc50fd",
+          "name": "陈奕霖",
+          "account": "jxczyw15310325926",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "f97f80a131f140818d2d2e368bb66807",
+          "name": "杜怡格",
+          "account": "jxczyw15836980361",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "0b6deca51ee34ccd8d8ce504266a31e5",
+          "name": "不要点我啊",
+          "account": "jxczyw15874037911",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "01756cd167ad449cb30cc518289bf38c",
+          "name": "林玟晞",
+          "account": "jxczyw15925628194",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "866f8c3a725247f5b5bcc9effbef6bf7",
+          "name": "小然",
+          "account": "jxczyw18786121227",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "cb65ade3fe0541fc9f8cf101a2277203",
+          "name": "严宝",
+          "account": "jxczyw18938088783",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  66.66,
+                  100,
+                  100,
+                  33.33
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  75.0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "48433c4a9f6c42c99c8361feb9da9472",
+          "name": "蔡俊哲",
+          "account": "18962878199",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "d82d72122eff452988ec6d8a9a840fb9",
+          "name": "Amy",
+          "account": "jxczyw13367795069",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "5975f0b9a8c048a787f76e55b23614bd",
+          "name": "刘予洛",
+          "account": "jxczyw18665644868",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "504543ddda354303be603d11a011d09e",
+          "name": "陈沐熙",
+          "account": "jxczyw18973723030",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "0538ef4b32784d528d4e2f2749687ed2",
+          "name": "刘思涵",
+          "account": "15250677356",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "2c4dda185b9547c3a00b5c798cb955bd",
+          "name": "刘筠",
+          "account": "18805811149",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  66.66,
+                  75.0,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "263c2dd883f348b18aeb7bed77fcbe90",
+          "name": "余谨宸",
+          "account": "a18750366987",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "a053b138b4264f43bcc8a2b319811c34",
+          "name": "邹嘉㦤",
+          "account": "jxczyw15038473723",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0,
+                  33.33
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  50.0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "38c6f546829243ddbdd135c348007e8f",
+          "name": "龚子宸Alora",
+          "account": "jxczyw17771008797",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  33.33,
+                  50.0,
+                  33.33,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "eb27dbbbe27446e69d142bd1c67f01e2",
+          "name": "李奕辰",
+          "account": "jxczyw13550098829",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  25.0,
+                  25.0,
+                  33.33,
+                  33.33,
+                  0,
+                  0
+                ],
+                "2": [
+                  25.0,
+                  0,
+                  66.66,
+                  25.0,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "fc111b52c6064c768989496c04895309",
+          "name": "侯沐佳",
+          "account": "15733936797",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  100
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "55a6c52a8c344ce8885e4529b6378490",
+          "name": "刘梓旭",
+          "account": "15847530706",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
+                ],
+                "2": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "fe4b8e66d411423fbf68877ee8ab560f",
+          "name": "魏妙朵",
+          "account": "18081006832",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  66.66,
+                  100,
+                  50.0,
+                  33.33
+                ],
+                "2": [
+                  25.0,
+                  0,
+                  33.33,
+                  0,
+                  33.33,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "a487bb9e64d44f4a9f2f03b608bce2f8",
+          "name": "袁浚哲",
+          "account": "13980829510",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  75.0,
+                  0,
+                  100,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  75.0,
+                  0,
+                  75.0,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "74d680554a1e403f8b291bbc959eddbe",
+          "name": "姚艺瑄",
+          "account": "a15055131186",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  75.0,
+                  75.0,
+                  100,
+                  66.66,
+                  100,
+                  0
+                ],
+                "2": [
+                  100,
+                  75.0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "0cd486ca9ec84360b2fc00c7ca7909f9",
+          "name": "唐宁悦",
+          "account": "13980518401",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  100,
+                  100,
+                  100,
+                  100,
+                  33.33
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "9d7601ce5f674fad9a8f8fa269a556b3",
+          "name": "瑶瑶",
+          "account": "18223473015",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  100,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "d288d712400e4884a08df333ef5869a5",
+          "name": "陈路瑶",
+          "account": "18566785393",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  25.0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "e5148d5838644b219db5dda3ff5ecbb4",
+          "name": "倪智恒 Nike",
+          "account": "jxczyw15067934012",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        },
+        {
+          "id": "44763f3124d74d1ca17f9ce1c2cc0038",
+          "name": "周多米",
+          "account": "jxczyw18757776751",
+          "months": {
+            "2026-06": {
+              "weeks": {
+                "1": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "2": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "3": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "4": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ]
+              }
+            }
+          },
+          "created_at": "2026-06-17T16:12:30",
+          "updated_at": "2026-06-17T16:12:36"
+        }
+      ],
+      "created_at": "2026-06-17T16:12:04",
+      "updated_at": "2026-06-17T16:12:36",
+      "title_week_base_number": 23,
+      "title_week_anchor": "2026-06-12"
     }
   ]
 }

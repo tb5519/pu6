@@ -1,15 +1,35 @@
 const classHomeView = document.querySelector("[data-class-home]");
 const classDetailView = document.querySelector("[data-class-detail]");
 const completionSectionButtons = document.querySelectorAll("[data-completion-section]");
+const reminderSectionButton = document.querySelector('[data-completion-section="reminder"]');
 const completionSectionPanels = document.querySelectorAll("[data-completion-section-panel]");
 const classCreateForm = document.querySelector("[data-class-create-form]");
 const classBackButton = document.querySelector("[data-class-back]");
 const classList = document.querySelector("#cc-classList");
 const classMessage = document.querySelector("#cc-message");
+const teamClassOverview = document.querySelector("#cc-teamClassOverview");
+const activityNotice = document.querySelector("#cc-activityNotice");
+const activityEyebrow = document.querySelector("#cc-activityEyebrow");
+const activityTitle = document.querySelector("#cc-activityTitle");
+const activityDescription = document.querySelector("#cc-activityDescription");
 const activityJoinForm = document.querySelector("[data-activity-join-form]");
 const activityClassSelect = document.querySelector("#cc-activityClassSelect");
+const activityAdminPanel = document.querySelector("[data-activity-admin]");
+const activityAdminToggle = document.querySelector("#cc-activityAdminToggle");
+const activityAdminForm = document.querySelector("[data-activity-admin-form]");
+const activityEyebrowInput = document.querySelector("#cc-activityEyebrowInput");
+const activityTitleInput = document.querySelector("#cc-activityTitleInput");
+const activityDescriptionInput = document.querySelector("#cc-activityDescriptionInput");
+const activityStageLabelsInput = document.querySelector("#cc-activityStageLabels");
+const activityResultLabelsInput = document.querySelector("#cc-activityResultLabels");
+const activityImageNoteInput = document.querySelector("#cc-activityImageNote");
+const activityImageFooterInput = document.querySelector("#cc-activityImageFooter");
+const activityVisualSlots = document.querySelector("#cc-activityVisualSlots");
+const activityPublishButton = document.querySelector("#cc-activityPublish");
+const activityEndButton = document.querySelector("#cc-activityEnd");
+const activityAdminStatus = document.querySelector("#cc-activityAdminStatus");
+const activityArchive = document.querySelector("#cc-activityArchive");
 const classNameInput = document.querySelector("#cc-className");
-const classTeacherSelect = document.querySelector("#cc-classTeacher");
 const classWeekSelect = document.querySelector("#cc-weekSelect");
 const classUploadButton = document.querySelector("#cc-uploadButton");
 const classClearMonthButton = document.querySelector("#cc-clearMonthButton");
@@ -33,6 +53,7 @@ const studentRows = document.querySelector("#cc-studentRows");
 const studentEmpty = document.querySelector("#cc-studentEmpty");
 const reminderPriorityStatus = document.querySelector("#cc-reminderPriorityStatus");
 const reminderPriorityList = document.querySelector("#cc-reminderPriorityList");
+const reminderPriorityShell = reminderPriorityList?.closest(".completion-reminder-shell");
 const reminderScheduleStatus = document.querySelector("#cc-reminderScheduleStatus");
 const reminderScheduleList = document.querySelector("#cc-reminderScheduleList");
 const reminderRefreshButton = document.querySelector("#cc-reminderRefresh");
@@ -55,6 +76,11 @@ const DAY_COUNT = 6;
 const ACTIVITY_WEEK_GOAL = 6;
 const IMAGE_WEEK_MEMORY_KEY = "pu6.completion.imageWeekNumber";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const ACTIVITY_STAGE_DEFAULTS = ["盲盒种子", "发芽", "抽枝", "神秘小树苗", "惊喜绽放"];
+const ACTIVITY_RESULT_DEFAULTS = ["彩虹花", "向日葵", "樱花树", "蓝绣球", "小橘树", "紫铃兰"];
+const ACTIVITY_STAGE_LIMIT = 8;
+const ACTIVITY_RESULT_LIMIT = 12;
+const ACTIVITY_MAX_PROGRESS = 4;
 const PLANT_VARIETIES = [
   { name: "彩虹花", className: "plant-rainbow" },
   { name: "向日葵", className: "plant-sunflower" },
@@ -66,13 +92,19 @@ const PLANT_VARIETIES = [
 
 let classes = [];
 let classTeachers = [];
+let teamClassSummary = null;
+let completionActivity = null;
+let completionActivities = [];
+let canManageCompletionActivity = false;
 let activeClass = null;
 let reminderPlanLoaded = false;
 let reminderPlanLoading = false;
 let activeReminderClass = null;
 let activeReminderArrangement = null;
 let reminderActionIndex = new Map();
+let reminderTodayKey = "";
 let editingClassId = null;
+let editingActivityId = "";
 
 function setCompletionSection(sectionName) {
   completionSectionButtons.forEach((button) => {
@@ -135,6 +167,311 @@ async function apiRequest(url, options = {}) {
     throw new Error(data.error || "请求失败，请稍后重试。");
   }
   return data;
+}
+
+function activityLabel(activity = completionActivity) {
+  return activity?.eyebrow || activity?.title || "完课活动";
+}
+
+function activityStatusLabel(status) {
+  if (status === "active") return "进行中";
+  if (status === "ended") return "已存档";
+  return "草稿";
+}
+
+function splitActivityLabels(value, defaults, limit = defaults.length) {
+  const values = Array.isArray(value)
+    ? value
+    : String(value || "").split(/[,，、\n]+/);
+  const labels = values.map((item) => String(item || "").trim()).filter(Boolean).slice(0, limit);
+  return labels.length ? labels : defaults.slice(0, limit);
+}
+
+function normalizeActivityVisuals(activity = {}) {
+  const visuals = activity?.visuals || {};
+  return {
+    stage_labels: splitActivityLabels(visuals.stage_labels, ACTIVITY_STAGE_DEFAULTS, ACTIVITY_STAGE_LIMIT),
+    result_labels: splitActivityLabels(visuals.result_labels, ACTIVITY_RESULT_DEFAULTS, ACTIVITY_RESULT_LIMIT),
+    stage_images: visuals.stage_images || {},
+    result_images: visuals.result_images || {},
+    image_note: String(visuals.image_note || "每完成一周任务即可推进一次进度，满进度后揭晓专属结果。").trim(),
+    image_footer: String(visuals.image_footer || "本图统计本月当前累计活动进度，补交完成后会自动更新。").trim(),
+  };
+}
+
+function visualLabelsPayload() {
+  return {
+    stage_labels: splitActivityLabels(activityStageLabelsInput?.value || "", ACTIVITY_STAGE_DEFAULTS, ACTIVITY_STAGE_LIMIT),
+    result_labels: splitActivityLabels(activityResultLabelsInput?.value || "", ACTIVITY_RESULT_DEFAULTS, ACTIVITY_RESULT_LIMIT),
+    image_note: activityImageNoteInput?.value.trim() || "",
+    image_footer: activityImageFooterInput?.value.trim() || "",
+  };
+}
+
+function updateActivityState(data = {}) {
+  completionActivity = data.activity || null;
+  if (Array.isArray(data.activities)) {
+    completionActivities = data.activities;
+  }
+  canManageCompletionActivity = Boolean(data.can_manage_activity);
+}
+
+function selectedActivityForAdmin() {
+  if (editingActivityId) {
+    const match = completionActivities.find((item) => item.id === editingActivityId);
+    if (match?.status === "draft") return match;
+  }
+  return completionActivities.find((item) => item.status === "draft") || null;
+}
+
+function activityFormPayload() {
+  const title = activityTitleInput?.value.trim() || "";
+  if (!title) {
+    activityTitleInput?.focus();
+    throw new Error("请输入活动标题。");
+  }
+  return {
+    eyebrow: activityEyebrowInput?.value.trim() || "完课活动",
+    title,
+    description: activityDescriptionInput?.value.trim() || "",
+    visuals: visualLabelsPayload(),
+  };
+}
+
+function renderActivityVisualSlots(activity = selectedActivityForAdmin()) {
+  if (!activityVisualSlots) return;
+  if (!activity?.id) {
+    activityVisualSlots.innerHTML = `<div class="activity-visual-note">先填写本次活动规则并保存为草稿，再上传对应素材。</div>`;
+    return;
+  }
+  const visuals = normalizeActivityVisuals(activity || {});
+  const stageLabels = splitActivityLabels(activityStageLabelsInput?.value || visuals.stage_labels, ACTIVITY_STAGE_DEFAULTS, ACTIVITY_STAGE_LIMIT);
+  const resultLabels = splitActivityLabels(activityResultLabelsInput?.value || visuals.result_labels, ACTIVITY_RESULT_DEFAULTS, ACTIVITY_RESULT_LIMIT);
+  const canUpload = Boolean(activity?.id && activity.status === "draft");
+  const stageSlots = stageLabels.map((label, index) => ({
+    type: "stage",
+    index,
+    title: `阶段 ${index + 1}`,
+    label,
+    asset: visuals.stage_images?.[String(index)],
+  }));
+  const resultSlots = resultLabels.map((label, index) => ({
+    type: "result",
+    index,
+    title: `结果 ${index + 1}`,
+    label,
+    asset: visuals.result_images?.[String(index)],
+  }));
+  activityVisualSlots.innerHTML = `
+    ${!canUpload ? `<div class="activity-visual-note">先保存为草稿后，就可以上传图片素材。</div>` : ""}
+    ${[...stageSlots, ...resultSlots].map((slot) => `
+      <label class="activity-visual-slot">
+        <strong>${escapeText(slot.title)} · ${escapeText(slot.label)}</strong>
+        <span class="activity-visual-preview">
+          ${slot.asset?.url ? `<img src="${escapeText(slot.asset.url)}" alt="${escapeText(slot.label)}">` : "未上传"}
+        </span>
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          data-activity-visual-type="${slot.type}"
+          data-activity-visual-index="${slot.index}"
+          ${canUpload ? "" : "disabled"}
+        >
+      </label>
+    `).join("")}
+  `;
+  activityVisualSlots.querySelectorAll("[data-activity-visual-type]").forEach((input) => {
+    input.addEventListener("change", () => {
+      uploadActivityVisual(input).catch((error) => setClassMessage(error.message, true));
+    });
+  });
+}
+
+async function uploadActivityVisual(input) {
+  const activity = selectedActivityForAdmin();
+  if (!activity?.id || activity.status !== "draft") {
+    throw new Error("请先保存草稿，再上传图片素材。");
+  }
+  const file = input.files?.[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("slot_type", input.dataset.activityVisualType || "");
+  formData.append("slot_index", input.dataset.activityVisualIndex || "");
+  formData.append("stage_labels", (visualLabelsPayload().stage_labels || []).join("、"));
+  formData.append("result_labels", (visualLabelsPayload().result_labels || []).join("、"));
+  formData.append("image_note", visualLabelsPayload().image_note || "");
+  formData.append("image_footer", visualLabelsPayload().image_footer || "");
+  const data = await apiRequest(`/api/classes/activities/${activity.id}/visuals`, {
+    method: "POST",
+    body: formData,
+  });
+  updateActivityState(data);
+  renderCompletionActivity();
+  setClassMessage("图片素材已上传。");
+}
+
+function renderActivityAdminForm() {
+  if (!activityAdminPanel) return;
+  activityAdminPanel.classList.toggle("is-hidden", !canManageCompletionActivity);
+  if (!canManageCompletionActivity) return;
+  if (activityAdminToggle) {
+    activityAdminToggle.textContent = activityAdminPanel.classList.contains("is-collapsed") ? "打开管理" : "收起管理";
+  }
+
+  const selected = selectedActivityForAdmin();
+  editingActivityId = selected?.id || "";
+  if (activityEyebrowInput) activityEyebrowInput.value = selected?.eyebrow || "";
+  if (activityTitleInput) activityTitleInput.value = selected?.title || "";
+  if (activityDescriptionInput) {
+    activityDescriptionInput.value = selected?.description || "";
+  }
+  const selectedVisuals = selected ? normalizeActivityVisuals(selected) : null;
+  if (activityStageLabelsInput) activityStageLabelsInput.value = selectedVisuals?.stage_labels?.join("、") || "";
+  if (activityResultLabelsInput) activityResultLabelsInput.value = selectedVisuals?.result_labels?.join("、") || "";
+  if (activityImageNoteInput) activityImageNoteInput.value = selectedVisuals?.image_note || "";
+  if (activityImageFooterInput) activityImageFooterInput.value = selectedVisuals?.image_footer || "";
+  if (activityAdminStatus) {
+    activityAdminStatus.textContent = completionActivity
+      ? `${activityStatusLabel(completionActivity.status)} · ${activityLabel(completionActivity)}`
+      : "当前无进行中活动";
+  }
+  if (activityPublishButton) {
+    activityPublishButton.textContent = selected ? "发布草稿" : "保存并发布";
+  }
+  if (activityEndButton) {
+    activityEndButton.disabled = !completionActivity;
+  }
+  renderActivityVisualSlots(selected);
+
+  if (!activityArchive) return;
+  if (!completionActivities.length) {
+    activityArchive.innerHTML = `<div class="empty-state">暂无历史活动。</div>`;
+    return;
+  }
+  activityArchive.innerHTML = completionActivities
+    .map((item) => `
+      <article class="activity-archive-item ${item.id === editingActivityId ? "is-selected" : ""}">
+        <div>
+          <h3>${escapeText(item.eyebrow || "完课活动")} · ${escapeText(item.title || "未命名活动")}</h3>
+          <p>${activityStatusLabel(item.status)} · ${normalizeActivityVisuals(item).stage_labels.length} 个阶段${item.participant_class_ids?.length ? ` · ${item.participant_class_ids.length} 个班级参与` : ""}</p>
+        </div>
+        <div class="activity-archive-actions">
+          ${item.status === "draft" ? `<button class="ghost-button compact-button" type="button" data-activity-edit="${escapeText(item.id)}">编辑草稿</button>` : ""}
+          ${item.status === "draft" ? `<button class="primary-button compact-button" type="button" data-activity-publish="${escapeText(item.id)}">发布</button>` : ""}
+          ${item.status === "active" ? `<button class="danger-button compact-button" type="button" data-activity-end="${escapeText(item.id)}">结束</button>` : ""}
+          <button class="ghost-button compact-button" type="button" data-activity-copy="${escapeText(item.id)}">复制</button>
+        </div>
+      </article>
+    `)
+    .join("");
+
+  activityArchive.querySelectorAll("[data-activity-edit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      editingActivityId = button.dataset.activityEdit || "";
+      renderActivityAdminForm();
+    });
+  });
+  activityArchive.querySelectorAll("[data-activity-copy]").forEach((button) => {
+    button.addEventListener("click", () => {
+      copyCompletionActivity(button.dataset.activityCopy).catch((error) => setClassMessage(error.message, true));
+    });
+  });
+  activityArchive.querySelectorAll("[data-activity-publish]").forEach((button) => {
+    button.addEventListener("click", () => {
+      editingActivityId = button.dataset.activityPublish || "";
+      renderActivityAdminForm();
+      publishCompletionActivity(editingActivityId).catch((error) => setClassMessage(error.message, true));
+    });
+  });
+  activityArchive.querySelectorAll("[data-activity-end]").forEach((button) => {
+    button.addEventListener("click", () => {
+      endCompletionActivity(button.dataset.activityEnd).catch((error) => setClassMessage(error.message, true));
+    });
+  });
+}
+
+function renderCompletionActivity() {
+  const hasActiveActivity = Boolean(completionActivity);
+  activityNotice?.classList.toggle("is-hidden", !hasActiveActivity);
+  if (completionActivity) {
+    if (activityEyebrow) activityEyebrow.textContent = completionActivity.eyebrow || "完课活动";
+    if (activityTitle) activityTitle.textContent = completionActivity.title || "盲盒种子成长计划";
+    if (activityDescription) activityDescription.textContent = completionActivity.description || "";
+  }
+  renderActivityClassOptions();
+  renderActivityAdminForm();
+}
+
+async function saveCompletionActivity() {
+  const payload = activityFormPayload();
+  const target = completionActivities.find((item) => item.id === editingActivityId);
+  if (editingActivityId && target?.status === "draft") {
+    const data = await apiRequest(`/api/classes/activities/${editingActivityId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    updateActivityState(data);
+    renderCompletionActivity();
+    renderClassList();
+    setClassMessage("活动内容已保存。");
+    return;
+  }
+  const data = await apiRequest("/api/classes/activities", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  updateActivityState(data);
+  editingActivityId = data.activities?.[0]?.id || "";
+  renderCompletionActivity();
+  setClassMessage("活动草稿已保存。");
+}
+
+async function publishCompletionActivity(activityId = editingActivityId) {
+  const payload = activityFormPayload();
+  const target = completionActivities.find((item) => item.id === activityId);
+  if (activityId && target?.status === "draft") {
+    await apiRequest(`/api/classes/activities/${activityId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ ...payload, action: "publish" }),
+    });
+  } else {
+    await apiRequest("/api/classes/activities", {
+      method: "POST",
+      body: JSON.stringify({ ...payload, status: "active" }),
+    });
+  }
+  await loadClasses();
+  setClassMessage("完课活动已发布，老师端会展示当前活动。");
+}
+
+async function endCompletionActivity(activityId = completionActivity?.id) {
+  if (!activityId) {
+    setClassMessage("当前没有进行中的活动。", true);
+    return;
+  }
+  if (!window.confirm("确认结束当前完课活动吗？结束后组员完课界面会隐藏这个活动。")) {
+    return;
+  }
+  await apiRequest(`/api/classes/activities/${activityId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ action: "end" }),
+  });
+  editingActivityId = "";
+  await loadClasses();
+  setClassMessage("完课活动已结束并存档，组员端已隐藏。");
+}
+
+async function copyCompletionActivity(activityId) {
+  if (!activityId) return;
+  const data = await apiRequest("/api/classes/activities", {
+    method: "POST",
+    body: JSON.stringify({ source_id: activityId }),
+  });
+  updateActivityState(data);
+  editingActivityId = data.activities?.[0]?.id || "";
+  renderCompletionActivity();
+  setClassMessage("已复制为新的活动草稿，可以编辑后发布。");
 }
 
 function showClassHome() {
@@ -270,6 +607,26 @@ function applyRememberedImageWeekNumber() {
   }
 }
 
+function currentClassTitleWeekNumber(targetClass = activeClass) {
+  const value = Number(targetClass?.title_week_number);
+  return Number.isFinite(value) && value > 0 ? String(value) : "";
+}
+
+function applyClassTitleWeekNumber(force = false) {
+  if (!classImageWeekNumber) return;
+  const classWeekNumber = currentClassTitleWeekNumber();
+  if (classWeekNumber) {
+    if (force || !classImageWeekNumber.value.trim()) {
+      classImageWeekNumber.value = classWeekNumber;
+    }
+    return;
+  }
+  if (force) {
+    classImageWeekNumber.value = "";
+  }
+  applyRememberedImageWeekNumber();
+}
+
 function normalizeWeeks(weeks = {}) {
   return WEEK_KEYS.reduce((output, week) => {
     const values = Array.isArray(weeks[week]) ? weeks[week] : [];
@@ -302,6 +659,7 @@ function habitClass(category) {
   if (key === "完课超赞") return "is-excellent";
   if (key === "长期不上课") return "is-inactive";
   if (key === "异常断课") return "is-abnormal";
+  if (key === "断续上课") return "is-intermittent";
   if (key === "周末欠缺") return "is-weekend";
   if (key === "偶尔断课") return "is-occasional";
   return "is-empty";
@@ -321,23 +679,62 @@ function studentWaterCount(student) {
   return WEEK_KEYS.reduce((count, week) => count + (weekCompleted(weeks[week]) ? 1 : 0), 0);
 }
 
-function plantVariety(student) {
+function stableStudentHash(student) {
   const source = `${student.id || student.account || student.name || ""}`;
   let hash = 0;
   for (let index = 0; index < source.length; index += 1) {
     hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
   }
-  return PLANT_VARIETIES[hash % PLANT_VARIETIES.length];
+  return hash;
 }
 
-function plantStage(waterCount, variety) {
-  if (waterCount >= 4) {
-    return { label: `惊喜绽放 · ${variety.name}`, className: "is-bloom" };
+function plantVariety(student) {
+  return PLANT_VARIETIES[stableStudentHash(student) % PLANT_VARIETIES.length];
+}
+
+function activityResultIndex(student) {
+  const resultLabels = normalizeActivityVisuals(completionActivity || {}).result_labels;
+  return stableStudentHash(student) % Math.max(1, resultLabels.length);
+}
+
+function activityStageIndex(waterCount, visuals = normalizeActivityVisuals(completionActivity || {})) {
+  const stageCount = Math.max(1, visuals.stage_labels.length);
+  if (stageCount <= 1) return 0;
+  if (waterCount >= ACTIVITY_MAX_PROGRESS) return stageCount - 1;
+  if (waterCount <= 0) return 0;
+  if (stageCount === ACTIVITY_MAX_PROGRESS) {
+    return Math.max(0, Math.min(stageCount - 2, waterCount - 1));
   }
-  if (waterCount >= 3) return { label: "神秘小树苗", className: "is-mystery" };
-  if (waterCount >= 2) return { label: "抽枝", className: "is-branch" };
-  if (waterCount >= 1) return { label: "发芽", className: "is-sprout" };
-  return { label: "盲盒种子", className: "is-seed" };
+  if (stageCount === 2) return 0;
+  const middleCount = Math.max(1, stageCount - 2);
+  const index = Math.ceil((waterCount / (ACTIVITY_MAX_PROGRESS - 1)) * middleCount);
+  return Math.max(1, Math.min(stageCount - 2, index));
+}
+
+function activityVisualAsset(student, waterCount) {
+  const visuals = normalizeActivityVisuals(completionActivity || {});
+  const stageIndex = activityStageIndex(waterCount, visuals);
+  if (waterCount >= ACTIVITY_MAX_PROGRESS) {
+    return visuals.result_images?.[String(activityResultIndex(student))]
+      || visuals.stage_images?.[String(stageIndex)]
+      || null;
+  }
+  return visuals.stage_images?.[String(stageIndex)] || null;
+}
+
+function plantStage(waterCount, variety, student = null) {
+  const visuals = normalizeActivityVisuals(completionActivity || {});
+  const stageIndex = activityStageIndex(waterCount, visuals);
+  const stageLabel = visuals.stage_labels[stageIndex] || ACTIVITY_STAGE_DEFAULTS[Math.min(stageIndex, ACTIVITY_STAGE_DEFAULTS.length - 1)];
+  if (waterCount >= ACTIVITY_MAX_PROGRESS) {
+    const resultLabels = visuals.result_labels;
+    const resultName = student ? resultLabels[activityResultIndex(student)] : variety.name;
+    return { label: resultName ? `${stageLabel} · ${resultName}` : stageLabel, className: "is-bloom" };
+  }
+  if (stageIndex >= 3) return { label: stageLabel, className: "is-mystery" };
+  if (stageIndex >= 2) return { label: stageLabel, className: "is-branch" };
+  if (stageIndex >= 1) return { label: stageLabel, className: "is-sprout" };
+  return { label: stageLabel, className: "is-seed" };
 }
 
 function clearCompletionImage() {
@@ -669,13 +1066,40 @@ function drawActivityPlant(ctx, x, y, size, student) {
   }
 }
 
-function generateActivityImage() {
+const activityImageCache = new Map();
+
+function loadActivityCanvasImage(url) {
+  if (!url) return Promise.resolve(null);
+  if (activityImageCache.has(url)) return activityImageCache.get(url);
+  const promise = new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = url;
+  });
+  activityImageCache.set(url, promise);
+  return promise;
+}
+
+function drawActivityUploadedImage(ctx, x, y, size, image) {
+  fillRoundedRect(ctx, x, y, size, size, 16, "#f4fbf6");
+  strokeRoundedRect(ctx, x, y, size, size, 16, "rgba(39, 128, 100, 0.16)");
+  if (!image) return;
+  const padding = 10;
+  const box = size - padding * 2;
+  const ratio = Math.min(box / image.width, box / image.height);
+  const width = image.width * ratio;
+  const height = image.height * ratio;
+  ctx.drawImage(image, x + padding + (box - width) / 2, y + padding + (box - height) / 2, width, height);
+}
+
+async function generateActivityImage() {
   if (!activeClass) {
     setDetailMessage("请先进入班级后再生成活动展示图。", true);
     return;
   }
-  if (!activeClass.completion_activity) {
-    setDetailMessage("该班级还未参与 6月完课活动，请先在活动通知里选择参与班级。", true);
+  if (!activeClass.completion_activity || !completionActivity) {
+    setDetailMessage(`该班级还未参与 ${activityLabel()}，请先在活动通知里选择参与班级。`, true);
     return;
   }
 
@@ -685,20 +1109,23 @@ function generateActivityImage() {
     return;
   }
 
-  const rows = students.map((student) => {
+  const activityVisuals = normalizeActivityVisuals(completionActivity || {});
+  const rows = await Promise.all(students.map(async (student) => {
     const waterCount = studentWaterCount(student);
     const variety = plantVariety(student);
+    const asset = activityVisualAsset(student, waterCount);
     return {
       student,
       waterCount,
       variety,
-      stage: plantStage(waterCount, variety),
+      stage: plantStage(waterCount, variety, student),
+      image: await loadActivityCanvasImage(asset?.url),
     };
-  });
+  }));
   const totalWater = rows.reduce((total, row) => total + row.waterCount, 0);
-  const maxWater = rows.length * 4;
+  const maxWater = rows.length * ACTIVITY_MAX_PROGRESS;
   const growthRate = maxWater ? (totalWater / maxWater) * 100 : 0;
-  const grownCount = rows.filter((row) => row.waterCount >= 4).length;
+  const grownCount = rows.filter((row) => row.waterCount >= ACTIVITY_MAX_PROGRESS).length;
 
   const width = 1200;
   const margin = 56;
@@ -726,15 +1153,22 @@ function generateActivityImage() {
   fillRoundedRect(ctx, margin, 34, width - margin * 2, 166, 28, headerGradient);
   strokeRoundedRect(ctx, margin, 34, width - margin * 2, 166, 28, "rgba(39, 128, 100, 0.2)");
 
-  drawFitText(ctx, "6月完课活动 · 班级成长花园", margin + 34, 92, 620, {
+  const currentActivityLabel = activityLabel();
+  const currentActivityTitle = completionActivity?.title || "班级成长花园";
+
+  drawFitText(ctx, `${currentActivityLabel} · ${currentActivityTitle}`, margin + 34, 92, 620, {
     font: "900 42px Microsoft YaHei, Arial, sans-serif",
     color: "#183a2f",
   });
-  drawFitText(ctx, `${activeClass.name || "班级"} ｜ 本月种子成长进度`, margin + 36, 135, 620, {
+  const finalStageLabel = activityVisuals.stage_labels[activityVisuals.stage_labels.length - 1] || "满进度";
+  const imageNote = activityVisuals.image_note || completionActivity?.description || "按本月完课任务累计活动进度。";
+  const imageFooter = activityVisuals.image_footer || "本图统计本月当前累计活动进度，补交完成后会自动更新。";
+
+  drawFitText(ctx, `${activeClass.name || "班级"} ｜ 本月活动进度`, margin + 36, 135, 620, {
     font: "800 25px Microsoft YaHei, Arial, sans-serif",
     color: "#4f665d",
   });
-  drawFitText(ctx, "每完成一周任务即可浇水一次，满 4 次后揭晓专属植物。", margin + 36, 172, 760, {
+  drawFitText(ctx, imageNote, margin + 36, 172, 760, {
     font: "700 23px Microsoft YaHei, Arial, sans-serif",
     color: "#60756d",
   });
@@ -750,7 +1184,7 @@ function generateActivityImage() {
     color: "#17624d",
     align: "center",
   });
-  drawFitText(ctx, `${totalWater}/${maxWater} 次浇水 · ${grownCount} 株绽放`, width - margin - 170, 170, 220, {
+  drawFitText(ctx, `${totalWater}/${maxWater} 次进度 · ${grownCount} 人${finalStageLabel}`, width - margin - 170, 170, 220, {
     font: "800 18px Microsoft YaHei, Arial, sans-serif",
     color: "#7c6f4b",
     align: "center",
@@ -761,12 +1195,16 @@ function generateActivityImage() {
     const rowIndex = Math.floor(index / columns);
     const x = margin + col * (cardWidth + cardGap);
     const y = headerHeight + rowIndex * (cardHeight + cardGap);
-    const cardFill = row.waterCount >= 4 ? "#f4fff6" : "#ffffff";
-    const accent = row.waterCount >= 4 ? "#39a978" : row.waterCount > 0 ? "#9ed79e" : "#cfd9d4";
+    const cardFill = row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#f4fff6" : "#ffffff";
+    const accent = row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#39a978" : row.waterCount > 0 ? "#9ed79e" : "#cfd9d4";
 
     fillRoundedRect(ctx, x, y, cardWidth, cardHeight, 18, cardFill);
     strokeRoundedRect(ctx, x, y, cardWidth, cardHeight, 18, accent, 2);
-    drawActivityPlant(ctx, x + 18, y + 21, 104, row.student);
+    if (row.image) {
+      drawActivityUploadedImage(ctx, x + 18, y + 21, 104, row.image);
+    } else {
+      drawActivityPlant(ctx, x + 18, y + 21, 104, row.student);
+    }
 
     drawFitText(ctx, row.student.name || "未命名学员", x + 140, y + 42, cardWidth - 172, {
       font: "900 25px Microsoft YaHei, Arial, sans-serif",
@@ -774,39 +1212,39 @@ function generateActivityImage() {
     });
     drawFitText(ctx, row.stage.label, x + 140, y + 72, cardWidth - 172, {
       font: "800 18px Microsoft YaHei, Arial, sans-serif",
-      color: row.waterCount >= 4 ? "#17624d" : "#6b7c73",
+      color: row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#17624d" : "#6b7c73",
     });
-    drawFitText(ctx, `本月已浇水 ${row.waterCount}/4 次`, x + 140, y + 105, 220, {
+    drawFitText(ctx, `本月进度 ${row.waterCount}/${ACTIVITY_MAX_PROGRESS} 次`, x + 140, y + 105, 220, {
       font: "900 24px Microsoft YaHei, Arial, sans-serif",
-      color: row.waterCount >= 4 ? "#17624d" : "#3d4c5d",
+      color: row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#17624d" : "#3d4c5d",
     });
-    drawFitText(ctx, `${Math.round((row.waterCount / 4) * 100)}%`, x + cardWidth - 34, y + 105, 150, {
+    drawFitText(ctx, `${Math.round((row.waterCount / ACTIVITY_MAX_PROGRESS) * 100)}%`, x + cardWidth - 34, y + 105, 150, {
       font: "800 18px Microsoft YaHei, Arial, sans-serif",
       color: "#6b7c73",
       align: "right",
     });
 
     fillRoundedRect(ctx, x + 140, y + 122, cardWidth - 174, 9, 5, "#e4ece8");
-    fillRoundedRect(ctx, x + 140, y + 122, (cardWidth - 174) * (row.waterCount / 4), 9, 5, "#39a978");
-    fillRoundedRect(ctx, x + cardWidth - 132, y + 24, 100, 32, 16, row.waterCount >= 4 ? "#d9f2d4" : "#fbf1cb");
-    drawFitText(ctx, `${row.waterCount}/4`, x + cardWidth - 82, y + 46, 82, {
+    fillRoundedRect(ctx, x + 140, y + 122, (cardWidth - 174) * (row.waterCount / ACTIVITY_MAX_PROGRESS), 9, 5, "#39a978");
+    fillRoundedRect(ctx, x + cardWidth - 132, y + 24, 100, 32, 16, row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#d9f2d4" : "#fbf1cb");
+    drawFitText(ctx, `${row.waterCount}/${ACTIVITY_MAX_PROGRESS}`, x + cardWidth - 82, y + 46, 82, {
       font: "900 19px Microsoft YaHei, Arial, sans-serif",
       color: "#203247",
       align: "center",
     });
   });
 
-  drawFitText(ctx, "小提示：本图统计本月当前累计种子成长进度，补交完成后会自动更新浇水次数。", width / 2, height - 22, width - margin * 2, {
+  drawFitText(ctx, imageFooter, width / 2, height - 22, width - margin * 2, {
     font: "700 18px Microsoft YaHei, Arial, sans-serif",
     color: "#7a8b84",
     align: "center",
   });
 
-  const title = `${activeClass.name || "班级"} 6月完课活动 本月成长进度`;
+  const title = `${activeClass.name || "班级"} ${currentActivityLabel} 本月成长进度`;
   const imageUrl = canvas.toDataURL("image/png");
   const fileName = `${title.replace(/[\\/:*?"<>|]/g, "_")}.png`;
   setGeneratedImage(
-    "6月完课活动展示图",
+    `${currentActivityLabel}展示图`,
     imageUrl,
     fileName,
     `已生成 ${title} 活动展示图，可预览或下载。`
@@ -929,6 +1367,7 @@ function toggleCompletionImagePreview() {
 function renderClassList() {
   if (!classList) return;
   renderActivityClassOptions();
+  const activeActivityBadge = escapeText(activityLabel());
 
   if (!classes.length) {
     classList.innerHTML = `<div class="empty-state">暂无班级，请先添加自己的班级。</div>`;
@@ -939,18 +1378,34 @@ function renderClassList() {
     .map((item) => {
       const isEditing = editingClassId === item.id;
       const note = String(item.note || "").trim();
+      const titleWeekNumber = currentClassTitleWeekNumber(item);
       return `
         <article class="class-card ${item.completion_activity ? "is-activity-class" : ""}">
           <div>
             <div class="class-card-topline">
               <span class="module-eyebrow">班级</span>
-              ${item.completion_activity ? '<span class="class-activity-badge">6月活动中</span>' : ""}
+              <div class="class-card-badges">
+                ${titleWeekNumber ? `<span class="class-week-badge">W${escapeText(titleWeekNumber)}</span>` : ""}
+                ${item.completion_activity ? `<span class="class-activity-badge">${activeActivityBadge}中</span>` : ""}
+              </div>
             </div>
             ${isEditing ? `
               <form class="class-edit-form" data-class-edit-form="${item.id}">
                 <label>
                   <span>班级名称</span>
                   <input name="name" type="text" value="${escapeText(item.name)}" autocomplete="off">
+                </label>
+                <label>
+                  <span>周数 W</span>
+                  <input
+                    name="title_week_number"
+                    type="text"
+                    inputmode="numeric"
+                    value="${escapeText(titleWeekNumber)}"
+                    placeholder="例如 23"
+                    autocomplete="off"
+                  >
+                  <small>保存后会按每周周期自动 +1。</small>
                 </label>
                 <label>
                   <span>班级备注</span>
@@ -964,6 +1419,7 @@ function renderClassList() {
             ` : `
               <h2>${escapeText(item.name)}</h2>
               <p>${item.student_count || 0} 名学员${item.teacher_name ? ` · ${escapeText(item.teacher_name)}` : ""}</p>
+              ${titleWeekNumber ? `<p class="class-week-note">当前标题周数：W${escapeText(titleWeekNumber)}</p>` : ""}
               <p class="class-note ${note ? "" : "is-empty"}">${escapeText(note || "暂无备注，点击编辑信息补充。")}</p>
             `}
           </div>
@@ -1005,13 +1461,14 @@ function renderClassList() {
       event.preventDefault();
       const name = form.elements.name.value.trim();
       const note = form.elements.note.value.trim();
+      const titleWeekNumber = form.elements.title_week_number.value.trim();
       if (!name) {
         setClassMessage("请输入班级名称。", true);
         form.elements.name.focus();
         return;
       }
       try {
-        await updateClassDetails(form.dataset.classEditForm, { name, note });
+        await updateClassDetails(form.dataset.classEditForm, { name, note, title_week_number: titleWeekNumber });
         editingClassId = null;
         renderClassList();
         setClassMessage("班级信息已更新。");
@@ -1022,8 +1479,56 @@ function renderClassList() {
   });
 }
 
+function renderTeamClassOverview() {
+  if (!teamClassOverview) return;
+  const summary = teamClassSummary;
+  if (!summary?.groups?.length) {
+    teamClassOverview.innerHTML = "";
+    teamClassOverview.classList.add("is-hidden");
+    return;
+  }
+  const groups = summary.groups || [];
+  teamClassOverview.classList.remove("is-hidden");
+  teamClassOverview.innerHTML = `
+    <details class="team-class-overview-detail">
+      <summary class="team-class-overview-head">
+        <span class="module-eyebrow">组员班级</span>
+        <strong>${summary.class_count || 0} 个班级 · ${summary.student_count || 0} 名学员</strong>
+        <em>点击展开</em>
+      </summary>
+      <div class="team-class-overview-grid">
+        ${groups.map((group) => {
+          const hasClasses = Number(group.class_count || 0) > 0;
+          return `
+            <details class="team-class-group" ${hasClasses ? "" : "data-empty-group"}>
+              <summary>
+                <span>${escapeText(group.name || "未识别老师")}</span>
+                <em>${group.class_count || 0} 班 · ${group.student_count || 0} 人</em>
+              </summary>
+              <div class="team-class-list">
+                ${hasClasses ? group.classes.map((item) => `
+                  <div class="team-class-row">
+                    <span title="${escapeText(item.name)}">${escapeText(item.name)}</span>
+                    <strong>${item.student_count || 0} 人</strong>
+                  </div>
+                `).join("") : `<div class="team-class-empty">暂无班级</div>`}
+              </div>
+            </details>
+          `;
+        }).join("")}
+      </div>
+    </details>
+  `;
+}
+
 function renderActivityClassOptions() {
   if (!activityClassSelect) return;
+  if (!completionActivity) {
+    activityClassSelect.disabled = true;
+    activityClassSelect.innerHTML = `<option value="">暂无进行中的完课活动</option>`;
+    return;
+  }
+  activityClassSelect.disabled = false;
   const currentValue = activityClassSelect.value;
   activityClassSelect.innerHTML = `
     <option value="">选择参与班级</option>
@@ -1122,6 +1627,9 @@ function showReminderDetail(item) {
   if (reminderConfirmCopy) {
     reminderConfirmCopy.textContent = `当前读取到的完成度为 ${formatCompletion(item.completion_rate)}，上个月完课率为 ${formatCompletion(item.last_month_completion)}。如果这不是最新数据，请先上传最新完课数据。`;
   }
+  if (item.action_state?.completed) {
+    renderReminderArrangement().catch((error) => setReminderDetailMessage(error.message, true));
+  }
 }
 
 function hasReminderRate(rate) {
@@ -1174,36 +1682,36 @@ function reminderPromptForStudent(student = {}, stats = {}) {
   const uploaded = stats.uploaded || [];
 
   if (!uploaded.length) {
-    return "暂无已上传完课明细，先确认这个学员是否在最新表格中。";
+    return "暂无最新完课明细，先确认该学员是否在最新数据中。";
   }
 
   if (!incomplete.length) {
     return category === "完课超赞"
-      ? "已上传日期均达100%，适合在群里点名表扬并保持节奏。"
-      : "已上传日期均达100%，先正向反馈，继续观察后续数据。";
+      ? "已上传日期均达100%，可群内表扬并继续观察。"
+      : "已上传日期均达100%，先正向反馈，继续保持。";
   }
 
   const days = summarizeReminderDays(incomplete);
-  const zeroCount = incomplete.filter((item) => item.value <= 0).length;
-  const zeroHint = zeroCount ? `其中${zeroCount}天为0%，` : "";
   let prompt = "";
 
   if (category === "长期不上课") {
-    prompt = `${days}未达100%，${zeroHint}优先私信家长确认固定学习时间和补交截止。`;
+    prompt = "建议去电了解：孩子这段时间没有上课，是怎么了？";
   } else if (category === "异常断课") {
-    prompt = `${days}出现断点，先问清卡点，再提醒当天补齐缺口。`;
+    prompt = "建议去电了解：小朋友之前完成得不错，最近落下进度了呢，是怎么了？";
+  } else if (category === "断续上课") {
+    prompt = "建议去电了解：小朋友有在打卡，但是会有很多遗漏的任务。";
   } else if (category === "周末欠缺") {
-    prompt = `${days}未达100%，重点提醒周末或收尾任务按时补交。`;
+    prompt = "宝贝上课完成得不错哟，周末的作业没有提交哦。";
   } else if (category === "偶尔断课") {
-    prompt = `${days}未达100%，轻提醒一次并约定今天完成。`;
+    prompt = "宝贝上课整体不错，中间会有些遗漏，有计划什么时间补上呢？";
   } else if (category === "完课超赞") {
-    prompt = `${days}有波动，先鼓励再提醒补齐，避免从满分状态掉队。`;
+    prompt = "整体完成不错，轻提醒补齐遗漏任务即可。";
   } else {
-    prompt = `${days}未达100%，先私信确认原因并同步补交时间。`;
+    prompt = "先确认未完成原因，再同步补交时间。";
   }
 
   if (task === "回收") {
-    return `回收重点：核对${days}是否已补齐，未补齐再私信一次。`;
+    return `回收重点：核对${days}是否已补齐，未补齐再跟进一次。`;
   }
   if (task === "重点复催") {
     return `重点复催：${prompt}`;
@@ -1232,6 +1740,10 @@ function renderReminderStudentRows(students = []) {
         student,
         stats,
         prompt: reminderPromptForStudent(student, stats),
+        phone_call: {
+          completed: false,
+          completed_at: "",
+        },
       };
     })
     .sort((first, second) => {
@@ -1241,8 +1753,46 @@ function renderReminderStudentRows(students = []) {
     });
 }
 
+function reminderNowText() {
+  const value = new Date();
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}`;
+}
+
+function reminderNeedsPhoneCall(row = {}) {
+  return String(row.prompt || "").includes("去电");
+}
+
+function renderReminderPromptCell(row = {}, rowIndex = 0, canRecordPhoneCall = false) {
+  const phoneCall = row.phone_call || {};
+  const needsPhoneCall = reminderNeedsPhoneCall(row);
+  return `
+    <td class="reminder-student-prompt">
+      <span>${escapeText(row.prompt || "")}</span>
+      ${needsPhoneCall && canRecordPhoneCall ? `
+        <label class="reminder-call-check ${phoneCall.completed ? "is-checked" : ""}">
+          <input type="checkbox" data-reminder-call-index="${rowIndex}" ${phoneCall.completed ? " checked" : ""}>
+          <span>已去电</span>
+          <small>${phoneCall.completed_at ? `记录：${escapeText(phoneCall.completed_at)}` : ""}</small>
+        </label>
+      ` : ""}
+    </td>
+  `;
+}
+
+function renderReminderStudentName(student = {}) {
+  const name = escapeText(student.name || "-");
+  const enrolled = Boolean(student.renewal_enrolled);
+  return `
+    <span class="reminder-student-name-wrap">
+      <span>${name}</span>
+      ${enrolled ? `<span class="reminder-renewal-badge" title="已续费">续</span>` : ""}
+    </span>
+  `;
+}
+
 function renderReminderStudentTable(rows = [], options = {}) {
-  const title = options.title || "学员每日完课与催课提示";
+  const title = options.title || "学员每日完课与催课建议";
   const subtitle = options.subtitle || "按需催课学员优先展示";
   const emptyText = options.emptyText || "当前班级暂无学员明细，请先在“我的班级”上传完课数据。";
   if (!rows.length) {
@@ -1269,7 +1819,9 @@ function renderReminderStudentTable(rows = [], options = {}) {
     )))
     .join("");
   const bodyRows = rows
-    .map(({ student, stats, prompt }) => {
+    .map((row, rowIndex) => {
+      const { student, stats } = row;
+      const canRecordPhoneCall = activeReminderClass?.task_label !== "回收" && !activeReminderClass?.action_state?.completed;
       const dayCells = WEEK_KEYS
         .flatMap((week) => stats.weeks[week].map((rate, dayIndex) => (
           `<td class="${dayIndex === 0 ? "week-group-start" : ""}">${renderReminderDayCell(rate)}</td>`
@@ -1277,11 +1829,11 @@ function renderReminderStudentTable(rows = [], options = {}) {
         .join("");
       return `
         <tr>
-          <td class="reminder-student-name">${escapeText(student.name || "-")}</td>
-          <td>${escapeText(student.account || "-")}</td>
-          <td>${renderHabitCell(stats.category)}</td>
-          <td>${renderMonthlyCell(student.monthly_completion)}</td>
-          <td class="reminder-student-prompt">${escapeText(prompt)}</td>
+          <td class="reminder-student-name reminder-sticky-col reminder-sticky-name">${renderReminderStudentName(student)}</td>
+          <td class="reminder-sticky-col reminder-sticky-account">${escapeText(student.account || "-")}</td>
+          <td class="reminder-sticky-col reminder-sticky-category">${renderHabitCell(stats.category)}</td>
+          <td class="reminder-sticky-col reminder-sticky-completion">${renderMonthlyCell(student.monthly_completion)}</td>
+          ${renderReminderPromptCell(row, rowIndex, canRecordPhoneCall)}
           ${dayCells}
         </tr>
       `;
@@ -1298,11 +1850,11 @@ function renderReminderStudentTable(rows = [], options = {}) {
         <table class="reminder-student-table">
           <thead>
             <tr>
-              <th rowspan="2">学员姓名</th>
-              <th rowspan="2">学员账号</th>
-              <th rowspan="2">学员分类</th>
-              <th rowspan="2">本月完成度</th>
-              <th class="reminder-prompt-head" rowspan="2">一句话提示</th>
+              <th class="reminder-sticky-col reminder-sticky-name" rowspan="2">学员姓名</th>
+              <th class="reminder-sticky-col reminder-sticky-account" rowspan="2">学员账号</th>
+              <th class="reminder-sticky-col reminder-sticky-category" rowspan="2">学员分类</th>
+              <th class="reminder-sticky-col reminder-sticky-completion" rowspan="2">本月完成度</th>
+              <th class="reminder-prompt-head" rowspan="2">催课建议</th>
               ${weekHeaders}
             </tr>
             <tr>${dayHeaders}</tr>
@@ -1417,14 +1969,19 @@ function reminderRecoveryResult(student = {}, currentRows = []) {
   };
 }
 
-function reminderStudentPayload({ student, stats, prompt }) {
+function reminderStudentPayload({ student, stats, prompt, phone_call }) {
   return {
     id: student.id || "",
     name: student.name || "",
     account: student.account || "",
     category: stats.category || "暂无数据",
     monthly_completion: student.monthly_completion,
+    renewal_enrolled: Boolean(student.renewal_enrolled),
     prompt,
+    phone_call: {
+      completed: Boolean(phone_call?.completed),
+      completed_at: phone_call?.completed_at || "",
+    },
     weeks: stats.weeks,
     incomplete_days: stats.incomplete,
     uploaded_days: stats.uploaded,
@@ -1448,6 +2005,23 @@ async function loadReminderRecoveryRecords(item = {}) {
   return data.records || [];
 }
 
+function reminderActionQuery(item = {}) {
+  const params = new URLSearchParams();
+  params.set("class_name", item.class_name || "");
+  params.set("day_key", item.day_key || "");
+  params.set("task_label", item.task_label || "催课");
+  params.set("recover_from", item.recover_from || "");
+  if (item.teacher_id) params.set("teacher_id", item.teacher_id);
+  return params.toString();
+}
+
+async function loadReminderActionRecords(item = {}) {
+  const query = reminderActionQuery(item);
+  if (!query) return [];
+  const data = await apiRequest(`/api/database/completion-reminders/action-records?${query}`);
+  return data.records || [];
+}
+
 function renderReminderSnapshotDayCell(rate) {
   return renderReminderDayCell(rate);
 }
@@ -1458,6 +2032,90 @@ function renderReminderRecoveryResultCell(result = {}) {
       <strong>${escapeText(result.label || "-")}</strong>
       <span>${escapeText(result.detail || "")}</span>
     </div>
+  `;
+}
+
+function reminderRecordTime(record = {}) {
+  return record.recovered_at || record.completed_at || record.created_at || "-";
+}
+
+function reminderStudentIncompleteLabels(student = {}) {
+  const labels = (student.incomplete_days || [])
+    .map((item) => item.label || `${weekLabel(item.week)}第${item.day}天`)
+    .filter(Boolean);
+  return labels.join("、") || "无";
+}
+
+function renderReminderSavedStudentRows(students = []) {
+  if (!students.length) {
+    return `
+      <tr>
+        <td colspan="7" class="reminder-saved-empty">本次完成时没有需催课学员。</td>
+      </tr>
+    `;
+  }
+  return students.map((student) => `
+    <tr>
+      <td class="reminder-student-name">${renderReminderStudentName(student)}</td>
+      <td>${escapeText(student.account || "-")}</td>
+      <td>${renderHabitCell(student.category || "暂无数据")}</td>
+      <td>${renderMonthlyCell(student.monthly_completion)}</td>
+      <td class="reminder-saved-days">${escapeText(reminderStudentIncompleteLabels(student))}</td>
+      <td class="reminder-student-prompt">${escapeText(student.prompt || "")}</td>
+      <td>${renderReminderPhoneCallRecord(student)}</td>
+    </tr>
+  `).join("");
+}
+
+function renderReminderPhoneCallRecord(student = {}) {
+  const phoneCall = student.phone_call || {};
+  const needsPhoneCall = String(student.prompt || "").includes("去电");
+  if (phoneCall.completed) {
+    return `
+      <span class="reminder-call-record is-done">
+        已去电${phoneCall.completed_at ? ` · ${escapeText(phoneCall.completed_at)}` : ""}
+      </span>
+    `;
+  }
+  if (needsPhoneCall) {
+    return `<span class="reminder-call-record is-pending">建议去电，未勾选</span>`;
+  }
+  return `<span class="reminder-call-record">无需去电</span>`;
+}
+
+function renderReminderActionRecords(records = []) {
+  if (!records.length) return "";
+  return `
+    <section class="reminder-saved-section">
+      <div class="reminder-section-head">
+        <h3>已完成催课记录</h3>
+        <span>管理员可核查本次实际催课学员</span>
+      </div>
+      ${records.map((record) => `
+        <article class="reminder-saved-record">
+          <div class="reminder-recovery-record-head">
+            <strong>${escapeText(record.teacher_name || "-")} · ${escapeText(record.class_name || "-")}</strong>
+            <span>${escapeText(record.origin_day_label || record.recovery_day_label || "-")} ${escapeText(record.task_label || "催课")} · ${Number(record.student_count || 0)} 名 · ${escapeText(reminderRecordTime(record))}</span>
+          </div>
+          <div class="reminder-table-wrap">
+            <table class="reminder-priority-table reminder-saved-table">
+              <thead>
+                <tr>
+                  <th>学员姓名</th>
+                  <th>学员账号</th>
+                  <th>催课时分类</th>
+                  <th>催课时完成度</th>
+                  <th>未完成任务</th>
+                  <th>催课建议</th>
+                  <th>去电记录</th>
+                </tr>
+              </thead>
+              <tbody>${renderReminderSavedStudentRows(record.students || [])}</tbody>
+            </table>
+          </div>
+        </article>
+      `).join("")}
+    </section>
   `;
 }
 
@@ -1487,7 +2145,7 @@ function renderReminderSnapshotTable(students = [], currentRows = []) {
       .join("、") || "无";
     return `
       <tr>
-        <td class="reminder-student-name">${escapeText(student.name || "-")}</td>
+        <td class="reminder-student-name">${renderReminderStudentName(student)}</td>
         <td>${escapeText(student.account || "-")}</td>
         <td>${renderHabitCell(student.category || "暂无数据")}</td>
         <td>${renderMonthlyCell(student.monthly_completion)}</td>
@@ -1510,7 +2168,7 @@ function renderReminderSnapshotTable(students = [], currentRows = []) {
             <th rowspan="2">催课时完成度</th>
             <th rowspan="2">回收结果</th>
             <th rowspan="2">催课时未达标日期</th>
-            <th rowspan="2">催课时提示</th>
+            <th rowspan="2">催课时建议</th>
             ${weekHeaders}
           </tr>
           <tr>${dayHeaders}</tr>
@@ -1567,6 +2225,16 @@ function renderReminderRecoveryNewNeeds(rows = [], records = []) {
 
 function renderReminderCompletionBar(rows = [], records = []) {
   const task = activeReminderClass?.task_label || "催课";
+  const actionState = activeReminderClass?.action_state || {};
+  if (actionState.completed) {
+    const completedLabel = actionState.label || (task === "回收" ? "已完成回收" : "已完成催课");
+    const completedAt = actionState.completed_at ? ` · ${actionState.completed_at}` : "";
+    return `
+      <section class="reminder-arrangement-empty">
+        ${escapeText(`${completedLabel}${completedAt}，下方可核查本次保存的学员名单。`)}
+      </section>
+    `;
+  }
   const needRows = reminderRowsNeedingFollowUp(rows);
   const isRecovery = task === "回收";
   const buttonText = isRecovery ? "已完成回收" : "已完成催课";
@@ -1586,12 +2254,34 @@ function renderReminderCompletionBar(rows = [], records = []) {
 }
 
 function clearReminderArrangementAfterSave(message) {
-  const sections = reminderArrangementBody?.querySelectorAll(".reminder-student-section, .reminder-recovery-section");
+  const sections = reminderArrangementBody?.querySelectorAll(".reminder-student-section, .reminder-recovery-section, .reminder-saved-section");
   sections?.forEach((section) => section.remove());
   const bar = reminderArrangementBody?.querySelector("[data-reminder-complete-bar]");
   if (bar) {
     bar.outerHTML = `<section class="reminder-arrangement-empty">${escapeText(message || "已完成，本次数据已清空。")}</section>`;
   }
+}
+
+function bindReminderPhoneCallInputs() {
+  reminderArrangementBody?.querySelectorAll("[data-reminder-call-index]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const index = Number(checkbox.dataset.reminderCallIndex);
+      const row = activeReminderArrangement?.rows?.[index];
+      if (!row) return;
+      const completed = Boolean(checkbox.checked);
+      const completedAt = completed ? (row.phone_call?.completed_at || reminderNowText()) : "";
+      row.phone_call = {
+        completed,
+        completed_at: completedAt,
+      };
+      const label = checkbox.closest(".reminder-call-check");
+      const timeNode = label?.querySelector("small");
+      label?.classList.toggle("is-checked", completed);
+      if (timeNode) {
+        timeNode.textContent = completed ? `记录：${completedAt}` : "";
+      }
+    });
+  });
 }
 
 async function completeReminderArrangement() {
@@ -1633,6 +2323,7 @@ async function completeReminderArrangement() {
     activeReminderArrangement = null;
     reminderPlanLoaded = false;
     clearReminderArrangementAfterSave(message);
+    loadReminderPlan(true).catch((error) => renderReminderError(error.message));
   } catch (error) {
     if (button) {
       button.disabled = false;
@@ -1643,6 +2334,7 @@ async function completeReminderArrangement() {
 }
 
 function bindReminderArrangementActions() {
+  bindReminderPhoneCallInputs();
   const button = reminderArrangementBody?.querySelector("[data-reminder-complete-action]");
   button?.addEventListener("click", () => {
     completeReminderArrangement().catch((error) => setReminderDetailMessage(error.message, true));
@@ -1654,6 +2346,15 @@ function renderReminderArrangementError(message) {
   reminderArrangementBody.innerHTML = `
     <section class="reminder-arrangement-empty">${escapeText(message)}</section>
   `;
+}
+
+async function fetchReminderMatchedClass(item = {}) {
+  const params = new URLSearchParams();
+  if (item.class_id) params.set("class_id", item.class_id);
+  if (item.class_name) params.set("class_name", item.class_name);
+  if (item.teacher_id) params.set("teacher_id", item.teacher_id);
+  const data = await apiRequest(`/api/classes/reminder-match?${params.toString()}`);
+  return data.class || null;
 }
 
 async function renderReminderArrangement() {
@@ -1672,18 +2373,22 @@ async function renderReminderArrangement() {
   if (!classes.length) {
     await loadClasses();
   }
-  const localClass = findLocalClassForReminder(activeReminderClass);
-  if (!localClass) {
-    renderReminderArrangementError("当前账号的“我的班级”里没有匹配到这个班级，暂时无法读取学员每日完课明细。请先在我的班级中添加或选择同名班级。");
-    return;
-  }
-
+  let localClass = findLocalClassForReminder(activeReminderClass);
   let classData = null;
   try {
-    const data = await apiRequest(`/api/classes/${localClass.id}`);
-    classData = data.class || null;
+    if (localClass) {
+      const data = await apiRequest(`/api/classes/${localClass.id}`);
+      classData = data.class || null;
+    } else {
+      classData = await fetchReminderMatchedClass(activeReminderClass);
+      localClass = classData;
+    }
   } catch (error) {
-    renderReminderArrangementError(error.message);
+    renderReminderArrangementError(`${error.message} 如需查看，请确认该班级已在对应组员的“我的班级”中添加并上传过学员完课数据。`);
+    return;
+  }
+  if (!classData) {
+    renderReminderArrangementError("暂时无法读取该班级学员每日完课明细。请确认该班级已在对应组员的“我的班级”中添加并上传过学员完课数据。");
     return;
   }
 
@@ -1691,7 +2396,8 @@ async function renderReminderArrangement() {
   const rows = renderReminderStudentRows(students);
   const needReminderCount = rows.filter((row) => row.stats.incomplete.length > 0).length;
   const recoveryRecords = await loadReminderRecoveryRecords(activeReminderClass);
-  activeReminderArrangement = { localClass, classData, rows, recoveryRecords };
+  const actionRecords = await loadReminderActionRecords(activeReminderClass);
+  activeReminderArrangement = { localClass, classData, rows, recoveryRecords, actionRecords };
 
   reminderArrangementBody.innerHTML = `
     <section class="reminder-arrangement-summary">
@@ -1716,6 +2422,7 @@ async function renderReminderArrangement() {
         <strong class="${needReminderCount > 0 ? "is-negative" : "is-positive"}">${needReminderCount}</strong>
       </div>
     </section>
+    ${renderReminderActionRecords(actionRecords)}
     ${renderReminderCompletionBar(rows, recoveryRecords)}
     ${renderReminderRecoveryRecords(recoveryRecords, rows)}
     ${renderReminderRecoveryNewNeeds(rows, recoveryRecords)}
@@ -1824,7 +2531,16 @@ function reminderClassChips(items = [], emptyText = "无", context = {}) {
   }
   return items.map((item) => {
     const actionState = item.action_state || {};
+    const uploadState = item.upload_state || {};
     const isCompleted = Boolean(actionState.completed);
+    const showUploadMark = Boolean(reminderTodayKey && context.dayKey === reminderTodayKey);
+    const uploadClass = !uploadState.matched ? "is-missing" : uploadState.is_fresh ? "is-fresh" : "is-stale";
+    const uploadText = !uploadState.matched ? "未匹配" : uploadState.is_fresh ? "今日数据" : "未更新";
+    const uploadTitle = !uploadState.matched
+      ? "未匹配到老师我的班级"
+      : uploadState.is_fresh
+        ? `今日已导入：${uploadState.updated_at || uploadState.updated_date || ""}`
+        : `未导入今日数据${uploadState.updated_date ? `，上次导入：${uploadState.updated_date}` : ""}`;
     const completedTitle = actionState.completed_at
       ? `${actionState.label || "已完成"}：${actionState.completed_at}`
       : (actionState.label || "已完成");
@@ -1841,6 +2557,7 @@ function reminderClassChips(items = [], emptyText = "无", context = {}) {
         ${isCompleted ? `<span class="reminder-done-mark" title="${escapeText(completedTitle)}">✅</span>` : ""}
         <em>${item.rank ? `#${item.rank}` : (item.source === "my_class" ? "补" : "库")}</em>
         <span class="reminder-class-chip-name">${escapeText(item.class_name)}</span>
+        ${showUploadMark ? `<small class="reminder-upload-mark ${uploadClass}" title="${escapeText(uploadTitle)}">${escapeText(uploadText)}</small>` : ""}
       </button>
     `;
   }).join("");
@@ -1903,16 +2620,54 @@ function renderReminderSchedule(groups = []) {
 
 function renderReminderPlan(data) {
   const summary = data?.summary || {};
-  const sourceDate = data?.snapshot_date ? `当前数据：${data.snapshot_date}` : "当前数据：暂无上传快照";
+  reminderTodayKey = data?.day_key || "";
+  updateReminderTabBadge(data);
+  const shouldShowPriority = !data?.can_manage_all;
+  reminderPriorityShell?.classList.toggle("is-hidden", !shouldShowPriority);
+  const sourceDate = data?.plan_source_date
+    ? `本周固定数据：${data.plan_source_date}`
+    : (data?.snapshot_date ? `当前数据：${data.snapshot_date}` : "当前数据：暂无上传快照");
   const lastMonthSource = data?.last_month_source_month ? `上月基准：${data.last_month_source_month}` : "上月基准：暂无";
-  if (reminderPriorityStatus) {
+  if (shouldShowPriority && reminderPriorityStatus) {
     reminderPriorityStatus.textContent = `${sourceDate}，${lastMonthSource}，可排序 ${summary.included_count || 0} 个班级`;
   }
   if (reminderScheduleStatus) {
-    reminderScheduleStatus.textContent = `本周节奏共 ${summary.schedule_count || 0} 个班级，数据库优先 ${summary.database_count || 0} 个，补充我的班级 ${summary.extra_count || 0} 个`;
+    const frozenText = data?.is_frozen ? "本周计划已固定，周内上传新数据不会重排" : "按当前数据生成";
+    reminderScheduleStatus.textContent = `${frozenText}；W41前考核班优先，下降超10%一周三催一回收；共 ${summary.schedule_count || 0} 个班级`;
   }
-  renderReminderPriorities(data?.groups || []);
-  renderReminderSchedule(data?.groups || []);
+  const groups = data?.groups || [];
+  if (shouldShowPriority) {
+    renderReminderPriorities(groups);
+  } else if (reminderPriorityList) {
+    reminderPriorityList.innerHTML = "";
+  }
+  renderReminderSchedule(groups);
+}
+
+function reminderDayTasks(day = {}) {
+  return [
+    ...(day.new_classes || []),
+    ...(day.recover_classes || []),
+    ...(day.focus_classes || []),
+  ];
+}
+
+function reminderPendingCountForToday(data = {}) {
+  const todayKey = data.day_key || "";
+  if (!todayKey) return 0;
+  return (data.groups || []).reduce((count, group) => {
+    const today = (group.schedule || []).find((day) => day.key === todayKey);
+    if (!today) return count;
+    return count + reminderDayTasks(today).filter((item) => !item.action_state?.completed).length;
+  }, 0);
+}
+
+function updateReminderTabBadge(data = {}) {
+  if (!reminderSectionButton) return;
+  const pendingCount = reminderPendingCountForToday(data);
+  reminderSectionButton.classList.toggle("has-reminder-dot", pendingCount > 0);
+  reminderSectionButton.dataset.reminderPending = String(pendingCount);
+  reminderSectionButton.title = pendingCount > 0 ? `今日还有 ${pendingCount} 个催课任务未完成` : "";
 }
 
 async function loadReminderPlan(force = false) {
@@ -1932,31 +2687,38 @@ async function loadReminderPlan(force = false) {
 
 
 function renderActivityProgressCell(student) {
-  if (!activeClass?.completion_activity) return "";
+  if (!activeClass?.completion_activity || !completionActivity) return "";
   const waterCount = studentWaterCount(student);
   const variety = plantVariety(student);
-  const stage = plantStage(waterCount, variety);
+  const stage = plantStage(waterCount, variety, student);
   const revealClass = waterCount >= 3 ? variety.className : "plant-secret";
+  const asset = activityVisualAsset(student, waterCount);
   return `
     <td class="activity-progress-cell">
       <div class="activity-plant-progress">
-        <span class="plant-visual compact ${stage.className} ${revealClass}" aria-hidden="true">
-          <i class="plant-seed"></i>
-          <i class="plant-stem"></i>
-          <i class="plant-leaf left"></i>
-          <i class="plant-leaf right"></i>
-          <i class="plant-branch left"></i>
-          <i class="plant-branch right"></i>
-          <i class="plant-crown"></i>
-          <i class="plant-bloom one"></i>
-          <i class="plant-bloom two"></i>
-          <i class="plant-fruit one"></i>
-          <i class="plant-fruit two"></i>
-        </span>
+        ${asset?.url ? `
+          <span class="activity-progress-thumb">
+            <img src="${escapeText(asset.url)}" alt="${escapeText(stage.label)}">
+          </span>
+        ` : `
+          <span class="plant-visual compact ${stage.className} ${revealClass}" aria-hidden="true">
+            <i class="plant-seed"></i>
+            <i class="plant-stem"></i>
+            <i class="plant-leaf left"></i>
+            <i class="plant-leaf right"></i>
+            <i class="plant-branch left"></i>
+            <i class="plant-branch right"></i>
+            <i class="plant-crown"></i>
+            <i class="plant-bloom one"></i>
+            <i class="plant-bloom two"></i>
+            <i class="plant-fruit one"></i>
+            <i class="plant-fruit two"></i>
+          </span>
+        `}
         <div class="activity-stage-copy">
           <span class="activity-stage-badge ${stage.className}">${stage.label}</span>
-          <strong>${waterCount}/4</strong>
-          <div class="water-progress compact"><i style="width: ${(waterCount / 4) * 100}%"></i></div>
+          <strong>${waterCount}/${ACTIVITY_MAX_PROGRESS}</strong>
+          <div class="water-progress compact"><i style="width: ${(waterCount / ACTIVITY_MAX_PROGRESS) * 100}%"></i></div>
         </div>
       </div>
     </td>
@@ -1964,7 +2726,7 @@ function renderActivityProgressCell(student) {
 }
 
 function syncActivityProgressColumn() {
-  const shouldShow = Boolean(activeClass?.completion_activity);
+  const shouldShow = Boolean(activeClass?.completion_activity && completionActivity);
   const headerRow = document.querySelector(".student-table .week-header-row");
   const dayHeaderRow = document.querySelector(".student-table .day-header-row");
   if (!headerRow || !dayHeaderRow) return;
@@ -1988,6 +2750,10 @@ function syncActivityProgressColumn() {
 }
 
 async function joinCompletionActivity(classId) {
+  if (!completionActivity) {
+    setClassMessage("当前没有进行中的完课活动，请管理员先发布活动。", true);
+    return;
+  }
   if (!classId) {
     setClassMessage("请先选择要参与活动的班级。", true);
     activityClassSelect?.focus();
@@ -1997,14 +2763,17 @@ async function joinCompletionActivity(classId) {
     method: "PATCH",
     body: JSON.stringify({ completion_activity: true }),
   });
+  updateActivityState(data);
   classes = classes.map((item) => (item.id === classId ? data.class : item));
   activeClass = data.class;
+  renderCompletionActivity();
   renderClassList();
   if (activityClassSelect) activityClassSelect.value = classId;
   detailTitle.textContent = activeClass.name;
+  applyClassTitleWeekNumber(true);
   showClassDetail();
   renderStudents();
-  setDetailMessage("该班级已参与 6月完课活动。");
+  setDetailMessage(`该班级已参与 ${activityLabel()}。`);
 }
 
 function renderStudents() {
@@ -2020,7 +2789,7 @@ function renderStudents() {
   studentStatus.textContent = selectedCategory
     ? `${visibleStudents.length} / ${students.length} 名学员${month}`
     : `${students.length} 名学员${month}`;
-  const columnCount = 4 + (activeClass?.completion_activity ? 1 : 0) + (WEEK_KEYS.length * DAY_COUNT);
+  const columnCount = 4 + (activeClass?.completion_activity && completionActivity ? 1 : 0) + (WEEK_KEYS.length * DAY_COUNT);
   const spacerRow = visibleStudents.length
     ? `<tr class="student-scroll-spacer" aria-hidden="true"><td colspan="${columnCount}"></td></tr>`
     : "";
@@ -2082,30 +2851,24 @@ async function loadClasses() {
   const data = await apiRequest("/api/classes");
   classes = data.classes || [];
   classTeachers = data.teachers || classTeachers;
+  teamClassSummary = data.team_summary || null;
+  updateActivityState(data);
+  renderCompletionActivity();
+  renderTeamClassOverview();
   renderClassList();
 }
 
-async function createClass(name, teacherId) {
+async function createClass(name) {
   const data = await apiRequest("/api/classes", {
     method: "POST",
-    body: JSON.stringify({ name, teacher_id: teacherId }),
+    body: JSON.stringify({ name }),
   });
+  updateActivityState(data);
   classes.unshift(data.class);
+  renderCompletionActivity();
   renderClassList();
+  await loadClasses();
   setClassMessage("班级已添加。");
-}
-
-async function updateClassTeacher(classId, teacherId) {
-  const data = await apiRequest(`/api/classes/${classId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ teacher_id: teacherId }),
-  });
-  classes = classes.map((item) => (item.id === classId ? data.class : item));
-  if (activeClass?.id === classId) {
-    activeClass = data.class;
-  }
-  renderClassList();
-  setClassMessage("班主任归属已更新，日报带班人数会同步变化。");
 }
 
 async function updateClassDetails(classId, payload) {
@@ -2113,11 +2876,14 @@ async function updateClassDetails(classId, payload) {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+  updateActivityState(data);
   classes = classes.map((item) => (item.id === classId ? data.class : item));
   if (activeClass?.id === classId) {
     activeClass = data.class;
     detailTitle.textContent = activeClass.name;
+    applyClassTitleWeekNumber(true);
   }
+  renderCompletionActivity();
   renderClassList();
 }
 
@@ -2133,6 +2899,7 @@ async function updateStudentName(studentId, value) {
     method: "PATCH",
     body: JSON.stringify({ name }),
   });
+  updateActivityState(data);
   activeClass = data.class;
   classes = classes.map((item) => (item.id === activeClass.id ? data.class : item));
   renderStudents();
@@ -2143,13 +2910,17 @@ async function deleteClass(classId) {
   await apiRequest(`/api/classes/${classId}`, { method: "DELETE" });
   classes = classes.filter((item) => item.id !== classId);
   renderClassList();
+  await loadClasses();
   setClassMessage("班级已删除。");
 }
 
 async function openClass(classId) {
   const data = await apiRequest(`/api/classes/${classId}`);
+  updateActivityState(data);
+  renderCompletionActivity();
   activeClass = data.class;
   detailTitle.textContent = activeClass.name;
+  applyClassTitleWeekNumber(true);
   showClassDetail();
   clearCompletionImage();
   renderStudents();
@@ -2171,6 +2942,7 @@ async function uploadStudents(file) {
     method: "POST",
     body: formData,
   });
+  updateActivityState(data);
   activeClass = data.class;
   renderStudents();
   await loadClasses();
@@ -2194,6 +2966,7 @@ async function clearMonthData() {
   const data = await apiRequest(`/api/classes/${activeClass.id}/month-data`, {
     method: "DELETE",
   });
+  updateActivityState(data);
   activeClass = data.class;
   clearCompletionImage();
   renderStudents();
@@ -2235,7 +3008,7 @@ function initCompletion() {
       return;
     }
     try {
-      await createClass(name, classTeacherSelect?.value || "");
+      await createClass(name);
       classCreateForm.reset();
     } catch (error) {
       setClassMessage(error.message, true);
@@ -2253,6 +3026,33 @@ function initCompletion() {
     }
   });
 
+  activityAdminToggle?.addEventListener("click", () => {
+    activityAdminPanel?.classList.toggle("is-collapsed");
+    if (activityAdminToggle && activityAdminPanel) {
+      activityAdminToggle.textContent = activityAdminPanel.classList.contains("is-collapsed") ? "打开管理" : "收起管理";
+    }
+  });
+
+  activityAdminForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await saveCompletionActivity();
+    } catch (error) {
+      setClassMessage(error.message, true);
+    }
+  });
+
+  activityPublishButton?.addEventListener("click", () => {
+    publishCompletionActivity().catch((error) => setClassMessage(error.message, true));
+  });
+
+  activityEndButton?.addEventListener("click", () => {
+    endCompletionActivity().catch((error) => setClassMessage(error.message, true));
+  });
+
+  activityStageLabelsInput?.addEventListener("input", () => renderActivityVisualSlots());
+  activityResultLabelsInput?.addEventListener("input", () => renderActivityVisualSlots());
+
   classUploadButton?.addEventListener("click", () => {
     if (!activeClass) {
       setDetailMessage("请先进入班级后再上传表格。", true);
@@ -2263,7 +3063,9 @@ function initCompletion() {
   });
 
   classGenerateCurrentImage?.addEventListener("click", generateCompletionImage);
-  classGenerateActivityImage?.addEventListener("click", generateActivityImage);
+  classGenerateActivityImage?.addEventListener("click", () => {
+    generateActivityImage().catch((error) => setDetailMessage(error.message, true));
+  });
   classImagePreviewToggle?.addEventListener("click", toggleCompletionImagePreview);
 
   classWeekSelect?.addEventListener("change", () => {
@@ -2302,6 +3104,9 @@ function initCompletion() {
   });
 
   loadClasses().catch((error) => setClassMessage(error.message, true));
+  loadReminderPlan().catch(() => {
+    updateReminderTabBadge({});
+  });
 }
 
 initCompletion();
