@@ -894,31 +894,52 @@ function renderCompletionRankingRows(target, rows = []) {
   if (!target) return;
   const sortedRows = rankedRows(rows);
   if (!sortedRows.length) {
-    target.innerHTML = `<tr><td colspan="4" class="database-ranking-empty">暂无可核算完课排名</td></tr>`;
+    target.innerHTML = `<tr><td colspan="4" class="database-ranking-empty">暂无完课完成度排名</td></tr>`;
     return;
   }
   target.innerHTML = sortedRows.map((row) => `
     <tr>
       <td><span class="database-rank-badge rank-${Math.min(row.rank, 3)}">${row.rank}</span></td>
       <td>${escapeDatabaseText(row.teacher_name || "未分配")}</td>
-      <td title="${escapeDatabaseText(row.class_name || "")}">${escapeDatabaseText(row.class_name || "-")}</td>
-      <td class="database-ranking-value">${formatDatabasePercentFixed(row.value)}</td>
+      <td class="database-ranking-value" title="班级：${escapeDatabaseText(row.class_name || "-")}">${formatDatabasePercentFixed(row.value)}</td>
+      <td class="database-ranking-value">${formatDatabasePercentFixed(row.first_tier_achievement)}</td>
     </tr>
   `).join("");
 }
 
-function completionRankingRows(performance = {}) {
-  return (performance.rows || [])
+function completionPerformanceLookup(performance = {}) {
+  const lookup = {};
+  (performance.rows || []).forEach((row) => {
+    const keys = [
+      row.class_id,
+      row.class_name,
+      row.local_class_name,
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+    keys.forEach((key) => {
+      lookup[key] = row;
+    });
+  });
+  return lookup;
+}
+
+function completionRankingRows(completion = {}, performance = {}) {
+  const performanceLookup = completionPerformanceLookup(performance);
+  return (completion.classes || [])
     .map((row) => {
       const completionRate = Number(row.completion_rate);
-      const baseTarget = Number(row.base_target);
-      if (!row.counted || !baseTarget || Number.isNaN(completionRate)) return null;
+      if (Number.isNaN(completionRate)) return null;
+      const classId = row.id || row.class_id;
+      const className = row.name || row.class_name || "-";
+      const performanceRow = performanceLookup[String(classId || "").trim()] || performanceLookup[String(className || "").trim()] || {};
+      const baseTarget = Number(performanceRow.base_target);
+      const firstTierAchievement = baseTarget ? completionRate / baseTarget * 100 : null;
       return {
         teacher_id: row.teacher_id,
         teacher_name: row.teacher_name || "未分配",
-        class_id: row.class_id,
-        class_name: row.class_name || row.local_class_name || "-",
-        value: completionRate / baseTarget * 100,
+        class_id: classId,
+        class_name: className,
+        value: completionRate,
+        first_tier_achievement: firstTierAchievement,
       };
     })
     .filter(Boolean);
@@ -944,7 +965,7 @@ function gmvRankingRows(gmv = {}) {
 function renderDatabaseRankings(data = {}) {
   renderCompletionRankingRows(
     databaseRankCompletionRows,
-    completionRankingRows(data.completion_performance || {})
+    completionRankingRows(data.completion || {}, data.completion_performance || {})
   );
   renderRankingRows(
     databaseRankLearningRows,

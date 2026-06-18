@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260617-ranking-widths') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260618-ranking-one-row') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260612-renewal-message-type') }}" defer></script>
     <script src="{{ url_for('static', filename='js/completion.js', v='20260616-admin-hide-priority') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260607-monthly-archive') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260617-class-rankings') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/database.js', v='20260618-completion-rank-tooltip') }}" defer></script>
     <script src="{{ url_for('static', filename='js/renewal.js', v='20260617-closing-followup') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260604-account-admin') }}" defer></script>
@@ -709,14 +709,14 @@
               <div class="database-ranking-grid">
                 <section class="database-ranking-panel topic-completion">
                   <h3>完课排名</h3>
-                  <span>按一档目标达成率</span>
+                  <span>按班级完成度</span>
                   <table class="database-ranking-table">
                     <thead>
                       <tr>
                         <th>排名</th>
                         <th>班主任</th>
-                        <th>班级</th>
-                        <th>达成率</th>
+                        <th>完成度</th>
+                        <th>一档达成率</th>
                       </tr>
                     </thead>
                     <tbody id="db-rankCompletionRows"></tbody>

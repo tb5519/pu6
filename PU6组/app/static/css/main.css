@@ -4327,20 +4327,19 @@ input {
 
 .topic-completion .database-ranking-table th:nth-child(2),
 .topic-completion .database-ranking-table td:nth-child(2) {
-  max-width: 56px;
+  max-width: 58px;
 }
 
 .topic-completion .database-ranking-table th:nth-child(3),
 .topic-completion .database-ranking-table td:nth-child(3) {
-  max-width: 128px;
-  overflow: hidden;
-  text-align: left;
-  text-overflow: ellipsis;
+  min-width: 68px;
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 .topic-completion .database-ranking-table th:nth-child(4),
 .topic-completion .database-ranking-table td:nth-child(4) {
-  min-width: 58px;
+  min-width: 78px;
   padding-left: 3px;
   padding-right: 3px;
 }
