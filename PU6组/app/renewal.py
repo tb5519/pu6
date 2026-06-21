@@ -300,6 +300,36 @@ def can_read_project(project):
     return can_edit_project(project)
 
 
+def source_class_student_count(source_class):
+    return len(source_class.get("students", [])) if source_class else 0
+
+
+def normalize_locked_student_count(value, fallback=0):
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        count = int(fallback or 0)
+    return max(0, min(count, 9999))
+
+
+def ensure_project_student_count_lock(project, source_class):
+    if "locked_student_count" in project:
+        if "student_count_note" not in project:
+            project["student_count_note"] = ""
+            return True
+        return False
+    project["locked_student_count"] = source_class_student_count(source_class)
+    project["student_count_note"] = str(project.get("student_count_note") or "").strip()[:300]
+    return True
+
+
+def project_student_count(project, source_class):
+    return normalize_locked_student_count(
+        project.get("locked_student_count"),
+        fallback=source_class_student_count(source_class),
+    )
+
+
 def find_project(store, project_id):
     return next((item for item in store.get("projects", []) if item.get("id") == project_id), None)
 
@@ -413,26 +443,29 @@ def normalize_note_entries(record):
                 created_at = ""
             if not text:
                 continue
-            key = (text, created_at)
+            updated_at = str(item.get("updated_at") or "") if isinstance(item, dict) else ""
+            key = (text, created_at, updated_at)
             if key in seen:
                 continue
             seen.add(key)
             entries.append({
                 "text": text[:500],
                 "created_at": created_at,
+                "updated_at": updated_at,
             })
     legacy_note = str(record.get("note") or "").strip()
     if legacy_note and not entries:
         for line in [item.strip() for item in legacy_note.replace("\r", "\n").split("\n")]:
             if not line:
                 continue
-            key = (line, "")
+            key = (line, "", "")
             if key in seen:
                 continue
             seen.add(key)
             entries.append({
                 "text": line[:500],
                 "created_at": str(record.get("followed_at") or ""),
+                "updated_at": "",
             })
     return entries[-30:]
 
@@ -454,6 +487,71 @@ def append_followup_note(record, value):
     record["notes"] = entries
     record["note"] = "\n".join(item.get("text", "") for item in entries if item.get("text"))
     return True
+
+
+def replace_followup_note(record, value):
+    text = str(value or "").strip()
+    current_text = note_history_text(record).strip()
+    if text == current_text:
+        return False
+    if not text:
+        return set_followup_note_entries(record, [])
+    entries = normalize_note_entries(record)
+    created_at = entries[0].get("created_at") if entries else now_iso()
+    return set_followup_note_entries(record, [{
+        "text": text[:500],
+        "created_at": created_at or now_iso(),
+        "updated_at": now_iso() if entries else "",
+    }])
+
+
+def set_followup_note_entries(record, entries):
+    clean_entries = []
+    for item in entries:
+        text = str((item or {}).get("text") or "").strip()
+        if not text:
+            continue
+        clean_entries.append({
+            "text": text[:500],
+            "created_at": str((item or {}).get("created_at") or ""),
+            "updated_at": str((item or {}).get("updated_at") or ""),
+        })
+    clean_entries = clean_entries[-30:]
+    record["notes"] = clean_entries
+    record["note"] = "\n".join(item.get("text", "") for item in clean_entries if item.get("text"))
+    return True
+
+
+def update_followup_note(record, payload):
+    if not isinstance(payload, dict):
+        return False
+    try:
+        index = int(payload.get("index"))
+    except (TypeError, ValueError):
+        return False
+    text = str(payload.get("text") or "").strip()
+    if not text:
+        return False
+    entries = normalize_note_entries(record)
+    if index < 0 or index >= len(entries):
+        return False
+    if entries[index].get("text") == text[:500]:
+        return False
+    entries[index]["text"] = text[:500]
+    entries[index]["updated_at"] = now_iso()
+    return set_followup_note_entries(record, entries)
+
+
+def delete_followup_note(record, payload):
+    try:
+        index = int(payload.get("index") if isinstance(payload, dict) else payload)
+    except (TypeError, ValueError):
+        return False
+    entries = normalize_note_entries(record)
+    if index < 0 or index >= len(entries):
+        return False
+    entries.pop(index)
+    return set_followup_note_entries(record, entries)
 
 
 def append_weekly_followup(record, payload):
@@ -799,6 +897,8 @@ def ensure_upload_project(store, source_class, stage):
         "owner": source_class.get("owner", current_owner()),
         "teacher_id": teacher_id,
         "stage": stage or RENEWAL_STAGES[0],
+        "locked_student_count": source_class_student_count(source_class),
+        "student_count_note": "",
         "student_followups": {},
         "note": "",
         "created_by": current_owner(),
@@ -887,6 +987,8 @@ def leader_plan_counts(project, source_class=None):
 
 def serialize_project(project, classes_by_id):
     source_class = classes_by_id.get(project.get("class_id"))
+    source_count = source_class_student_count(source_class)
+    locked_count = project_student_count(project, source_class)
     teacher_id = (
         normalize_teacher_id(project.get("teacher_id"))
         or (class_teacher_id(source_class) if source_class else "")
@@ -900,7 +1002,9 @@ def serialize_project(project, classes_by_id):
         "owner": project.get("owner", ""),
         "teacher_id": teacher_id,
         "teacher_name": teacher_label(teacher_id),
-        "student_count": 0,
+        "student_count": locked_count,
+        "source_student_count": source_count,
+        "student_count_note": str(project.get("student_count_note") or "").strip(),
         "completion_activity": False,
         "stage": normalize_stage(project.get("stage")),
         "note": str(project.get("note") or "").strip(),
@@ -912,7 +1016,7 @@ def serialize_project(project, classes_by_id):
         output.update({
             "class_name": source_class.get("name", output["class_name"]),
             "class_note": str(source_class.get("note") or "").strip(),
-            "student_count": len(source_class.get("students", [])),
+            "source_student_count": source_count,
             "completion_activity": bool(source_class.get("completion_activity")),
             "owner": source_class.get("owner", output["owner"]),
             "teacher_id": class_teacher_id(source_class),
@@ -1033,7 +1137,13 @@ def teacher_overview(projects, classes_by_id):
 def build_payload():
     store = load_store()
     classes_by_id = class_lookup()
-    if prune_store_followups(store, classes_by_id):
+    changed = prune_store_followups(store, classes_by_id)
+    for project in store.get("projects", []):
+        changed = ensure_project_student_count_lock(
+            project,
+            classes_by_id.get(project.get("class_id")),
+        ) or changed
+    if changed:
         save_store(store)
     projects = [
         serialize_project(project, classes_by_id)
@@ -1116,6 +1226,8 @@ def create_project():
         "owner": source_class.get("owner", current_owner()),
         "teacher_id": teacher_id,
         "stage": normalize_stage(payload.get("stage")),
+        "locked_student_count": source_class_student_count(source_class),
+        "student_count_note": "",
         "student_followups": {},
         "note": "",
         "created_by": current_owner(),
@@ -1140,6 +1252,11 @@ def update_project(project_id):
         project["stage"] = normalize_stage(payload.get("stage"))
     if "note" in payload:
         project["note"] = str(payload.get("note") or "").strip()[:500]
+    if "student_count" in payload or "locked_student_count" in payload:
+        next_count = payload.get("student_count", payload.get("locked_student_count"))
+        project["locked_student_count"] = normalize_locked_student_count(next_count)
+    if "student_count_note" in payload:
+        project["student_count_note"] = str(payload.get("student_count_note") or "").strip()[:300]
     project["updated_at"] = now_iso()
     save_store(store)
     return jsonify(build_payload())
@@ -1153,7 +1270,10 @@ def get_project(project_id):
     if project is None or not can_read_project(project):
         return jsonify({"error": "续费项目不存在。"}), 404
     classes_by_id = class_lookup()
-    if prune_project_followups(project, classes_by_id.get(project.get("class_id"))):
+    source_class = classes_by_id.get(project.get("class_id"))
+    changed = prune_project_followups(project, source_class)
+    changed = ensure_project_student_count_lock(project, source_class) or changed
+    if changed:
         save_store(store)
     return jsonify({"project": serialize_project_detail(project, classes_by_id)})
 
@@ -1195,6 +1315,12 @@ def update_student_enrollment(project_id, student_id):
         had_update = append_general_followup(record, payload.get("general_followup"))
     if "followup_note" in payload:
         had_update = append_followup_note(record, payload.get("followup_note")) or had_update
+    if "followup_note_replace" in payload:
+        had_update = replace_followup_note(record, payload.get("followup_note_replace")) or had_update
+    if "followup_note_update" in payload:
+        had_update = update_followup_note(record, payload.get("followup_note_update")) or had_update
+    if "followup_note_delete" in payload:
+        had_update = delete_followup_note(record, payload.get("followup_note_delete")) or had_update
     if "leader_note" in payload:
         if not can_manage_accounts():
             return jsonify({"error": "只有管理员可以填写盘单。"}), 403

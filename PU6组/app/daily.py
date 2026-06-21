@@ -197,6 +197,72 @@ def saved_rows_by_teacher(report):
     }
 
 
+def submitted_at_by_teacher(report):
+    if not isinstance(report, dict):
+        return {}
+    submitted_map = report.get("submitted_at_by_teacher")
+    if isinstance(submitted_map, dict):
+        return {
+            str(key or "").strip().lower(): str(value or "")
+            for key, value in submitted_map.items()
+            if str(key or "").strip()
+        }
+    submitted_teachers = report.get("submitted_teachers")
+    if isinstance(submitted_teachers, list):
+        return {
+            str(teacher_id or "").strip().lower(): str(report.get("updated_at") or "")
+            for teacher_id in submitted_teachers
+            if str(teacher_id or "").strip()
+        }
+    output = {}
+    for row in report.get("rows", []):
+        teacher_id = str(row.get("teacher_id") or row.get("username") or "").strip().lower()
+        if not teacher_id:
+            continue
+        has_content = any(parse_count(field_value(row, field["key"])) > 0 for field in REPORT_FIELDS)
+        if has_content or weekly_comments_manual_flag(row):
+            output[teacher_id] = str(report.get("updated_at") or "")
+    return output
+
+
+def build_daily_reminder(store, report_date):
+    today_key = datetime.now().strftime("%Y-%m-%d")
+    report = store.get("reports", {}).get(report_date, {})
+    submitted_map = submitted_at_by_teacher(report)
+    teachers = teacher_defaults()
+    missing_teachers = [
+        {
+            "teacher_id": teacher["teacher_id"],
+            "teacher_name": teacher["teacher_name"],
+        }
+        for teacher in teachers
+        if teacher["teacher_id"] not in submitted_map
+    ]
+    current_id = current_teacher_id()
+    current_submitted = bool(current_id and current_id in submitted_map)
+    current_can_submit = bool(current_id and any(teacher["teacher_id"] == current_id for teacher in teachers))
+    is_today = report_date == today_key
+    can_manage = can_manage_daily_report()
+    show_reminder = is_today and (
+        (can_manage and bool(missing_teachers))
+        or (current_can_submit and not current_submitted)
+    )
+    return {
+        "date": report_date,
+        "today": today_key,
+        "is_today": is_today,
+        "can_manage": can_manage,
+        "current_teacher_id": current_id,
+        "current_user_can_submit": current_can_submit,
+        "current_user_submitted": current_submitted,
+        "submitted_count": len(submitted_map),
+        "teacher_count": len(teachers),
+        "missing_count": len(missing_teachers),
+        "missing_teachers": missing_teachers if can_manage else [],
+        "show_reminder": show_reminder,
+    }
+
+
 def calculate_month_totals(store, report_date, rows):
     month_key = selected_month_key(report_date)
     totals = {
@@ -357,6 +423,7 @@ def get_daily_report():
             "teachers": teacher_options(),
             "weekly_base": calculate_weekly_base_totals(store, report_date),
             "updated_at": saved_report.get("updated_at", ""),
+            "reminder": build_daily_reminder(store, report_date),
         }
     )
 
@@ -376,11 +443,19 @@ def save_daily_report():
 
     with DAILY_SAVE_LOCK:
         store = load_daily_store()
+        existing_report = store.get("reports", {}).get(report_date, {})
+        submitted_map = submitted_at_by_teacher(existing_report)
+        submitted_at = now_iso()
+        for row in submitted_rows:
+            teacher_id = str(row.get("teacher_id") or row.get("username") or "").strip().lower()
+            if teacher_id:
+                submitted_map[teacher_id] = submitted_at
         rows = build_report_rows(report_date, store=store, submitted_rows=submitted_rows)
         store.setdefault("reports", {})[report_date] = {
             "date": report_date,
             "rows": rows_for_storage(rows),
-            "updated_at": now_iso(),
+            "updated_at": submitted_at,
+            "submitted_at_by_teacher": submitted_map,
         }
         save_daily_store(store)
         rows = build_report_rows(report_date, store=store)
@@ -391,5 +466,6 @@ def save_daily_report():
             "teachers": teacher_options(),
             "weekly_base": calculate_weekly_base_totals(store, report_date),
             "updated_at": store["reports"][report_date]["updated_at"],
+            "reminder": build_daily_reminder(store, report_date),
         }
     return jsonify(response)

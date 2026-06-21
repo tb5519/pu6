@@ -823,12 +823,17 @@ input {
 }
 
 .app-body {
+  --sidebar-width: 254px;
   min-height: 100vh;
   overflow-x: hidden;
   background:
     radial-gradient(circle at 100% 38%, rgba(177, 116, 255, 0.28), transparent 22%),
     radial-gradient(circle at 0% 92%, rgba(151, 92, 255, 0.26), transparent 24%),
     linear-gradient(135deg, #fff 0%, #fbf8ff 52%, #f2ebff 100%);
+}
+
+.app-body.is-sidebar-collapsed {
+  --sidebar-width: 86px;
 }
 
 .app-header {
@@ -900,7 +905,8 @@ input {
 .workbench {
   min-height: calc(100vh - 78px);
   display: grid;
-  grid-template-columns: 254px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  transition: grid-template-columns 0.2s ease;
 }
 
 .sidebar {
@@ -912,6 +918,7 @@ input {
     radial-gradient(circle at 50% 70%, rgba(255, 255, 255, 0.92), transparent 12%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(245, 237, 255, 0.84));
   overflow: hidden;
+  transition: padding 0.2s ease;
 }
 
 .sidebar::after {
@@ -933,6 +940,68 @@ input {
   gap: 18px;
 }
 
+.sidebar-toggle {
+  position: relative;
+  z-index: 3;
+  min-height: 42px;
+  width: 100%;
+  margin: 0 0 18px;
+  padding: 0 14px;
+  border: 1px solid #e3d8fa;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #4b2db4;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 10px 22px rgba(73, 47, 137, 0.08);
+  font-size: 14px;
+  font-weight: 950;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.sidebar-toggle:hover,
+.sidebar-toggle:focus-visible {
+  border-color: #cdbdf6;
+  background: #fff;
+  box-shadow: 0 14px 26px rgba(95, 61, 193, 0.14);
+  outline: 0;
+}
+
+.sidebar-toggle-icon {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.sidebar-toggle-icon::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 5px;
+  width: 12px;
+  height: 2px;
+  border-radius: 99px;
+  background: currentColor;
+  box-shadow: 0 5px currentColor, 0 10px currentColor;
+}
+
+.sidebar-toggle-icon::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  top: 6px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(135deg);
+  transition: transform 0.18s ease, right 0.18s ease;
+}
+
 .side-menu-item {
   position: relative;
   min-height: 76px;
@@ -951,6 +1020,62 @@ input {
   text-align: left;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.app-body.is-sidebar-collapsed .sidebar {
+  padding: 20px 14px;
+}
+
+.app-body.is-sidebar-collapsed .sidebar::after,
+.app-body.is-sidebar-collapsed .sidebar-cloud {
+  display: none;
+}
+
+.app-body.is-sidebar-collapsed .side-menu {
+  gap: 12px;
+}
+
+.app-body.is-sidebar-collapsed .sidebar-toggle {
+  padding: 0;
+}
+
+.app-body.is-sidebar-collapsed .sidebar-toggle-text,
+.app-body.is-sidebar-collapsed .side-menu-item > span:not(.menu-icon):not(.side-menu-badge) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-body.is-sidebar-collapsed .sidebar-toggle-icon::after {
+  right: 4px;
+  transform: rotate(-45deg);
+}
+
+.app-body.is-sidebar-collapsed .side-menu-item {
+  min-height: 62px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+}
+
+.app-body.is-sidebar-collapsed .menu-icon {
+  width: 38px;
+  height: 38px;
+}
+
+.app-body.is-sidebar-collapsed .side-menu-badge {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 10px;
+  min-width: 10px;
+  height: 10px;
+  padding: 0;
+  overflow: hidden;
+  color: transparent;
 }
 
 .side-menu-item:hover,
@@ -3696,6 +3821,50 @@ input {
   margin: -8px 0 12px;
 }
 
+.daily-reminder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -4px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #ffd1c8;
+  border-radius: 8px;
+  color: #7a271a;
+  background: #fff8f6;
+  box-shadow: 0 10px 24px rgba(217, 45, 32, 0.08);
+}
+
+.daily-reminder.is-hidden {
+  display: none;
+}
+
+.daily-reminder div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.daily-reminder strong {
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.daily-reminder span {
+  color: #7a271a;
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.daily-reminder button {
+  flex: 0 0 auto;
+  border-color: #f3b7a9;
+  color: #9f1c1c;
+  background: #fff;
+}
+
 .daily-workspace {
   display: grid;
   grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
@@ -4821,6 +4990,13 @@ input {
   line-height: 1.2;
 }
 
+.renewal-data-card small {
+  color: #8a80a6;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
 .renewal-data-card strong {
   color: #191143;
   font-size: 18px;
@@ -4898,6 +5074,34 @@ input {
 
 .renewal-detail-summary .renewal-plan-summary.is-clear strong {
   color: #116453;
+}
+
+.renewal-count-summary {
+  align-content: start !important;
+}
+
+.renewal-count-input,
+.renewal-count-note-input {
+  width: 100%;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  color: #191143;
+  background: #fff;
+  font: inherit;
+}
+
+.renewal-count-input {
+  height: 42px;
+  padding: 0 10px;
+  font-size: 28px;
+  font-weight: 950;
+}
+
+.renewal-count-note-input {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 850;
 }
 
 .renewal-student-list {
@@ -5023,7 +5227,7 @@ input {
 }
 
 .renewal-student-name-hover {
-  cursor: help;
+  cursor: default;
 }
 
 .renewal-note-tooltip {
@@ -5056,6 +5260,106 @@ input {
   max-height: 360px;
   overflow: auto;
   font-weight: 750;
+}
+
+.renewal-note-tooltip.is-editable {
+  cursor: text;
+  pointer-events: auto;
+}
+
+.renewal-note-editor-open {
+  overflow: hidden;
+}
+
+.renewal-note-editor-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(37, 28, 72, 0.18);
+}
+
+.renewal-note-editor-modal.is-visible {
+  display: flex;
+}
+
+.renewal-note-editor-card {
+  width: min(360px, calc(100vw - 32px));
+  min-height: min(360px, calc(100vh - 32px));
+  display: grid;
+  grid-template-rows: auto minmax(210px, 1fr) auto;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(216, 205, 244, 0.96);
+  border-radius: 10px;
+  color: #291f55;
+  background: #fff;
+  box-shadow: 0 22px 56px rgba(67, 45, 133, 0.24);
+}
+
+.renewal-note-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.renewal-note-editor-head strong {
+  color: #291f55;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.renewal-note-editor-close {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 1px solid #e3dcf3;
+  border-radius: 8px;
+  color: #746a92;
+  background: #fbf9ff;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.renewal-note-editor-close:hover,
+.renewal-note-editor-close:focus-visible {
+  color: #432d85;
+  background: #f1edf8;
+  outline: 0;
+}
+
+.renewal-note-editor-textarea {
+  width: 100%;
+  min-height: 210px;
+  padding: 12px;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  color: #291f55;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.6;
+  resize: none;
+}
+
+.renewal-note-editor-textarea:focus {
+  border-color: #8d71d6;
+  box-shadow: 0 0 0 3px rgba(141, 113, 214, 0.14);
+  outline: 0;
+}
+
+.renewal-note-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .renewal-student-toolbar {
@@ -5150,6 +5454,71 @@ input {
   background: #dff7ef;
 }
 
+.renewal-student-name-cell {
+  position: relative;
+  padding-right: 30px !important;
+}
+
+.renewal-student-name-line {
+  display: block;
+  min-width: 0;
+}
+
+.renewal-student-name-text {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.renewal-name-note-card {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  width: 10px;
+  height: 10px;
+  min-height: 10px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #f3b33f;
+  box-shadow: 0 0 0 1px rgba(117, 81, 13, 0.18), 0 4px 10px rgba(243, 179, 63, 0.28);
+  cursor: pointer;
+}
+
+.renewal-name-note-card:hover,
+.renewal-name-note-card:focus-visible {
+  background: #d99016;
+  transform: scale(1.14);
+  outline: 0;
+}
+
+.renewal-name-enrolled-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  padding: 0;
+  border: 1px solid #d8cdf4;
+  border-radius: 6px;
+  background: #fbf9ff;
+}
+
+.renewal-name-enrolled-toggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.renewal-name-enrolled-toggle:has(input:checked) {
+  border-color: #91d8b6;
+  background: #dff7ef;
+}
+
 .renewal-followup-select,
 .renewal-followup-note {
   width: 100%;
@@ -5163,6 +5532,16 @@ input {
   font-weight: 850;
 }
 
+.renewal-current-note-cell {
+  min-width: 190px;
+  max-width: 220px;
+  vertical-align: top !important;
+}
+
+.renewal-note-compose {
+  display: block;
+}
+
 .renewal-followup-select {
   min-width: 126px;
   padding: 0 8px;
@@ -5171,16 +5550,6 @@ input {
 .renewal-blocker-select {
   min-width: 108px;
   max-width: 108px;
-}
-
-.renewal-enrolled-head,
-.renewal-enrolled-cell {
-  width: 68px;
-  min-width: 68px;
-  max-width: 68px;
-  padding-left: 4px !important;
-  padding-right: 4px !important;
-  text-align: center !important;
 }
 
 .renewal-leader-plan-head {
@@ -6428,6 +6797,14 @@ input {
     border-bottom: 1px solid #e2d8f6;
   }
 
+  .app-body.is-sidebar-collapsed .sidebar {
+    padding: 18px 20px;
+  }
+
+  .sidebar-toggle {
+    display: none;
+  }
+
   .sidebar::after,
   .sidebar-cloud {
     display: none;
@@ -6442,6 +6819,32 @@ input {
     min-height: 70px;
     padding: 0 14px;
     font-size: 16px;
+  }
+
+  .app-body.is-sidebar-collapsed .side-menu-item {
+    min-height: 70px;
+    justify-content: flex-start;
+    gap: 18px;
+    padding: 0 14px;
+  }
+
+  .app-body.is-sidebar-collapsed .side-menu-item > span:not(.menu-icon):not(.side-menu-badge) {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .app-body.is-sidebar-collapsed .side-menu-badge {
+    position: static;
+    width: auto;
+    min-width: 28px;
+    height: 28px;
+    margin-left: auto;
+    padding: 0 8px;
+    color: #fff;
   }
 
   .workbench-main {

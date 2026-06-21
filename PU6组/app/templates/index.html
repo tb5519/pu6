@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260618-ranking-one-row') }}">
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260621-daily-reminder') }}">
+    <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260612-renewal-message-type') }}" defer></script>
     <script src="{{ url_for('static', filename='js/completion.js', v='20260616-admin-hide-priority') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260607-monthly-archive') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260621-daily-reminder') }}" defer></script>
     <script src="{{ url_for('static', filename='js/database.js', v='20260618-completion-rank-tooltip') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260617-closing-followup') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260621-renewal-note-square') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260604-account-admin') }}" defer></script>
     {% endif %}
@@ -34,6 +34,10 @@
 
     <div class="workbench">
       <aside class="sidebar" aria-label="工作菜单">
+        <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-expanded="true">
+          <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+          <span class="sidebar-toggle-text">收起菜单</span>
+        </button>
         <nav class="side-menu">
           <button class="side-menu-item is-active" type="button" data-module="完课">
             <span class="menu-icon cap-icon" aria-hidden="true"></span>
@@ -42,6 +46,7 @@
           <button class="side-menu-item" type="button" data-module="日报">
             <span class="menu-icon report-icon" aria-hidden="true"></span>
             <span>日报</span>
+            <span id="dr-menuBadge" class="side-menu-badge is-hidden" aria-label="日报填写提醒"></span>
           </button>
           <button class="side-menu-item" type="button" data-module="数据库">
             <span class="menu-icon database-icon" aria-hidden="true"></span>
@@ -565,6 +570,7 @@
           </header>
 
           <div id="dr-message" class="tool-note daily-message"></div>
+          <div id="dr-reminder" class="daily-reminder is-hidden"></div>
 
           <section class="daily-workspace">
             <aside class="daily-calendar-panel" aria-label="日报日历">

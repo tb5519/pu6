@@ -11,6 +11,9 @@ const dailySelectedDateTitle = document.querySelector("#dr-selectedDateTitle");
 const dailyReportStatus = document.querySelector("#dr-reportStatus");
 const dailyReportRows = document.querySelector("#dr-reportRows");
 const dailyReportEmpty = document.querySelector("#dr-reportEmpty");
+const dailyMenuButton = document.querySelector('.side-menu-item[data-module="日报"]');
+const dailyMenuBadge = document.querySelector("#dr-menuBadge");
+const dailyReminder = document.querySelector("#dr-reminder");
 const dailySummaryReferralLeads = document.querySelector("#dr-summaryReferralLeads");
 const dailySummaryReferralConversions = document.querySelector("#dr-summaryReferralConversions");
 const dailySummaryRenewal = document.querySelector("#dr-summaryRenewal");
@@ -36,6 +39,7 @@ let dailyAutoSaveTimer = null;
 let dailyQueuedSave = null;
 let dailySaving = false;
 let dailySaveVersion = 0;
+let dailyTodayReminder = null;
 
 const DAILY_AUTO_SAVE_DELAY = 900;
 
@@ -70,6 +74,68 @@ function setDailyMessage(message, isError = false) {
   if (!dailyMessage) return;
   dailyMessage.textContent = message || "";
   dailyMessage.classList.toggle("is-error", isError);
+}
+
+function setDailyMenuReminder(reminder) {
+  if (!dailyMenuButton || !dailyMenuBadge || !reminder) return;
+  if (!reminder.is_today) return;
+  dailyTodayReminder = reminder;
+  const shouldShow = Boolean(reminder.show_reminder);
+  dailyMenuButton.classList.toggle("has-reminder", shouldShow);
+  dailyMenuBadge.classList.toggle("is-hidden", !shouldShow);
+  if (!shouldShow) {
+    dailyMenuButton.title = "日报";
+    dailyMenuBadge.textContent = "";
+    return;
+  }
+  const badgeText = reminder.can_manage ? String(reminder.missing_count || "") : "!";
+  dailyMenuBadge.textContent = badgeText;
+  const titleText = reminder.can_manage
+    ? `今日还有 ${reminder.missing_count || 0} 位老师未填写日报`
+    : "你今天还没有填写日报";
+  dailyMenuButton.title = titleText;
+  dailyMenuBadge.setAttribute("aria-label", titleText);
+}
+
+function dailyMissingTeacherText(missingTeachers = []) {
+  if (!missingTeachers.length) return "";
+  const names = missingTeachers.map((teacher) => teacher.teacher_name || teacher.teacher_id).filter(Boolean);
+  const visibleNames = names.slice(0, 5).join("、");
+  return names.length > 5 ? `${visibleNames} 等 ${names.length} 人` : visibleNames;
+}
+
+function editableCurrentDailyRows(reminder = dailyTodayReminder) {
+  if (!reminder?.current_teacher_id) {
+    return dailyRows.filter((row) => row.can_edit !== false).map((row) => collectDailyRow(row));
+  }
+  const currentKey = String(reminder.current_teacher_id).trim().toLowerCase();
+  return dailyRows
+    .filter((row) => dailyRowKey(row) === currentKey)
+    .map((row) => collectDailyRow(row));
+}
+
+function renderDailyReminder(data) {
+  const reminder = data?.reminder || null;
+  if (reminder?.is_today) {
+    setDailyMenuReminder(reminder);
+  }
+  if (!dailyReminder) return;
+  dailyReminder.classList.add("is-hidden");
+  dailyReminder.innerHTML = "";
+  if (!reminder?.is_today || !reminder.show_reminder) return;
+
+  const canMarkCurrent = reminder.current_user_can_submit && !reminder.current_user_submitted;
+  const message = reminder.can_manage
+    ? `今日还有 ${reminder.missing_count || 0} 位老师未填写日报${dailyMissingTeacherText(reminder.missing_teachers) ? `：${dailyMissingTeacherText(reminder.missing_teachers)}` : ""}`
+    : "你今天还没有填写日报，填写后系统会自动保存。";
+  dailyReminder.innerHTML = `
+    <div>
+      <strong>日报提醒</strong>
+      <span>${escapeDailyText(message)}</span>
+    </div>
+    ${canMarkCurrent ? '<button class="ghost-button compact-button" type="button" data-daily-mark-done>标记已填写</button>' : ""}
+  `;
+  dailyReminder.classList.remove("is-hidden");
 }
 
 async function dailyApiRequest(url, options = {}) {
@@ -264,6 +330,7 @@ function renderDailyReport(data) {
   }
   renderDailyRows();
   updateDailySummary();
+  renderDailyReminder(data);
 }
 
 async function loadDailyReport() {
@@ -356,6 +423,7 @@ async function saveDailyReport(date = dailySelectedDate, rows = collectDailyRows
     } else if (dailyReportStatus && data.date === dailySelectedDate) {
       dailyReportStatus.textContent = data.updated_at ? `已保存：${data.updated_at}` : "已自动保存";
     }
+    renderDailyReminder(data);
     setDailyMessage(options.auto ? "日报已自动保存。" : "日报已保存。");
     return data;
   } finally {
@@ -392,6 +460,23 @@ function initDailyReport() {
       await saveDailyReport();
     } catch (error) {
       setDailyMessage(error.message, true);
+    }
+  });
+
+  dailyReminder?.addEventListener("click", async (event) => {
+    const markButton = event.target.closest("[data-daily-mark-done]");
+    if (!markButton) return;
+    const rows = editableCurrentDailyRows();
+    if (!rows.length) {
+      setDailyMessage("当前账号没有可标记的日报行。", true);
+      return;
+    }
+    markButton.disabled = true;
+    try {
+      await saveDailyReport(formatDate(today), rows, { auto: false });
+    } catch (error) {
+      setDailyMessage(error.message, true);
+      markButton.disabled = false;
     }
   });
 

@@ -269,6 +269,93 @@
         }
       ],
       "updated_at": "2026-06-03T17:03:07"
+    },
+    "2026-06-21": {
+      "date": "2026-06-21",
+      "rows": [
+        {
+          "username": "wenyun_joanna",
+          "teacher_id": "wenyun_joanna",
+          "teacher_name": "文云Joanna",
+          "student_count": 93,
+          "weekly_comments": 0,
+          "learning_status": 0,
+          "referral_leads": 0,
+          "referral_conversions": 0,
+          "refunds": 0,
+          "renewal_orders": 0,
+          "weekly_comments_manual": false
+        },
+        {
+          "username": "chenxiao_grace",
+          "teacher_id": "chenxiao_grace",
+          "teacher_name": "陈晓Grace",
+          "student_count": 94,
+          "weekly_comments": 12,
+          "learning_status": 4,
+          "referral_leads": 0,
+          "referral_conversions": 1,
+          "refunds": 0,
+          "renewal_orders": 2,
+          "weekly_comments_manual": true
+        },
+        {
+          "username": "xiaojun_linm",
+          "teacher_id": "xiaojun_linm",
+          "teacher_name": "肖钧Linm",
+          "student_count": 0,
+          "weekly_comments": 0,
+          "learning_status": 0,
+          "referral_leads": 0,
+          "referral_conversions": 0,
+          "refunds": 0,
+          "renewal_orders": 0,
+          "weekly_comments_manual": false
+        },
+        {
+          "username": "huxiaoran_serena",
+          "teacher_id": "huxiaoran_serena",
+          "teacher_name": "胡小冉Serena",
+          "student_count": 0,
+          "weekly_comments": 0,
+          "learning_status": 0,
+          "referral_leads": 0,
+          "referral_conversions": 0,
+          "refunds": 0,
+          "renewal_orders": 0,
+          "weekly_comments_manual": false
+        },
+        {
+          "username": "huchangjing_jean",
+          "teacher_id": "huchangjing_jean",
+          "teacher_name": "胡常菁Jean",
+          "student_count": 0,
+          "weekly_comments": 0,
+          "learning_status": 0,
+          "referral_leads": 0,
+          "referral_conversions": 0,
+          "refunds": 0,
+          "renewal_orders": 0,
+          "weekly_comments_manual": false
+        },
+        {
+          "username": "dongjie_jackie",
+          "teacher_id": "dongjie_jackie",
+          "teacher_name": "董洁Jackie",
+          "student_count": 0,
+          "weekly_comments": 0,
+          "learning_status": 0,
+          "referral_leads": 0,
+          "referral_conversions": 0,
+          "refunds": 0,
+          "renewal_orders": 0,
+          "weekly_comments_manual": false
+        }
+      ],
+      "updated_at": "2026-06-21T22:59:39",
+      "submitted_at_by_teacher": {
+        "chenxiao_grace": "2026-06-21T22:59:39"
+      }
     }
   }
 }

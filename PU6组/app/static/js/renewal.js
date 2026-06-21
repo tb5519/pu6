@@ -62,6 +62,10 @@ let renewalActiveDetailProject = null;
 let renewalActiveDetailData = null;
 let renewalSelectedWeekKey = "";
 let renewalSelectedTeacherId = RENEWAL_ALL_TEACHERS;
+let renewalActiveNoteContext = null;
+let renewalNoteHideTimer = null;
+let renewalNoteEditorModal = null;
+let renewalNoteEditorResolve = null;
 
 function setRenewalMessage(message, isError = false) {
   if (!renewalMessage) return;
@@ -503,14 +507,42 @@ function ensureRenewalNoteTooltip() {
   if (renewalNoteTooltip) return renewalNoteTooltip;
   renewalNoteTooltip = document.createElement("div");
   renewalNoteTooltip.className = "renewal-note-tooltip";
+  renewalNoteTooltip.addEventListener("mouseenter", () => {
+    if (renewalNoteHideTimer) {
+      clearTimeout(renewalNoteHideTimer);
+      renewalNoteHideTimer = null;
+    }
+  });
+  renewalNoteTooltip.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    if (!renewalActiveNoteContext) return;
+    editRenewalNoteText(
+      renewalActiveNoteContext.projectId,
+      renewalActiveNoteContext.studentId,
+      renewalActiveNoteContext.noteText
+    );
+  });
+  renewalNoteTooltip.addEventListener("mouseleave", hideRenewalNameNote);
   document.body.appendChild(renewalNoteTooltip);
   return renewalNoteTooltip;
 }
 
 function showRenewalNameNote(target) {
-  const note = target?.dataset?.renewalNameNote || "暂无备注";
+  if (renewalNoteHideTimer) {
+    clearTimeout(renewalNoteHideTimer);
+    renewalNoteHideTimer = null;
+  }
+  const note = target?.dataset?.renewalNoteText || target?.dataset?.renewalNameNote || "暂无备注";
   const tooltip = ensureRenewalNoteTooltip();
-  tooltip.classList.remove("is-wide");
+  const canEdit = Boolean(target?.dataset?.renewalNoteCard);
+  renewalActiveNoteContext = canEdit ? {
+    projectId: target.dataset.renewalNoteCard,
+    studentId: target.dataset.renewalStudentId,
+    noteText: note,
+  } : null;
+  tooltip.classList.remove("is-wide", "is-editable");
+  tooltip.classList.toggle("is-editable", canEdit);
+  tooltip.title = canEdit ? "双击编辑备注" : "";
   tooltip.textContent = note;
   tooltip.classList.add("is-visible");
   const rect = target.getBoundingClientRect();
@@ -525,7 +557,10 @@ function showRenewalNameNote(target) {
 function showRenewalTalkPreview(target) {
   const text = target?.dataset?.renewalTalkPreview || "暂无选定话术";
   const tooltip = ensureRenewalNoteTooltip();
+  renewalActiveNoteContext = null;
+  tooltip.classList.remove("is-editable");
   tooltip.classList.add("is-wide");
+  tooltip.title = "";
   tooltip.textContent = text;
   tooltip.classList.add("is-visible");
   const rect = target.getBoundingClientRect();
@@ -540,12 +575,95 @@ function showRenewalTalkPreview(target) {
 }
 
 function hideRenewalNameNote() {
+  if (renewalNoteHideTimer) {
+    clearTimeout(renewalNoteHideTimer);
+    renewalNoteHideTimer = null;
+  }
   renewalNoteTooltip?.classList.remove("is-visible", "is-wide");
+  renewalNoteTooltip?.classList.remove("is-editable");
+  renewalActiveNoteContext = null;
 }
 
-function renderRenewalEnrolledToggle(project, student, disabledAttr) {
+function scheduleRenewalNameNoteHide() {
+  if (renewalNoteHideTimer) clearTimeout(renewalNoteHideTimer);
+  renewalNoteHideTimer = setTimeout(hideRenewalNameNote, 450);
+}
+
+function closeRenewalNoteEditor(value = null) {
+  if (!renewalNoteEditorModal) return;
+  renewalNoteEditorModal.classList.remove("is-visible");
+  document.body.classList.remove("renewal-note-editor-open");
+  const resolve = renewalNoteEditorResolve;
+  renewalNoteEditorResolve = null;
+  if (resolve) resolve(value);
+}
+
+function ensureRenewalNoteEditor() {
+  if (renewalNoteEditorModal) return renewalNoteEditorModal;
+  renewalNoteEditorModal = document.createElement("div");
+  renewalNoteEditorModal.className = "renewal-note-editor-modal";
+  renewalNoteEditorModal.innerHTML = `
+    <div class="renewal-note-editor-card" role="dialog" aria-modal="true" aria-labelledby="renewal-note-editor-title">
+      <div class="renewal-note-editor-head">
+        <strong id="renewal-note-editor-title">编辑备注</strong>
+        <button class="renewal-note-editor-close" type="button" data-renewal-note-editor-cancel aria-label="关闭">×</button>
+      </div>
+      <textarea class="renewal-note-editor-textarea" maxlength="500"></textarea>
+      <div class="renewal-note-editor-actions">
+        <button class="ghost-button compact-button" type="button" data-renewal-note-editor-cancel>取消</button>
+        <button class="primary-button compact-button" type="button" data-renewal-note-editor-save>保存</button>
+      </div>
+    </div>
+  `;
+  const textarea = renewalNoteEditorModal.querySelector(".renewal-note-editor-textarea");
+  renewalNoteEditorModal.addEventListener("click", (event) => {
+    if (event.target === renewalNoteEditorModal || event.target.closest("[data-renewal-note-editor-cancel]")) {
+      closeRenewalNoteEditor(null);
+      return;
+    }
+    if (event.target.closest("[data-renewal-note-editor-save]")) {
+      closeRenewalNoteEditor(textarea.value);
+    }
+  });
+  renewalNoteEditorModal.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeRenewalNoteEditor(null);
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      closeRenewalNoteEditor(textarea.value);
+    }
+  });
+  document.body.appendChild(renewalNoteEditorModal);
+  return renewalNoteEditorModal;
+}
+
+function openRenewalNoteEditor(previousText = "") {
+  ensureRenewalNoteEditor();
+  if (renewalNoteEditorResolve) {
+    closeRenewalNoteEditor(null);
+  }
+  const textarea = renewalNoteEditorModal.querySelector(".renewal-note-editor-textarea");
+  textarea.value = previousText || "";
+  renewalNoteEditorModal.classList.add("is-visible");
+  document.body.classList.add("renewal-note-editor-open");
+  requestAnimationFrame(() => {
+    textarea.focus();
+    textarea.selectionStart = textarea.value.length;
+    textarea.selectionEnd = textarea.value.length;
+  });
+  return new Promise((resolve) => {
+    renewalNoteEditorResolve = resolve;
+  });
+}
+
+function renderRenewalEnrolledToggle(project, student, disabledAttr, compact = false) {
   return `
-    <label class="renewal-enrolled-toggle">
+    <label
+      class="renewal-enrolled-toggle${compact ? " renewal-name-enrolled-toggle" : ""}"
+      title="${student.enrolled ? "已报名" : "标记为已报名"}"
+    >
       <input
         type="checkbox"
         data-renewal-enrolled="${escapeRenewalText(project.id)}"
@@ -553,8 +671,36 @@ function renderRenewalEnrolledToggle(project, student, disabledAttr) {
         ${student.enrolled ? "checked" : ""}
         ${disabledAttr}
       >
-      <span>${student.enrolled ? "已报" : "未报"}</span>
+      ${compact ? "" : `<span>${student.enrolled ? "已报" : "未报"}</span>`}
     </label>
+  `;
+}
+
+function renderRenewalStudentNameCell(project, student, disabledAttr, extraClass = "") {
+  const noteText = String(student.followup_note || "").trim();
+  const noteCard = noteText ? `
+    <button
+      class="renewal-name-note-card"
+      type="button"
+      data-renewal-note-card="${escapeRenewalText(project.id)}"
+      data-renewal-student-id="${escapeRenewalText(student.id)}"
+      data-renewal-note-text="${escapeRenewalAttr(noteText)}"
+      aria-label="查看备注，双击浮层编辑"
+      title="查看备注"
+      ${disabledAttr}
+    ></button>
+  ` : "";
+  return `
+    <td
+      class="database-strong-cell renewal-student-name-hover renewal-student-name-cell ${extraClass}"
+      data-renewal-name-note="${escapeRenewalAttr(student.followup_note || "暂无备注")}"
+    >
+      <span class="renewal-student-name-line">
+        <span class="renewal-student-name-text">${escapeRenewalText(student.name || "-")}</span>
+      </span>
+      ${noteCard}
+      ${renderRenewalEnrolledToggle(project, student, disabledAttr, true)}
+    </td>
   `;
 }
 
@@ -669,18 +815,20 @@ function renderRenewalCollapsedWeek(student, weekKey) {
 function renderRenewalRemarkCell(project, student, disabledAttr) {
   return `
     <td class="renewal-current-note-cell">
-      <input
-        class="renewal-followup-note"
-        type="text"
-        value=""
-        placeholder="新增备注"
-        data-renewal-followup-note="${escapeRenewalText(project.id)}"
-        data-renewal-student-id="${escapeRenewalText(student.id)}"
-        autocomplete="off"
-        autocorrect="off"
-        spellcheck="false"
-        ${disabledAttr}
-      >
+      <div class="renewal-note-compose">
+        <input
+          class="renewal-followup-note"
+          type="text"
+          value=""
+          placeholder="备注"
+          data-renewal-followup-note="${escapeRenewalText(project.id)}"
+          data-renewal-student-id="${escapeRenewalText(student.id)}"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          ${disabledAttr}
+        >
+      </div>
     </td>
   `;
 }
@@ -851,8 +999,9 @@ function renderRenewalProjectCard(project) {
       </div>
       <div class="renewal-data-card">
         <div>
-          <span>班级人数</span>
+          <span>续费人数</span>
           <strong>${Number(project.student_count || 0)}</strong>
+          <small>完课当前 ${Number(project.source_student_count || 0)} 人</small>
         </div>
         <div>
           <span>已报名</span>
@@ -988,17 +1137,13 @@ function renderRenewalStandardStudentTable(project, students, disabledAttr) {
           <th>平均完课率</th>
           <th>跟进时间</th>
           <th>跟进情况</th>
-          <th class="renewal-enrolled-head">是否报名</th>
           <th>备注</th>
         </tr>
       </thead>
       <tbody>
         ${students.map((student) => `
           <tr data-renewal-student-row="${escapeRenewalText(student.id)}">
-            <td
-              class="database-strong-cell renewal-student-name-hover"
-              data-renewal-name-note="${escapeRenewalAttr(student.followup_note || "暂无备注")}"
-            >${escapeRenewalText(student.name || "-")}</td>
+            ${renderRenewalStudentNameCell(project, student, disabledAttr)}
             <td>${escapeRenewalText(student.account || "-")}</td>
             <td class="database-percent-cell">${escapeRenewalText(formatRenewalRate(student.average_completion))}</td>
             <td data-renewal-followup-time-cell>${escapeRenewalText(student.followup_time || "-")}</td>
@@ -1012,21 +1157,7 @@ function renderRenewalStandardStudentTable(project, students, disabledAttr) {
                 ${renderRenewalFollowupOptions(student.followup_status || "")}
               </select>
             </td>
-            <td class="renewal-enrolled-cell">${renderRenewalEnrolledToggle(project, student, disabledAttr)}</td>
-            <td>
-              <input
-                class="renewal-followup-note"
-                type="text"
-                value=""
-                placeholder="新增备注"
-                data-renewal-followup-note="${escapeRenewalText(project.id)}"
-                data-renewal-student-id="${escapeRenewalText(student.id)}"
-                autocomplete="off"
-                autocorrect="off"
-                spellcheck="false"
-                ${disabledAttr}
-              >
-            </td>
+            ${renderRenewalRemarkCell(project, student, disabledAttr)}
           </tr>
         `).join("")}
       </tbody>
@@ -1049,7 +1180,7 @@ function shouldShowRenewalLeaderPlanColumn(project, students) {
 function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
   const currentWeekKey = getRenewalSelectedWeekKey();
   const showLeaderPlanColumn = shouldShowRenewalLeaderPlanColumn(project, students);
-  const firstMonthColumnCount = 4 + 1 + (showLeaderPlanColumn ? 1 : 0) + 1 + 3 + (RENEWAL_WEEKS.length - 1) + 1;
+  const firstMonthColumnCount = 4 + 1 + (showLeaderPlanColumn ? 1 : 0) + 3 + (RENEWAL_WEEKS.length - 1) + 1;
   const enrolledStudents = students.filter((student) => student.enrolled);
   const visibleStudents = renewalShowEnrolledStudents
     ? students
@@ -1072,7 +1203,6 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
           <th class="renewal-sticky-group" colspan="4">基础信息</th>
           <th class="renewal-sticky-col renewal-sticky-blocker" rowspan="2">当前卡点</th>
           ${showLeaderPlanColumn ? `<th class="renewal-leader-plan-head" rowspan="2">盘单</th>` : ""}
-          <th class="renewal-enrolled-head" rowspan="2">是否报名</th>
           ${RENEWAL_WEEKS.map((week) => `
             ${week.key === currentWeekKey
               ? `
@@ -1098,10 +1228,7 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
       <tbody>
         ${visibleStudents.length ? visibleStudents.map((student) => `
           <tr data-renewal-student-row="${escapeRenewalText(student.id)}">
-            <td
-              class="database-strong-cell renewal-sticky-col renewal-sticky-name renewal-student-name-hover"
-              data-renewal-name-note="${escapeRenewalAttr(student.followup_note || "暂无备注")}"
-            >${escapeRenewalText(student.name || "-")}</td>
+            ${renderRenewalStudentNameCell(project, student, disabledAttr, "renewal-sticky-col renewal-sticky-name")}
             <td class="renewal-sticky-col renewal-sticky-account">${escapeRenewalText(student.account || "-")}</td>
             <td class="database-percent-cell renewal-sticky-col renewal-sticky-average">${escapeRenewalText(formatRenewalRate(student.average_completion))}</td>
             <td class="renewal-sticky-col renewal-sticky-intention">
@@ -1119,7 +1246,6 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
               </select>
             </td>
             ${showLeaderPlanColumn ? renderRenewalLeaderPlanCell(project, student, disabledAttr) : ""}
-            <td class="renewal-enrolled-cell">${renderRenewalEnrolledToggle(project, student, disabledAttr)}</td>
             ${RENEWAL_WEEKS.map((week) => renderRenewalWeekCells(project, student, week, currentWeekKey, disabledAttr)).join("")}
           </tr>
         `).join("") : `
@@ -1134,7 +1260,7 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
 
 function renderRenewalSecondMonthStudentTable(project, students, disabledAttr) {
   const showLeaderPlanColumn = shouldShowRenewalLeaderPlanColumn(project, students);
-  const secondMonthColumnCount = 4 + 1 + (showLeaderPlanColumn ? 1 : 0) + 1 + 4;
+  const secondMonthColumnCount = 4 + 1 + (showLeaderPlanColumn ? 1 : 0) + 4;
   const enrolledStudents = students.filter((student) => student.enrolled);
   const visibleStudents = renewalShowEnrolledStudents
     ? students
@@ -1157,7 +1283,6 @@ function renderRenewalSecondMonthStudentTable(project, students, disabledAttr) {
           <th class="renewal-sticky-group" colspan="4">基础信息</th>
           <th class="renewal-sticky-col renewal-sticky-blocker" rowspan="2">当前卡点</th>
           ${showLeaderPlanColumn ? `<th class="renewal-leader-plan-head" rowspan="2">盘单</th>` : ""}
-          <th class="renewal-enrolled-head" rowspan="2">是否报名</th>
           <th class="renewal-week-current-head" colspan="4">跟进记录</th>
         </tr>
         <tr>
@@ -1174,10 +1299,7 @@ function renderRenewalSecondMonthStudentTable(project, students, disabledAttr) {
       <tbody>
         ${visibleStudents.length ? visibleStudents.map((student) => `
           <tr data-renewal-student-row="${escapeRenewalText(student.id)}">
-            <td
-              class="database-strong-cell renewal-sticky-col renewal-sticky-name renewal-student-name-hover"
-              data-renewal-name-note="${escapeRenewalAttr(student.followup_note || "暂无备注")}"
-            >${escapeRenewalText(student.name || "-")}</td>
+            ${renderRenewalStudentNameCell(project, student, disabledAttr, "renewal-sticky-col renewal-sticky-name")}
             <td class="renewal-sticky-col renewal-sticky-account">${escapeRenewalText(student.account || "-")}</td>
             <td class="database-percent-cell renewal-sticky-col renewal-sticky-average">${escapeRenewalText(formatRenewalRate(student.average_completion))}</td>
             <td class="renewal-sticky-col renewal-sticky-intention">
@@ -1195,7 +1317,6 @@ function renderRenewalSecondMonthStudentTable(project, students, disabledAttr) {
               </select>
             </td>
             ${showLeaderPlanColumn ? renderRenewalLeaderPlanCell(project, student, disabledAttr) : ""}
-            <td class="renewal-enrolled-cell">${renderRenewalEnrolledToggle(project, student, disabledAttr)}</td>
             <td>${renderRenewalGeneralTime(student)}</td>
             <td>${renderRenewalGeneralMethods(project, student, disabledAttr)}</td>
             <td>${renderRenewalGeneralCount(student)}</td>
@@ -1220,11 +1341,35 @@ function renderRenewalDetail(project) {
   renderRenewalWeekSelect(project);
   if (renewalDetailTitle) renewalDetailTitle.textContent = project.class_name || "班级续费明细";
   if (renewalDetailMeta) {
-    renewalDetailMeta.textContent = `${project.teacher_name || "未分配"} · ${Number(project.student_count || 0)} 名学员 · 已报名 ${Number(project.enrolled_count || 0)} 人`;
+    renewalDetailMeta.textContent = `${project.teacher_name || "未分配"} · 续费锁定 ${Number(project.student_count || 0)} 人 · 已报名 ${Number(project.enrolled_count || 0)} 人 · 完课当前 ${Number(project.source_student_count || 0)} 人`;
   }
   if (renewalDetailSummary) {
     const pendingPlans = Number(project.pending_leader_plan_count || 0);
     const totalPlans = Number(project.leader_plan_count || 0);
+    const disabledAttr = project.can_edit ? "" : "disabled";
+    const countEditor = project.can_edit ? `
+      <input
+        class="renewal-count-input"
+        type="number"
+        min="0"
+        max="9999"
+        step="1"
+        value="${Number(project.student_count || 0)}"
+        data-renewal-student-count="${escapeRenewalText(project.id)}"
+        aria-label="续费锁定人数"
+        ${disabledAttr}
+      >
+    ` : `<strong>${Number(project.student_count || 0)}</strong>`;
+    const countNoteEditor = `
+      <input
+        class="renewal-count-note-input"
+        type="text"
+        value="${escapeRenewalText(project.student_count_note || "")}"
+        placeholder="人数说明，如：进入首月续费时锁定"
+        data-renewal-student-count-note="${escapeRenewalText(project.id)}"
+        ${disabledAttr}
+      >
+    `;
     const planSummaryCard = totalPlans ? `
       <article class="renewal-plan-summary${pendingPlans ? " has-pending" : " is-clear"}">
         <span>盘单提醒</span>
@@ -1233,9 +1378,11 @@ function renderRenewalDetail(project) {
       </article>
     ` : "";
     renewalDetailSummary.innerHTML = `
-      <article>
-        <span>班级人数</span>
-        <strong>${Number(project.student_count || 0)}</strong>
+      <article class="renewal-count-summary">
+        <span>续费锁定人数</span>
+        ${countEditor}
+        <small>续报率按这里作为分母；完课当前 ${Number(project.source_student_count || 0)} 人</small>
+        ${countNoteEditor}
       </article>
       <article>
         <span>已报名</span>
@@ -1360,6 +1507,26 @@ async function updateRenewalProject(projectId, payload, successMessage) {
   }
 }
 
+async function saveRenewalProjectSettings(projectId, payload, successMessage = "续费设置已保存。") {
+  if (!projectId) return;
+  setRenewalMessage("正在保存续费设置...");
+  try {
+    const data = await renewalApiRequest(`/api/renewal/projects/${encodeURIComponent(projectId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    refreshRenewalShellFromData(data);
+    if (renewalActiveDetailProject === projectId) {
+      const detailData = await renewalApiRequest(`/api/renewal/projects/${encodeURIComponent(projectId)}`);
+      renderRenewalDetail(detailData.project);
+      showRenewalDetail(true);
+    }
+    setRenewalMessage(successMessage);
+  } catch (error) {
+    setRenewalMessage(error.message, true);
+  }
+}
+
 async function updateRenewalStudent(projectId, studentId, payload, options = {}) {
   const shouldRenderDetail = options.renderDetail !== false;
   const successMessage = options.successMessage || "跟进数据已同步。";
@@ -1398,13 +1565,57 @@ async function saveRenewalFollowupNote(noteInput) {
       noteInput.dataset.renewalFollowupNote,
       noteInput.dataset.renewalStudentId,
       { followup_note: noteText },
-      { renderDetail: false, successMessage: "备注已保存。" }
+      { successMessage: "备注已保存。" }
     );
     if (data && noteInput.value.trim() === noteText) noteInput.value = "";
   } finally {
     delete noteInput.dataset.renewalSaving;
     noteInput.classList.remove("is-saving");
   }
+}
+
+async function editRenewalNoteText(projectId, studentId, previousText = "") {
+  hideRenewalNameNote();
+  const nextText = await openRenewalNoteEditor(previousText);
+  if (nextText === null) return;
+  const normalizedText = String(nextText || "").trim();
+  if (normalizedText === previousText.trim()) {
+    setRenewalMessage("备注未变化。");
+    return;
+  }
+  await updateRenewalStudent(
+    projectId,
+    studentId,
+    { followup_note_replace: normalizedText },
+    { successMessage: normalizedText ? "备注已更新。" : "备注已删除。" }
+  );
+}
+
+function renewalCountNoteInput(projectId) {
+  return Array.from(renewalDetailSummary?.querySelectorAll("[data-renewal-student-count-note]") || [])
+    .find((input) => input.dataset.renewalStudentCountNote === projectId) || null;
+}
+
+function saveRenewalStudentCount(countInput) {
+  const projectId = countInput.dataset.renewalStudentCount;
+  const count = Math.max(0, Math.min(9999, Number.parseInt(countInput.value, 10) || 0));
+  countInput.value = String(count);
+  saveRenewalProjectSettings(
+    projectId,
+    {
+      student_count: count,
+      student_count_note: renewalCountNoteInput(projectId)?.value || "",
+    },
+    "续费人数已保存。"
+  );
+}
+
+function saveRenewalStudentCountNote(noteInput) {
+  saveRenewalProjectSettings(
+    noteInput.dataset.renewalStudentCountNote,
+    { student_count_note: noteInput.value.trim() },
+    "人数说明已保存。"
+  );
 }
 
 async function createRenewalBlockerOption(option) {
@@ -1612,6 +1823,31 @@ function initRenewal() {
       renderRenewalDetail(renewalActiveDetailData);
     }
   });
+  renewalDetailSummary?.addEventListener("change", (event) => {
+    const countInput = event.target.closest("[data-renewal-student-count]");
+    if (countInput) {
+      saveRenewalStudentCount(countInput);
+      return;
+    }
+    const countNoteInput = event.target.closest("[data-renewal-student-count-note]");
+    if (countNoteInput) {
+      saveRenewalStudentCountNote(countNoteInput);
+    }
+  });
+  renewalDetailSummary?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const countInput = event.target.closest("[data-renewal-student-count]");
+    if (countInput) {
+      event.preventDefault();
+      saveRenewalStudentCount(countInput);
+      return;
+    }
+    const countNoteInput = event.target.closest("[data-renewal-student-count-note]");
+    if (countNoteInput) {
+      event.preventDefault();
+      saveRenewalStudentCountNote(countNoteInput);
+    }
+  });
   renewalStageBoard.addEventListener("dragstart", handleRenewalDragStart);
   renewalStageBoard.addEventListener("dragend", handleRenewalDragEnd);
   renewalStageBoard.addEventListener("dragover", handleRenewalDragOver);
@@ -1718,10 +1954,23 @@ function initRenewal() {
       refreshRenewalTalkSelectOptions(leaderNote);
       return;
     }
+  });
+  renewalStudentList?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
     const noteInput = event.target.closest("[data-renewal-followup-note]");
-    if (noteInput) {
-      saveRenewalFollowupNote(noteInput);
-    }
+    if (!noteInput) return;
+    event.preventDefault();
+    saveRenewalFollowupNote(noteInput);
+  });
+  renewalStudentList?.addEventListener("dblclick", (event) => {
+    const noteCard = event.target.closest("[data-renewal-note-card]");
+    if (!noteCard) return;
+    event.preventDefault();
+    editRenewalNoteText(
+      noteCard.dataset.renewalNoteCard,
+      noteCard.dataset.renewalStudentId,
+      noteCard.dataset.renewalNoteText || ""
+    );
   });
   renewalStudentList?.addEventListener("click", (event) => {
     const copyTalkButton = event.target.closest("[data-renewal-copy-talk]");
@@ -1760,8 +2009,22 @@ function initRenewal() {
       showRenewalTalkPreview(talkPreview);
       return;
     }
-    const nameCell = event.target.closest("[data-renewal-name-note]");
-    if (nameCell) showRenewalNameNote(nameCell);
+    const noteCard = event.target.closest("[data-renewal-note-card]");
+    if (noteCard) showRenewalNameNote(noteCard);
+  });
+  renewalStudentList?.addEventListener("focusin", (event) => {
+    const noteCard = event.target.closest("[data-renewal-note-card]");
+    if (noteCard) showRenewalNameNote(noteCard);
+  });
+  renewalStudentList?.addEventListener("focusout", (event) => {
+    const noteCard = event.target.closest("[data-renewal-note-card]");
+    if (!noteCard) return;
+    if (
+      event.relatedTarget !== renewalNoteTooltip
+      && !renewalNoteTooltip?.contains(event.relatedTarget)
+    ) {
+      scheduleRenewalNameNoteHide();
+    }
   });
   renewalStudentList?.addEventListener("mouseout", (event) => {
     const talkPreview = event.target.closest("[data-renewal-talk-preview]");
@@ -1769,9 +2032,14 @@ function initRenewal() {
       hideRenewalNameNote();
       return;
     }
-    const nameCell = event.target.closest("[data-renewal-name-note]");
-    if (nameCell && !nameCell.contains(event.relatedTarget)) {
-      hideRenewalNameNote();
+    const noteCard = event.target.closest("[data-renewal-note-card]");
+    if (
+      noteCard
+      && !noteCard.contains(event.relatedTarget)
+      && event.relatedTarget !== renewalNoteTooltip
+      && !renewalNoteTooltip?.contains(event.relatedTarget)
+    ) {
+      scheduleRenewalNameNoteHide();
     }
   });
   renewalStudentList?.addEventListener("scroll", hideRenewalNameNote);
