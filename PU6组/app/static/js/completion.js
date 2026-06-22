@@ -32,6 +32,7 @@ const activityArchive = document.querySelector("#cc-activityArchive");
 const classNameInput = document.querySelector("#cc-className");
 const classWeekSelect = document.querySelector("#cc-weekSelect");
 const classUploadButton = document.querySelector("#cc-uploadButton");
+const classClearWeekButton = document.querySelector("#cc-clearWeekButton");
 const classClearMonthButton = document.querySelector("#cc-clearMonthButton");
 const classFileInput = document.querySelector("#cc-fileInput");
 const classGenerateImage = document.querySelector("#cc-generateImage");
@@ -610,6 +611,11 @@ function applyRememberedImageWeekNumber() {
 function currentClassTitleWeekNumber(targetClass = activeClass) {
   const value = Number(targetClass?.title_week_number);
   return Number.isFinite(value) && value > 0 ? String(value) : "";
+}
+
+function shouldShowAppTaskReminder(weekNumber) {
+  const value = Number(weekNumber);
+  return Number.isFinite(value) && value > 0 && value % 3 === 0;
 }
 
 function applyClassTitleWeekNumber(force = false) {
@@ -1386,6 +1392,7 @@ function renderClassList() {
               <span class="module-eyebrow">班级</span>
               <div class="class-card-badges">
                 ${titleWeekNumber ? `<span class="class-week-badge">W${escapeText(titleWeekNumber)}</span>` : ""}
+                ${shouldShowAppTaskReminder(titleWeekNumber) ? `<span class="class-app-task-badge">（发布）</span>` : ""}
                 ${item.completion_activity ? `<span class="class-activity-badge">${activeActivityBadge}中</span>` : ""}
               </div>
             </div>
@@ -1732,7 +1739,7 @@ function renderReminderDayCell(rate) {
   return `<span class="reminder-day-value ${completionClass(rate)}">${formatCompletion(rate)}</span>`;
 }
 
-function renderReminderStudentRows(students = []) {
+function renderReminderStudentRows(students = [], options = {}) {
   return students
     .map((student) => {
       const stats = reminderStudentStats(student);
@@ -1740,6 +1747,7 @@ function renderReminderStudentRows(students = []) {
         student,
         stats,
         prompt: reminderPromptForStudent(student, stats),
+        activityStage: options.includeActivity ? reminderActivityStageInfo(student) : null,
         phone_call: {
           completed: false,
           completed_at: "",
@@ -1791,6 +1799,104 @@ function renderReminderStudentName(student = {}) {
   `;
 }
 
+const REMINDER_CATEGORY_ORDER = [
+  "长期不上课",
+  "异常断课",
+  "断续上课",
+  "周末欠缺",
+  "偶尔断课",
+  "完课超赞",
+  "暂无数据",
+];
+
+function reminderCategoryRank(category) {
+  const index = REMINDER_CATEGORY_ORDER.indexOf(category);
+  return index >= 0 ? index : REMINDER_CATEGORY_ORDER.length;
+}
+
+function reminderCategoryOptions(rows = []) {
+  const counts = new Map();
+  rows.forEach((row) => {
+    const category = row.stats?.category || "暂无数据";
+    counts.set(category, (counts.get(category) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([category, count]) => ({ category, count }))
+    .sort((first, second) => {
+      const rankGap = reminderCategoryRank(first.category) - reminderCategoryRank(second.category);
+      if (rankGap) return rankGap;
+      return first.category.localeCompare(second.category, "zh-Hans-CN");
+    });
+}
+
+function reminderActivityStageInfo(student = {}) {
+  const waterCount = studentWaterCount(student);
+  const visuals = normalizeActivityVisuals(completionActivity || {});
+  const stageIndex = activityStageIndex(waterCount, visuals);
+  const label = visuals.stage_labels[stageIndex]
+    || ACTIVITY_STAGE_DEFAULTS[Math.min(stageIndex, ACTIVITY_STAGE_DEFAULTS.length - 1)]
+    || "暂无活动状态";
+  return { label, stageIndex, waterCount };
+}
+
+function reminderActivityStageOptions(rows = []) {
+  const options = new Map();
+  rows.forEach((row) => {
+    const stage = row.activityStage;
+    if (!stage?.label) return;
+    const current = options.get(stage.label) || {
+      label: stage.label,
+      count: 0,
+      stageIndex: stage.stageIndex,
+    };
+    current.count += 1;
+    current.stageIndex = Math.min(current.stageIndex, stage.stageIndex);
+    options.set(stage.label, current);
+  });
+  return Array.from(options.values()).sort((first, second) => (
+    first.stageIndex - second.stageIndex || first.label.localeCompare(second.label, "zh-Hans-CN")
+  ));
+}
+
+function renderReminderActivityFilter(rows = [], options = {}) {
+  if (!options.showActivityFilter) return "";
+  const stages = reminderActivityStageOptions(rows);
+  if (!stages.length) return "";
+  return `
+    <label class="category-filter reminder-activity-filter">
+      <span>活动状态</span>
+      <select data-reminder-activity-filter aria-label="筛选完课活动状态">
+        <option value="">全部状态</option>
+        ${stages.map((item) => `
+          <option value="${escapeText(item.label)}">${escapeText(item.label)} ${item.count}</option>
+        `).join("")}
+      </select>
+    </label>
+  `;
+}
+
+function renderReminderCategoryFilter(rows = [], options = {}) {
+  const categories = reminderCategoryOptions(rows);
+  if (!categories.length) {
+    return "";
+  }
+  return `
+    <div class="reminder-section-tools">
+      <span data-reminder-filter-status>共 ${rows.length} 人</span>
+      <label class="category-filter reminder-category-filter">
+        <span>分类筛选</span>
+        <select data-reminder-category-filter aria-label="筛选催课学员分类">
+          <option value="">全部分类</option>
+          ${categories.map((item) => `
+            <option value="${escapeText(item.category)}">${escapeText(item.category)} ${item.count}</option>
+          `).join("")}
+        </select>
+      </label>
+      ${renderReminderActivityFilter(rows, options)}
+    </div>
+  `;
+}
+
 function renderReminderStudentTable(rows = [], options = {}) {
   const title = options.title || "学员每日完课与催课建议";
   const subtitle = options.subtitle || "按需催课学员优先展示";
@@ -1828,7 +1934,10 @@ function renderReminderStudentTable(rows = [], options = {}) {
         )))
         .join("");
       return `
-        <tr>
+        <tr
+          data-reminder-category="${escapeText(stats.category)}"
+          data-reminder-activity-stage="${escapeText(row.activityStage?.label || "")}"
+        >
           <td class="reminder-student-name reminder-sticky-col reminder-sticky-name">${renderReminderStudentName(student)}</td>
           <td class="reminder-sticky-col reminder-sticky-account">${escapeText(student.account || "-")}</td>
           <td class="reminder-sticky-col reminder-sticky-category">${renderHabitCell(stats.category)}</td>
@@ -1843,8 +1952,11 @@ function renderReminderStudentTable(rows = [], options = {}) {
   return `
     <section class="reminder-student-section">
       <div class="reminder-section-head">
-        <h3>${escapeText(title)}</h3>
-        <span>${escapeText(subtitle)}</span>
+        <div>
+          <h3>${escapeText(title)}</h3>
+          <span>${escapeText(subtitle)}</span>
+        </div>
+        ${renderReminderCategoryFilter(rows, options)}
       </div>
       <div class="reminder-student-table-wrap">
         <table class="reminder-student-table">
@@ -1862,6 +1974,7 @@ function renderReminderStudentTable(rows = [], options = {}) {
           <tbody>${bodyRows}</tbody>
         </table>
       </div>
+      <div class="reminder-filter-empty is-hidden" data-reminder-filter-empty>当前分类暂无需要催课的学员。</div>
     </section>
   `;
 }
@@ -2287,6 +2400,40 @@ function bindReminderPhoneCallInputs() {
   });
 }
 
+function applyReminderTableFilters(section) {
+  if (!section) return;
+  const category = section.querySelector("[data-reminder-category-filter]")?.value || "";
+  const activityStage = section.querySelector("[data-reminder-activity-filter]")?.value || "";
+  const rows = Array.from(section.querySelectorAll("tbody tr[data-reminder-category]"));
+  let visibleCount = 0;
+  rows.forEach((row) => {
+    const matchesCategory = !category || row.dataset.reminderCategory === category;
+    const matchesActivityStage = !activityStage || row.dataset.reminderActivityStage === activityStage;
+    const shouldShow = matchesCategory && matchesActivityStage;
+    row.classList.toggle("is-hidden", !shouldShow);
+    if (shouldShow) visibleCount += 1;
+  });
+
+  const status = section.querySelector("[data-reminder-filter-status]");
+  if (status) {
+    status.textContent = category ? `${category} ${visibleCount} 人` : `共 ${rows.length} 人`;
+    status.textContent = category || activityStage ? `筛选后 ${visibleCount} 人` : `共 ${rows.length} 人`;
+  }
+  const empty = section.querySelector("[data-reminder-filter-empty]");
+  empty?.classList.toggle("is-hidden", visibleCount > 0);
+}
+
+function bindReminderCategoryFilters() {
+  reminderArrangementBody?.querySelectorAll(".reminder-student-section").forEach((section) => {
+    const selects = section.querySelectorAll("[data-reminder-category-filter], [data-reminder-activity-filter]");
+    if (!selects.length) return;
+    applyReminderTableFilters(section);
+    selects.forEach((select) => {
+      select.addEventListener("change", () => applyReminderTableFilters(section));
+    });
+  });
+}
+
 async function completeReminderArrangement() {
   if (!activeReminderClass || !activeReminderArrangement) return;
   const { classData, localClass, rows, recoveryRecords } = activeReminderArrangement;
@@ -2337,6 +2484,7 @@ async function completeReminderArrangement() {
 }
 
 function bindReminderArrangementActions() {
+  bindReminderCategoryFilters();
   bindReminderPhoneCallInputs();
   const button = reminderArrangementBody?.querySelector("[data-reminder-complete-action]");
   button?.addEventListener("click", () => {
@@ -2396,7 +2544,8 @@ async function renderReminderArrangement() {
   }
 
   const students = classData?.students || [];
-  const rows = renderReminderStudentRows(students);
+  const includeActivityFilter = Boolean(classData?.completion_activity && completionActivity);
+  const rows = renderReminderStudentRows(students, { includeActivity: includeActivityFilter });
   const needReminderCount = rows.filter((row) => row.stats.incomplete.length > 0).length;
   const recoveryRecords = await loadReminderRecoveryRecords(activeReminderClass);
   const taskLabel = activeReminderClass.task_label || "催课";
@@ -2433,6 +2582,7 @@ async function renderReminderArrangement() {
       title: "今日需催课学员",
       subtitle: "只展示当前最新完课数据中未达100%的学员",
       emptyText: "当前最新数据里没有需要催课的学员。",
+      showActivityFilter: includeActivityFilter,
     })}
   `;
   bindReminderArrangementActions();
@@ -2816,7 +2966,7 @@ function renderStudents() {
               aria-label="编辑学员姓名"
             >
           </td>
-          <td class="sticky-col second-col">${escapeText(student.account)}</td>
+          <td class="student-account-col">${escapeText(student.account)}</td>
           <td>${renderMonthlyCell(student.monthly_completion)}</td>
           <td>${renderHabitCell(student.habit_category)}</td>
           ${renderActivityProgressCell(student)}
@@ -2978,6 +3128,23 @@ async function clearMonthData() {
   setDetailMessage(`已清空 ${data.result.month} 本月数据，保留 ${activeClass.students.length} 名学员。`);
 }
 
+async function clearSelectedWeekData() {
+  if (!activeClass) return;
+  const week = classWeekSelect?.value || "1";
+  const confirmed = window.confirm(`确认清空当前班级${weekLabel(week)}的完课数据吗？学员名单、其他周数据都会保留。`);
+  if (!confirmed) return;
+
+  const data = await apiRequest(`/api/classes/${activeClass.id}/week-data?week=${encodeURIComponent(week)}`, {
+    method: "DELETE",
+  });
+  updateActivityState(data);
+  activeClass = data.class;
+  clearCompletionImage();
+  renderStudents();
+  await loadClasses();
+  setDetailMessage(`已清空${weekLabel(data.result.week)}数据。请重新选择正确周数后上传表格。`);
+}
+
 function initCompletion() {
   if (!classList) return;
 
@@ -3083,6 +3250,14 @@ function initCompletion() {
   classImageWeekNumber?.addEventListener("change", () => rememberImageWeekNumber(classImageWeekNumber.value));
   classImageWeekNumber?.addEventListener("blur", () => rememberImageWeekNumber(classImageWeekNumber.value));
   studentCategoryFilter?.addEventListener("change", renderStudents);
+
+  classClearWeekButton?.addEventListener("click", async () => {
+    try {
+      await clearSelectedWeekData();
+    } catch (error) {
+      setDetailMessage(error.message, true);
+    }
+  });
 
   classClearMonthButton?.addEventListener("click", async () => {
     try {

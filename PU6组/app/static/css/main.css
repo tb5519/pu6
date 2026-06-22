@@ -2786,6 +2786,7 @@ input {
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .reminder-section-head h3 {
@@ -2794,10 +2795,30 @@ input {
   font-size: 18px;
 }
 
-.reminder-section-head span {
+.reminder-section-head > div:first-child > span {
   color: #8a829e;
   font-size: 12px;
   font-weight: 850;
+}
+
+.reminder-section-tools {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reminder-section-tools > span {
+  color: #8a829e;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.reminder-category-filter select,
+.reminder-activity-filter select {
+  height: 34px;
+  min-width: 142px;
 }
 
 .reminder-student-table-wrap {
@@ -2848,6 +2869,10 @@ input {
 
 .reminder-student-table tbody tr:hover td {
   background: #f6fbf7;
+}
+
+.reminder-student-table tbody tr.is-hidden {
+  display: none;
 }
 
 .reminder-student-table .reminder-sticky-col {
@@ -2956,6 +2981,16 @@ input {
   color: #26384c;
   font-weight: 850;
   line-height: 1.55;
+}
+
+.reminder-filter-empty {
+  padding: 14px 16px;
+  border: 1px dashed rgba(159, 146, 193, 0.45);
+  border-radius: 8px;
+  color: #746a92;
+  background: #fbf9ff;
+  font-size: 13px;
+  font-weight: 850;
 }
 
 .reminder-call-check {
@@ -3294,6 +3329,21 @@ input {
   background: #f0e8ff;
   font-size: 12px;
   font-weight: 950;
+}
+
+.class-app-task-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid rgba(181, 83, 20, 0.18);
+  border-radius: 999px;
+  color: #b45309;
+  background: #fff4df;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
 }
 
 .class-card h2 {
@@ -3638,8 +3688,7 @@ input {
   z-index: 8;
 }
 
-.student-table .second-col {
-  left: 118px;
+.student-table .student-account-col {
   width: 128px;
   min-width: 128px;
   max-width: 128px;
@@ -3675,7 +3724,7 @@ input {
 }
 
 .student-table .sticky-col,
-.student-table .second-col,
+.student-table .student-account-col,
 .student-table .week-header-row th:nth-child(3),
 .student-table .week-header-row th:nth-child(4),
 .student-table tbody td:nth-child(3),

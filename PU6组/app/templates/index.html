@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260621-daily-reminder') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260622-student-name-sticky') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260612-renewal-message-type') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260622-reminder-current-only') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260622-student-name-sticky') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260621-daily-reminder') }}" defer></script>
     <script src="{{ url_for('static', filename='js/database.js', v='20260618-completion-rank-tooltip') }}" defer></script>
     <script src="{{ url_for('static', filename='js/renewal.js', v='20260621-renewal-note-square') }}" defer></script>
@@ -382,6 +382,7 @@
                     <option value="4">本月第四周</option>
                   </select>
                   <button id="cc-uploadButton" type="button">上传 Excel/CSV</button>
+                  <button id="cc-clearWeekButton" class="danger-button" type="button">清空所选周</button>
                   <button id="cc-clearMonthButton" class="danger-button" type="button">清空本月数据</button>
                   <input id="cc-fileInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
                 </div>
@@ -445,7 +446,7 @@
                     <thead>
                       <tr class="week-header-row">
                         <th rowspan="2" class="sticky-col">学员姓名</th>
-                        <th rowspan="2" class="sticky-col second-col">学员账号</th>
+                        <th rowspan="2" class="student-account-col">学员账号</th>
                         <th rowspan="2">本月整体完成度</th>
                         <th rowspan="2">学员分类</th>
                         <th class="week-group-start" colspan="6">第一周</th>

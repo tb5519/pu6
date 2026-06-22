@@ -1282,6 +1282,35 @@ def clear_current_month_data(target_class):
     return {"cleared": cleared, "month": month_key}
 
 
+def clear_current_week_data(target_class, week_number):
+    month_key = current_month_key()
+    week_key = str(week_number)
+    cleared = 0
+    for student in target_class.get("students", []):
+        had_data = False
+        months = student.get("months")
+        if isinstance(months, dict):
+            month_data = months.get(month_key)
+            if isinstance(month_data, dict):
+                weeks = normalize_weeks(month_data.get("weeks", {}))
+                if any(value is not None for value in weeks.get(week_key, [])):
+                    had_data = True
+                weeks[week_key] = blank_week()
+                month_data["weeks"] = weeks
+        if isinstance(student.get("weeks"), dict):
+            weeks = normalize_weeks(student.get("weeks", {}))
+            if any(value is not None for value in weeks.get(week_key, [])):
+                had_data = True
+            weeks[week_key] = blank_week()
+            student["weeks"] = weeks
+        if had_data:
+            student.pop("completion_rate", None)
+            student["updated_at"] = now_iso()
+            cleared += 1
+    target_class["updated_at"] = now_iso()
+    return {"cleared": cleared, "month": month_key, "week": week_number}
+
+
 @classes_bp.get("")
 @login_required
 def list_classes():
@@ -1593,6 +1622,30 @@ def clear_month_data(class_id):
         return jsonify({"error": "班级不存在。"}), 404
 
     result = clear_current_month_data(item)
+    save_store(store)
+    return jsonify({
+        "result": result,
+        "class": serialize_class(item, include_students=True, active_activity=active_activity),
+        **completion_activity_payload(activity_store),
+    })
+
+
+@classes_bp.delete("/<class_id>/week-data")
+@login_required
+def clear_week_data(class_id):
+    try:
+        week_number = parse_week_number(request.args.get("week"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    store = load_store()
+    activity_store = load_activity_store(store)
+    active_activity = active_completion_activity(activity_store)
+    item = find_owned_class(store, class_id)
+    if item is None:
+        return jsonify({"error": "班级不存在。"}), 404
+
+    result = clear_current_week_data(item, week_number)
     save_store(store)
     return jsonify({
         "result": result,
