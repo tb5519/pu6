@@ -2229,9 +2229,12 @@ function renderReminderCompletionBar(rows = [], records = []) {
   if (actionState.completed) {
     const completedLabel = actionState.label || (task === "回收" ? "已完成回收" : "已完成催课");
     const completedAt = actionState.completed_at ? ` · ${actionState.completed_at}` : "";
+    const detail = task === "回收"
+      ? "本次回收已完成，页面不再展示已回收历史记录。"
+      : "本次催课已完成，页面仅按最新完课数据展示当前仍需关注的学员。";
     return `
       <section class="reminder-arrangement-empty">
-        ${escapeText(`${completedLabel}${completedAt}，下方可核查本次保存的学员名单。`)}
+        ${escapeText(`${completedLabel}${completedAt}，${detail}`)}
       </section>
     `;
   }
@@ -2396,8 +2399,10 @@ async function renderReminderArrangement() {
   const rows = renderReminderStudentRows(students);
   const needReminderCount = rows.filter((row) => row.stats.incomplete.length > 0).length;
   const recoveryRecords = await loadReminderRecoveryRecords(activeReminderClass);
-  const actionRecords = await loadReminderActionRecords(activeReminderClass);
-  activeReminderArrangement = { localClass, classData, rows, recoveryRecords, actionRecords };
+  const taskLabel = activeReminderClass.task_label || "催课";
+  const isRecoveryTask = taskLabel === "回收";
+  const currentNeedRows = reminderRowsNeedingFollowUp(rows);
+  activeReminderArrangement = { localClass, classData, rows, recoveryRecords };
 
   reminderArrangementBody.innerHTML = `
     <section class="reminder-arrangement-summary">
@@ -2422,14 +2427,13 @@ async function renderReminderArrangement() {
         <strong class="${needReminderCount > 0 ? "is-negative" : "is-positive"}">${needReminderCount}</strong>
       </div>
     </section>
-    ${renderReminderActionRecords(actionRecords)}
     ${renderReminderCompletionBar(rows, recoveryRecords)}
-    ${renderReminderRecoveryRecords(recoveryRecords, rows)}
-    ${renderReminderRecoveryNewNeeds(rows, recoveryRecords)}
-    ${renderReminderStudentTable(rows, activeReminderClass.task_label === "回收" ? {
-      title: "全班最新完课明细",
-      subtitle: "用于对比回收结果和查看当前全班情况",
-    } : {})}
+    ${isRecoveryTask ? renderReminderRecoveryRecords(recoveryRecords, rows) : ""}
+    ${isRecoveryTask ? renderReminderRecoveryNewNeeds(rows, recoveryRecords) : renderReminderStudentTable(currentNeedRows, {
+      title: "今日需催课学员",
+      subtitle: "只展示当前最新完课数据中未达100%的学员",
+      emptyText: "当前最新数据里没有需要催课的学员。",
+    })}
   `;
   bindReminderArrangementActions();
 }
