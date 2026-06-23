@@ -1950,13 +1950,15 @@ def reminder_home_class_meta_by_teacher(home_classes):
         teacher_id = class_teacher_id(item)
         if not teacher_id:
             continue
+        class_keys = reminder_local_class_keys(item)
         meta = reminder_class_assessment_meta(item)
         meta.update({
             "class_id": item.get("id", ""),
             "class_name": item.get("name", ""),
+            "class_keys": sorted(class_keys),
         })
         teacher_lookup = lookup.setdefault(teacher_id, {})
-        for key in reminder_local_class_keys(item):
+        for key in class_keys:
             teacher_lookup.setdefault(key, meta)
     return lookup
 
@@ -2108,6 +2110,168 @@ def reminder_class_ref(
     if local_upload_lookup is not None:
         output["upload_state"] = reminder_local_class_upload_info(output, local_upload_lookup, report_date)
     return output
+
+
+def reminder_plan_local_meta_index():
+    home_classes = reminder_home_classes(set())
+    meta_by_teacher = reminder_home_class_meta_by_teacher(home_classes)
+    meta_by_id = {}
+    for teacher_lookup in meta_by_teacher.values():
+        for meta in teacher_lookup.values():
+            class_id = str(meta.get("class_id") or "").strip()
+            if class_id:
+                meta_by_id[class_id] = meta
+    return meta_by_teacher, meta_by_id
+
+
+def reminder_row_candidate_keys(row):
+    keys = set(row.get("class_keys") or [])
+    for value in (row.get("class_name", ""), row.get("local_class_name", ""), row.get("name", "")):
+        keys.update(reminder_class_match_keys(value))
+    return keys
+
+
+def reminder_row_local_meta(row, meta_by_teacher, meta_by_id):
+    for field in ("local_class_id", "class_id", "id"):
+        class_id = str(row.get(field) or "").strip()
+        if class_id and class_id in meta_by_id:
+            return meta_by_id[class_id]
+
+    teacher_id = normalize_teacher_id(row.get("teacher_id"))
+    teacher_lookup = meta_by_teacher.get(teacher_id, {})
+    for key in reminder_row_candidate_keys(row):
+        meta = teacher_lookup.get(key)
+        if meta:
+            return meta
+    return {}
+
+
+def apply_local_meta_to_reminder_row(row, meta):
+    changed = False
+
+    def set_value(key, value):
+        nonlocal changed
+        if row.get(key) != value:
+            row[key] = value
+            changed = True
+
+    if meta:
+        set_value("local_class_id", meta.get("class_id", ""))
+        set_value("local_class_name", meta.get("class_name", ""))
+        set_value("class_name", meta.get("class_name", ""))
+        set_value("title_week_number", meta.get("title_week_number"))
+        set_value("title_week_label", meta.get("title_week_label", ""))
+        set_value("completion_assessed", bool(meta.get("completion_assessed", True)))
+        set_value("class_keys", sorted(meta.get("class_keys") or []))
+
+    week_number = row.get("title_week_number")
+    if week_number is not None:
+        assessed = reminder_week_is_assessed(week_number)
+        set_value("completion_assessed", assessed)
+        if assessed:
+            set_value("title_week_label", f"W{week_number}")
+
+    return changed
+
+
+def normalize_reminder_priority_rows(rows):
+    normalized = []
+    for index, row in enumerate(rows):
+        next_row = {**row}
+        next_row["rank"] = index + 1
+        next_row["stars"] = max(1, 5 - index)
+        next_row["requires_high_frequency"] = reminder_row_requires_high_frequency(next_row)
+        normalized.append(next_row)
+    return normalized
+
+
+def reminder_rows_signature_set(rows):
+    return {reminder_schedule_row_signature(row) for row in rows}
+
+
+def append_unique_reminder_rows(target, rows):
+    seen = reminder_rows_signature_set(target)
+    for row in rows:
+        signature = reminder_schedule_row_signature(row)
+        if signature in seen:
+            continue
+        target.append(row)
+        seen.add(signature)
+
+
+def reconcile_weekly_reminder_plan(plan):
+    if not isinstance(plan, dict) or not isinstance(plan.get("groups"), list):
+        return False
+
+    changed = False
+    meta_by_teacher, meta_by_id = reminder_plan_local_meta_index()
+
+    for group in plan.get("groups", []):
+        if not isinstance(group, dict):
+            continue
+
+        priority_rows = [row for row in group.get("priorities", []) if isinstance(row, dict)]
+        fallback_rows = [row for row in group.get("database_fallbacks", []) if isinstance(row, dict)]
+        extra_rows = [row for row in group.get("extra_classes", []) if isinstance(row, dict)]
+        for row in priority_rows + fallback_rows + extra_rows:
+            meta = reminder_row_local_meta(row, meta_by_teacher, meta_by_id)
+            if apply_local_meta_to_reminder_row(row, meta):
+                changed = True
+
+        assessed_priorities = []
+        moved_database_rows = []
+        moved_extra_rows = []
+        for row in priority_rows:
+            if row.get("completion_assessed", True):
+                assessed_priorities.append(row)
+                continue
+            moved_row = {**row, "rank": None, "stars": None, "requires_high_frequency": False}
+            if str(row.get("source") or "") == "my_class":
+                moved_extra_rows.append(moved_row)
+            else:
+                moved_database_rows.append(moved_row)
+            changed = True
+
+        normalized_priorities = normalize_reminder_priority_rows(assessed_priorities)
+        if normalized_priorities != priority_rows:
+            changed = True
+        priority_rows = normalized_priorities
+
+        append_unique_reminder_rows(fallback_rows, moved_database_rows)
+        append_unique_reminder_rows(extra_rows, moved_extra_rows)
+
+        assessed_database_fallback_rows = [row for row in fallback_rows if row.get("completion_assessed", True)]
+        renewal_database_fallback_rows = [row for row in fallback_rows if not row.get("completion_assessed", True)]
+        assessed_extra_rows = [row for row in extra_rows if row.get("completion_assessed", True)]
+        renewal_extra_rows = [row for row in extra_rows if not row.get("completion_assessed", True)]
+        schedule_rows = (
+            priority_rows
+            + assessed_database_fallback_rows
+            + assessed_extra_rows
+            + renewal_database_fallback_rows
+            + renewal_extra_rows
+        )
+
+        rebuilt_schedule = build_reminder_schedule(schedule_rows)
+        next_values = {
+            "priorities": priority_rows,
+            "database_fallbacks": fallback_rows,
+            "extra_classes": extra_rows,
+            "included_count": len(priority_rows),
+            "ignored_count": len(fallback_rows),
+            "extra_count": len(extra_rows),
+            "schedule_count": len(schedule_rows),
+            "schedule": rebuilt_schedule,
+        }
+        for key, value in next_values.items():
+            if group.get(key) != value:
+                group[key] = value
+                changed = True
+
+    if changed:
+        plan["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        plan["reconciled_at"] = plan["updated_at"]
+    return changed
 
 
 def build_reminder_schedule(schedule_rows, action_records=None):
@@ -2479,6 +2643,10 @@ def ensure_weekly_reminder_plan(report_date):
     store = load_reminder_plans()
     plan = store.get("plans", {}).get(cycle_key)
     if plan:
+        if reconcile_weekly_reminder_plan(plan):
+            store.setdefault("plans", {})[cycle_key] = plan
+            store["updated_at"] = plan.get("updated_at", datetime.now().isoformat(timespec="seconds"))
+            save_reminder_plans(store)
         return plan
 
     source_date = reminder_plan_source_date(cycle_key)
@@ -2486,6 +2654,10 @@ def ensure_weekly_reminder_plan(report_date):
         store = load_reminder_plans()
         plan = store.get("plans", {}).get(cycle_key)
         if plan:
+            if reconcile_weekly_reminder_plan(plan):
+                store.setdefault("plans", {})[cycle_key] = plan
+                store["updated_at"] = plan.get("updated_at", datetime.now().isoformat(timespec="seconds"))
+                save_reminder_plans(store)
             return plan
         return save_weekly_reminder_plan(cycle_key, source_date, "system")
 
