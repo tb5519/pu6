@@ -3,4 +3,12 @@ __pycache__/
 *.py[cod]
 .env
 .DS_Store
-instance/
+instance/*
+!instance/.gitkeep
+instance/*.json
+instance/*.bak
+instance/**/*.json
+instance/**/*.bak
+instance/instance/
+instance/instance/**
+instance_bak*

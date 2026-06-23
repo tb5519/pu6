@@ -1,8 +1,46 @@
+import json
 import os
 from datetime import timedelta
 from pathlib import Path
 
 from flask import Flask
+
+
+INSTANCE_JSON_DEFAULTS = {
+    "USERS_FILE": {},
+    "CLASSES_FILE": {"classes": []},
+    "COMPLETION_ACTIVITIES_FILE": {"activities": []},
+    "COMPLETION_ASSIGNMENTS_FILE": {"classes": []},
+    "COMPLETION_SNAPSHOTS_FILE": {"snapshots": {}, "last_month": {}},
+    "COMPLETION_REMINDER_ACTIONS_FILE": {"records": []},
+    "COMPLETION_REMINDER_PLANS_FILE": {"plans": {}},
+    "DAILY_REPORT_FILE": {"reports": {}},
+    "DATABASE_SETTINGS_FILE": {"learning": {"classes": {}, "teachers": {}}, "gmv": {}},
+    "MONTHLY_ARCHIVES_FILE": {"archives": {}},
+    "RENEWAL_PROJECTS_FILE": {"projects": [], "blocker_options": []},
+    "TALK_LIBRARY_FILE": {"learning_calls": {}},
+    "VIDEOS_FILE": {"records": []},
+}
+
+
+def clone_default_data(default):
+    return json.loads(json.dumps(default, ensure_ascii=False))
+
+
+def create_json_file_if_missing(path, default):
+    path = Path(path)
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    with temp_path.open("w", encoding="utf-8") as file:
+        json.dump(clone_default_data(default), file, ensure_ascii=False, indent=2)
+    temp_path.replace(path)
+
+
+def ensure_instance_data_files(app):
+    for config_key, default in INSTANCE_JSON_DEFAULTS.items():
+        create_json_file_if_missing(app.config[config_key], default)
 
 
 def create_app():
@@ -27,6 +65,7 @@ def create_app():
         PERMANENT_SESSION_LIFETIME=timedelta(days=7),
     )
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+    ensure_instance_data_files(app)
 
     from app.auth import auth_bp, register_cli_commands
     from app.classes import classes_bp
