@@ -107,6 +107,23 @@ REMINDER_RECOVERY_TARGET_BY_ORIGIN = {
 }
 
 COMPLETION_CATEGORIES = ["完课超赞", "异常断课", "断续上课", "长期不上课", "周末欠缺", "偶尔断课", "暂无数据"]
+def reminder_local_class_keys(item):
+    keys = set()
+    for value in (item.get("name", ""), item.get("note", "")):
+        keys.update(reminder_class_match_keys(value))
+    return keys
+
+
+def reminder_week_is_assessed(week_number):
+    if week_number is None:
+        return True
+    try:
+        week = int(week_number)
+    except (TypeError, ValueError):
+        return True
+    return week in COMPLETION_PERFORMANCE_BASE_TARGETS
+
+
 DATABASE_METRICS = {
     "learning": {"field": "learning_status", "label": "学情"},
     "renewal": {"field": "renewal_orders", "label": "续费单量"},
@@ -1919,7 +1936,7 @@ def reminder_teacher_seed(teacher_id):
 
 def reminder_class_assessment_meta(item):
     week_number = current_title_week_number(item)
-    completion_assessed = week_number is None or week_number < REMINDER_ASSESSMENT_WEEK_LIMIT
+    completion_assessed = reminder_week_is_assessed(week_number)
     return {
         "title_week_number": week_number,
         "title_week_label": f"W{week_number}" if week_number else "",
@@ -1939,7 +1956,7 @@ def reminder_home_class_meta_by_teacher(home_classes):
             "class_name": item.get("name", ""),
         })
         teacher_lookup = lookup.setdefault(teacher_id, {})
-        for key in reminder_class_match_keys(item.get("name", "")):
+        for key in reminder_local_class_keys(item):
             teacher_lookup.setdefault(key, meta)
     return lookup
 
@@ -1979,6 +1996,8 @@ def reminder_priority_row(row, index):
         "stars": max(1, 5 - index),
         "class_id": row.get("id", ""),
         "class_name": row.get("name", ""),
+        "local_class_id": row.get("local_class_id", ""),
+        "local_class_name": row.get("local_class_name", ""),
         "teacher_id": row.get("teacher_id", ""),
         "teacher_name": row.get("teacher_name", ""),
         "student_count": parse_student_count(row.get("student_count")),
@@ -2002,6 +2021,8 @@ def reminder_database_fallback_row(row):
         "stars": None,
         "class_id": row.get("id", ""),
         "class_name": row.get("name", ""),
+        "local_class_id": row.get("local_class_id", ""),
+        "local_class_name": row.get("local_class_name", ""),
         "teacher_id": row.get("teacher_id", ""),
         "teacher_name": row.get("teacher_name", ""),
         "student_count": parse_student_count(row.get("student_count")),
@@ -2027,6 +2048,8 @@ def reminder_home_class_row(item):
         "stars": None,
         "class_id": item.get("id", ""),
         "class_name": item.get("name", ""),
+        "local_class_id": item.get("id", ""),
+        "local_class_name": item.get("name", ""),
         "teacher_id": teacher_id,
         "teacher_name": teacher_label(teacher_id) or "未分配",
         "student_count": len(item.get("students", [])),
@@ -2056,6 +2079,8 @@ def reminder_class_ref(
     output = {
         "class_id": row.get("class_id", ""),
         "class_name": row.get("class_name", ""),
+        "local_class_id": row.get("local_class_id", ""),
+        "local_class_name": row.get("local_class_name", ""),
         "teacher_id": row.get("teacher_id", ""),
         "teacher_name": row.get("teacher_name", ""),
         "rank": row.get("rank"),
@@ -2215,7 +2240,7 @@ def reminder_local_class_upload_lookup(visible_teacher_ids):
             "student_count": len(item.get("students", [])),
         }
         teacher_lookup = lookup.setdefault(teacher_id, {})
-        for key in reminder_class_match_keys(item.get("name", "")):
+        for key in reminder_local_class_keys(item):
             teacher_lookup.setdefault(key, class_info)
     return lookup
 
@@ -2252,7 +2277,7 @@ def build_completion_reminder_plan_source(month_key, report_date, visible_teache
         if not item.get("completion_activity"):
             continue
         teacher_id = class_teacher_id(item)
-        activity_keys_by_teacher.setdefault(teacher_id, set()).update(reminder_class_match_keys(item.get("name", "")))
+        activity_keys_by_teacher.setdefault(teacher_id, set()).update(reminder_local_class_keys(item))
     teacher_lookup = {
         teacher_id: reminder_teacher_seed(teacher_id)
         for teacher_id in visible_teacher_ids
@@ -2280,10 +2305,14 @@ def build_completion_reminder_plan_source(month_key, report_date, visible_teache
             row["title_week_number"] = local_meta.get("title_week_number")
             row["title_week_label"] = local_meta.get("title_week_label", "")
             row["completion_assessed"] = bool(local_meta.get("completion_assessed", True))
+            row["local_class_id"] = local_meta.get("class_id", "")
+            row["local_class_name"] = local_meta.get("class_name", "")
         else:
             row["title_week_number"] = None
             row["title_week_label"] = ""
             row["completion_assessed"] = True
+            row["local_class_id"] = ""
+            row["local_class_name"] = ""
         if teacher_id not in teacher_lookup:
             teacher_lookup[teacher_id] = reminder_teacher_seed(teacher_id)
             teacher_lookup[teacher_id]["teacher_name"] = row.get("teacher_name") or "未分配"
@@ -2313,7 +2342,7 @@ def build_completion_reminder_plan_source(month_key, report_date, visible_teache
             teacher_lookup[teacher_id] = reminder_teacher_seed(teacher_id)
             database_keys_by_teacher.setdefault(teacher_id, set())
             extra_keys_by_teacher.setdefault(teacher_id, set())
-        class_keys = reminder_class_match_keys(item.get("name", ""))
+        class_keys = reminder_local_class_keys(item)
         if class_keys and class_keys & database_keys_by_teacher.get(teacher_id, set()):
             continue
         if class_keys and class_keys & extra_keys_by_teacher.get(teacher_id, set()):

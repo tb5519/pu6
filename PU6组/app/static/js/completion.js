@@ -1833,10 +1833,11 @@ function reminderActivityStageInfo(student = {}) {
   const waterCount = studentWaterCount(student);
   const visuals = normalizeActivityVisuals(completionActivity || {});
   const stageIndex = activityStageIndex(waterCount, visuals);
+  const stage = plantStage(waterCount, plantVariety(student), student);
   const label = visuals.stage_labels[stageIndex]
     || ACTIVITY_STAGE_DEFAULTS[Math.min(stageIndex, ACTIVITY_STAGE_DEFAULTS.length - 1)]
     || "暂无活动状态";
-  return { label, stageIndex, waterCount };
+  return { label, stageIndex, waterCount, className: stage.className };
 }
 
 function reminderActivityStageOptions(rows = []) {
@@ -1897,6 +1898,21 @@ function renderReminderCategoryFilter(rows = [], options = {}) {
   `;
 }
 
+function renderReminderActivityProgressCell(row = {}) {
+  const stage = row.activityStage;
+  if (!stage) return "";
+  const progress = Math.max(0, Math.min(ACTIVITY_MAX_PROGRESS, Number(stage.waterCount) || 0));
+  return `
+    <td class="reminder-sticky-col reminder-sticky-activity">
+      <div class="reminder-activity-progress">
+        <span class="activity-stage-badge ${stage.className || ""}">${escapeText(stage.label)}</span>
+        <strong>${progress}/${ACTIVITY_MAX_PROGRESS}</strong>
+        <div class="water-progress compact"><i style="width: ${(progress / ACTIVITY_MAX_PROGRESS) * 100}%"></i></div>
+      </div>
+    </td>
+  `;
+}
+
 function renderReminderStudentTable(rows = [], options = {}) {
   const title = options.title || "学员每日完课与催课建议";
   const subtitle = options.subtitle || "按需催课学员优先展示";
@@ -1928,6 +1944,7 @@ function renderReminderStudentTable(rows = [], options = {}) {
     .map((row, rowIndex) => {
       const { student, stats } = row;
       const canRecordPhoneCall = activeReminderClass?.task_label !== "回收" && !activeReminderClass?.action_state?.completed;
+      const showActivityProgress = Boolean(options.showActivityFilter);
       const dayCells = WEEK_KEYS
         .flatMap((week) => stats.weeks[week].map((rate, dayIndex) => (
           `<td class="${dayIndex === 0 ? "week-group-start" : ""}">${renderReminderDayCell(rate)}</td>`
@@ -1939,9 +1956,9 @@ function renderReminderStudentTable(rows = [], options = {}) {
           data-reminder-activity-stage="${escapeText(row.activityStage?.label || "")}"
         >
           <td class="reminder-student-name reminder-sticky-col reminder-sticky-name">${renderReminderStudentName(student)}</td>
-          <td class="reminder-sticky-col reminder-sticky-account">${escapeText(student.account || "-")}</td>
           <td class="reminder-sticky-col reminder-sticky-category">${renderHabitCell(stats.category)}</td>
           <td class="reminder-sticky-col reminder-sticky-completion">${renderMonthlyCell(student.monthly_completion)}</td>
+          ${showActivityProgress ? renderReminderActivityProgressCell(row) : ""}
           ${renderReminderPromptCell(row, rowIndex, canRecordPhoneCall)}
           ${dayCells}
         </tr>
@@ -1959,13 +1976,13 @@ function renderReminderStudentTable(rows = [], options = {}) {
         ${renderReminderCategoryFilter(rows, options)}
       </div>
       <div class="reminder-student-table-wrap">
-        <table class="reminder-student-table">
+        <table class="reminder-student-table ${options.showActivityFilter ? "has-activity-progress" : ""}">
           <thead>
             <tr>
               <th class="reminder-sticky-col reminder-sticky-name" rowspan="2">学员姓名</th>
-              <th class="reminder-sticky-col reminder-sticky-account" rowspan="2">学员账号</th>
               <th class="reminder-sticky-col reminder-sticky-category" rowspan="2">学员分类</th>
               <th class="reminder-sticky-col reminder-sticky-completion" rowspan="2">本月完成度</th>
+              ${options.showActivityFilter ? `<th class="reminder-sticky-col reminder-sticky-activity" rowspan="2">活动进度</th>` : ""}
               <th class="reminder-prompt-head" rowspan="2">催课建议</th>
               ${weekHeaders}
             </tr>

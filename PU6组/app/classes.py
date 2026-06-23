@@ -3,6 +3,7 @@ import io
 import json
 import re
 import uuid
+from copy import deepcopy
 from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, g, jsonify, request, send_from_directory, url_for
@@ -658,6 +659,96 @@ def reminder_class_names_match(first_name, second_name):
     first_keys = reminder_class_match_keys(first_name)
     second_keys = reminder_class_match_keys(second_name)
     return bool(first_keys and first_keys & second_keys)
+
+
+def reminder_class_item_keys(item):
+    keys = set()
+    for value in (item.get("name", ""), item.get("note", "")):
+        keys.update(reminder_class_match_keys(value))
+    return keys
+
+
+def reminder_reference_matches(target, old_item, new_item):
+    local_class_id = str(new_item.get("id") or old_item.get("id") or "").strip()
+    if local_class_id and str(target.get("local_class_id") or "").strip() == local_class_id:
+        return True
+    if local_class_id and str(target.get("class_id") or "").strip() == local_class_id:
+        return True
+
+    target_teacher_id = normalize_teacher_id(target.get("teacher_id"))
+    class_teachers = {class_teacher_id(old_item), class_teacher_id(new_item)}
+    class_teachers = {teacher for teacher in class_teachers if teacher}
+    if class_teachers and target_teacher_id and target_teacher_id not in class_teachers:
+        return False
+
+    class_keys = reminder_class_item_keys(old_item) | reminder_class_item_keys(new_item)
+    target_keys = set(target.get("class_keys") or [])
+    for value in (target.get("class_name", ""), target.get("local_class_name", "")):
+        target_keys.update(reminder_class_match_keys(value))
+    return bool(class_keys and target_keys and class_keys & target_keys)
+
+
+def update_reminder_reference(target, old_item, new_item):
+    if not isinstance(target, dict) or "class_name" not in target:
+        return False
+    if not reminder_reference_matches(target, old_item, new_item):
+        return False
+
+    local_class_id = str(new_item.get("id") or "").strip()
+    class_name = str(new_item.get("name") or "").strip()
+    teacher_id = class_teacher_id(new_item)
+    week_number = current_title_week_number(new_item)
+    target["class_name"] = class_name
+    target["local_class_id"] = local_class_id
+    target["local_class_name"] = class_name
+    target["class_keys"] = sorted(reminder_class_item_keys(new_item))
+    if teacher_id:
+        target["teacher_id"] = teacher_id
+        target["teacher_name"] = teacher_label(teacher_id)
+    target["title_week_number"] = week_number
+    target["title_week_label"] = f"W{week_number}" if week_number else ""
+    if str(target.get("source") or "") == "my_class" or str(target.get("class_id") or "") == str(old_item.get("id") or ""):
+        target["class_id"] = local_class_id
+    return True
+
+
+def sync_reminder_references_for_class_update(old_item, new_item):
+    changed_count = 0
+
+    def sync_file(path_key, root_key):
+        nonlocal changed_count
+        path = current_app.config.get(path_key)
+        if not path or not path.exists():
+            return
+        try:
+            with path.open("r", encoding="utf-8") as file:
+                store = json.load(file)
+        except (json.JSONDecodeError, OSError):
+            return
+
+        changed = False
+
+        def visit(value):
+            nonlocal changed, changed_count
+            if isinstance(value, dict):
+                if update_reminder_reference(value, old_item, new_item):
+                    changed = True
+                    changed_count += 1
+                for child in value.values():
+                    visit(child)
+            elif isinstance(value, list):
+                for child in value:
+                    visit(child)
+
+        visit(store.get(root_key, store))
+        if changed:
+            store["updated_at"] = now_iso()
+            with path.open("w", encoding="utf-8") as file:
+                json.dump(store, file, ensure_ascii=False, indent=2)
+
+    sync_file("COMPLETION_REMINDER_PLANS_FILE", "plans")
+    sync_file("COMPLETION_REMINDER_ACTIONS_FILE", "records")
+    return changed_count
 
 
 def get_student_account(student):
@@ -1512,7 +1603,11 @@ def reminder_match_class():
     matches = [
         item
         for item in candidates
-        if class_name and reminder_class_names_match(item.get("name"), class_name)
+        if class_name
+        and (
+            reminder_class_names_match(item.get("name"), class_name)
+            or reminder_class_names_match(item.get("note"), class_name)
+        )
     ]
     if teacher_id:
         teacher_matches = [item for item in matches if class_teacher_id(item) == teacher_id]
@@ -1542,6 +1637,8 @@ def update_class(class_id):
     item = find_owned_class(store, class_id)
     if item is None:
         return jsonify({"error": "班级不存在。"}), 404
+
+    previous_item = deepcopy(item)
 
     if "name" in payload:
         name = str(payload.get("name") or "").strip()
@@ -1574,6 +1671,8 @@ def update_class(class_id):
     item["updated_at"] = now_iso()
     save_store(store)
     save_activity_store(activity_store)
+    if any(field in payload for field in ("name", "note", "title_week_number", "teacher_id")):
+        sync_reminder_references_for_class_update(previous_item, item)
     return jsonify({
         "class": serialize_class(item, include_students=True, active_activity=active_activity),
         **completion_activity_payload(activity_store),

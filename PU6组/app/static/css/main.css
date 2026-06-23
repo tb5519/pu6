@@ -2830,6 +2830,10 @@ input {
 }
 
 .reminder-student-table {
+  --reminder-sticky-name-width: 96px;
+  --reminder-sticky-category-width: 108px;
+  --reminder-sticky-completion-width: 118px;
+  --reminder-sticky-activity-width: 136px;
   width: 100%;
   min-width: 1580px;
   border-collapse: separate;
@@ -2899,31 +2903,41 @@ input {
 
 .reminder-student-table .reminder-sticky-name {
   left: 0;
-  width: 96px;
-  min-width: 96px;
-  max-width: 96px;
-}
-
-.reminder-student-table .reminder-sticky-account {
-  left: 96px;
-  width: 118px;
-  min-width: 118px;
-  max-width: 118px;
+  width: var(--reminder-sticky-name-width);
+  min-width: var(--reminder-sticky-name-width);
+  max-width: var(--reminder-sticky-name-width);
 }
 
 .reminder-student-table .reminder-sticky-category {
-  left: 214px;
-  width: 108px;
-  min-width: 108px;
-  max-width: 108px;
+  left: var(--reminder-sticky-name-width);
+  width: var(--reminder-sticky-category-width);
+  min-width: var(--reminder-sticky-category-width);
+  max-width: var(--reminder-sticky-category-width);
 }
 
 .reminder-student-table .reminder-sticky-completion {
-  left: 322px;
-  width: 118px;
-  min-width: 118px;
-  max-width: 118px;
+  left: calc(var(--reminder-sticky-name-width) + var(--reminder-sticky-category-width));
+  width: var(--reminder-sticky-completion-width);
+  min-width: var(--reminder-sticky-completion-width);
+  max-width: var(--reminder-sticky-completion-width);
   box-shadow: 10px 0 16px rgba(72, 45, 130, 0.08);
+}
+
+.reminder-student-table .reminder-sticky-activity {
+  left: calc(var(--reminder-sticky-name-width) + var(--reminder-sticky-category-width) + var(--reminder-sticky-completion-width));
+  z-index: 4;
+  width: var(--reminder-sticky-activity-width);
+  min-width: var(--reminder-sticky-activity-width);
+  max-width: var(--reminder-sticky-activity-width);
+  box-shadow: 10px 0 16px rgba(72, 45, 130, 0.08);
+}
+
+.reminder-student-table th.reminder-sticky-activity {
+  z-index: 9;
+}
+
+.reminder-student-table.has-activity-progress .reminder-sticky-completion {
+  box-shadow: none;
 }
 
 .reminder-week-head {
@@ -2981,6 +2995,27 @@ input {
   color: #26384c;
   font-weight: 850;
   line-height: 1.55;
+}
+
+.reminder-activity-progress {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.reminder-activity-progress .activity-stage-badge {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reminder-activity-progress strong {
+  color: #191143;
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
 }
 
 .reminder-filter-empty {
