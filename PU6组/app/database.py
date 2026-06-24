@@ -2,9 +2,11 @@ import csv
 import hashlib
 import io
 import json
+import os
 import re
 import uuid
 from calendar import monthrange
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from threading import Lock
 
@@ -201,12 +203,56 @@ def load_json(path, default):
         return json.load(file)
 
 
-def save_json(path, data):
+@contextmanager
+def json_file_lock(path):
+    lock_path = path.with_suffix(f"{path.suffix}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        if os.name == "nt":
+            import msvcrt
+
+            lock_file.seek(0)
+            if not lock_file.read(1):
+                lock_file.write("0")
+                lock_file.flush()
+            lock_file.seek(0)
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                lock_file.seek(0)
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def write_json_atomic(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    temp_path = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
     with temp_path.open("w", encoding="utf-8") as file:
         json.dump(data, file, ensure_ascii=False, indent=2)
+        file.flush()
+        os.fsync(file.fileno())
     temp_path.replace(path)
+
+
+def save_json(path, data):
+    with json_file_lock(path):
+        write_json_atomic(path, data)
+
+
+def update_json(path, default, updater):
+    with json_file_lock(path):
+        store = load_json(path, default)
+        result = updater(store)
+        write_json_atomic(path, store)
+    return result
 
 
 def load_completion_assignments():
@@ -3293,9 +3339,9 @@ def save_completion_reminder_action():
 
     if task_label == "回收":
         recover_from = str(payload.get("recover_from") or "").strip()
-        completed_count = 0
-        with REMINDER_ACTIONS_LOCK:
-            store = load_reminder_actions()
+        def mark_recovered(store):
+            completed_count = 0
+            store.setdefault("records", [])
             for record in store.get("records", []):
                 if normalize_teacher_id(record.get("teacher_id")) != target_teacher_id:
                     continue
@@ -3306,7 +3352,14 @@ def save_completion_reminder_action():
                 record["recovered_by"] = g.user.get("username", "")
                 completed_count += 1
             store["updated_at"] = now_text
-            save_reminder_actions(store)
+            return completed_count
+
+        with REMINDER_ACTIONS_LOCK:
+            completed_count = update_json(
+                completion_reminder_actions_file(),
+                {"records": []},
+                mark_recovered,
+            )
         return jsonify(
             {
                 "ok": True,
@@ -3362,8 +3415,8 @@ def save_completion_reminder_action():
         existing_keys = set(existing.get("class_keys") or reminder_class_match_keys(existing.get("class_name", "")))
         return bool(existing_keys.intersection(class_keys))
 
-    with REMINDER_ACTIONS_LOCK:
-        store = load_reminder_actions()
+    def append_action_record(store):
+        store.setdefault("records", [])
         store["records"] = [
             existing
             for existing in store.get("records", [])
@@ -3371,7 +3424,13 @@ def save_completion_reminder_action():
         ]
         store["records"].append(record)
         store["updated_at"] = now_text
-        save_reminder_actions(store)
+
+    with REMINDER_ACTIONS_LOCK:
+        update_json(
+            completion_reminder_actions_file(),
+            {"records": []},
+            append_action_record,
+        )
 
     if status == "pending_recovery":
         message = f"已完成催课，{len(students)}名学员已同步到{recovery_target['label']}回收。"
