@@ -94,11 +94,12 @@ COMPLETION_PERFORMANCE_BASE_TARGETS = {
 REMINDER_ASSESSMENT_WEEK_LIMIT = 41
 REMINDER_HIGH_GAP_THRESHOLD = 10
 REMINDER_DAILY_MIN_CLASSES = 2
+REMINDER_PLAN_RULE_VERSION = "home-class-source-v2"
 REMINDER_WEEK_FLOW = [
     {"key": "monday", "label": "周一", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": None, "focus_count": 0},
     {"key": "tuesday", "label": "周二", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": None, "focus_count": 0},
     {"key": "wednesday", "label": "周三", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": "monday", "focus_count": 0},
-    {"key": "thursday", "label": "周四", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": None, "focus_count": 0},
+    {"key": "thursday", "label": "周四", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": "tuesday", "focus_count": 0},
     {"key": "friday", "label": "周五", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": None, "focus_count": 0},
 ]
 REMINDER_FLOW_BY_KEY = {item["key"]: item for item in REMINDER_WEEK_FLOW}
@@ -2019,6 +2020,63 @@ def reminder_local_class_meta(row, meta_by_teacher):
     return {}
 
 
+def reminder_completion_row_score(row):
+    return (
+        bool(row.get("lookup_matched")),
+        row.get("completion_rate") is not None,
+        row.get("last_month_completion") is not None,
+        row.get("change_from_last_month") is not None,
+        parse_student_count(row.get("student_count")),
+    )
+
+
+def reminder_completion_rows_by_teacher(completion):
+    lookup = {}
+    for row in completion.get("classes", []):
+        teacher_id = normalize_teacher_id(row.get("teacher_id"))
+        if not teacher_id:
+            continue
+        teacher_lookup = lookup.setdefault(teacher_id, {})
+        for key in reminder_class_match_keys(row.get("name") or row.get("class_name", "")):
+            current = teacher_lookup.get(key)
+            if current is None or reminder_completion_row_score(row) > reminder_completion_row_score(current):
+                teacher_lookup[key] = row
+    return lookup
+
+
+def reminder_completion_row_for_home_class(item, completion_rows_by_teacher):
+    teacher_id = class_teacher_id(item)
+    teacher_lookup = completion_rows_by_teacher.get(teacher_id, {})
+    for key in reminder_local_class_keys(item):
+        row = teacher_lookup.get(key)
+        if row:
+            return row
+    return {}
+
+
+def reminder_home_class_plan_row(item, completion_row=None):
+    row = reminder_home_class_row(item)
+    row["id"] = item.get("id", "")
+    row["name"] = item.get("name", "")
+    row["source"] = "my_class"
+    row["source_label"] = "考核班级" if row.get("completion_assessed", True) else "续费期"
+    if completion_row:
+        row["completion_data_matched"] = True
+        row["database_class_id"] = completion_row.get("id", "")
+        row["database_class_name"] = completion_row.get("name", "")
+        row["student_count"] = parse_student_count(completion_row.get("student_count")) or row.get("student_count")
+        row["completion_rate"] = completion_row.get("completion_rate")
+        row["last_month_completion"] = completion_row.get("last_month_completion")
+        row["change_from_last_month"] = completion_row.get("change_from_last_month")
+        row["lookup_matched"] = bool(completion_row.get("lookup_matched"))
+    else:
+        row["completion_data_matched"] = False
+        row["database_class_id"] = ""
+        row["database_class_name"] = ""
+        row["lookup_matched"] = False
+    return row
+
+
 def reminder_gap_from_last_month(row):
     change = row.get("change_from_last_month")
     if change is None:
@@ -2039,6 +2097,9 @@ def reminder_priority_row(row, index):
     change = row.get("change_from_last_month")
     gap = reminder_gap_from_last_month(row)
     high_frequency = reminder_row_requires_high_frequency(row)
+    source_label = row.get("source_label") or ("高频考核" if high_frequency else "考核班级")
+    if high_frequency:
+        source_label = "高频考核"
     return {
         "rank": index + 1,
         "stars": max(1, 5 - index),
@@ -2058,12 +2119,15 @@ def reminder_priority_row(row, index):
         "title_week_number": row.get("title_week_number"),
         "title_week_label": row.get("title_week_label", ""),
         "requires_high_frequency": high_frequency,
-        "source": "database",
-        "source_label": "高频考核" if high_frequency else "数据库",
+        "source": row.get("source", "my_class"),
+        "source_label": source_label,
     }
 
 
 def reminder_database_fallback_row(row):
+    source_label = row.get("source_label")
+    if not source_label:
+        source_label = "考核班级" if row.get("completion_assessed", True) else "续费期"
     return {
         "rank": None,
         "stars": None,
@@ -2083,8 +2147,8 @@ def reminder_database_fallback_row(row):
         "title_week_number": row.get("title_week_number"),
         "title_week_label": row.get("title_week_label", ""),
         "requires_high_frequency": False,
-        "source": "database",
-        "source_label": "数据库" if row.get("completion_assessed", True) else "续费期",
+        "source": row.get("source", "my_class"),
+        "source_label": source_label,
     }
 
 
@@ -2094,6 +2158,8 @@ def reminder_home_class_row(item):
     return {
         "rank": None,
         "stars": None,
+        "id": item.get("id", ""),
+        "name": item.get("name", ""),
         "class_id": item.get("id", ""),
         "class_name": item.get("name", ""),
         "local_class_id": item.get("id", ""),
@@ -2111,7 +2177,7 @@ def reminder_home_class_row(item):
         "title_week_label": assessment_meta["title_week_label"],
         "requires_high_frequency": False,
         "source": "my_class",
-        "source_label": "我的班级" if assessment_meta["completion_assessed"] else "续费期",
+        "source_label": "考核班级" if assessment_meta["completion_assessed"] else "续费期",
     }
 
 
@@ -2481,7 +2547,7 @@ def build_completion_reminder_plan_source(month_key, report_date, visible_teache
     action_records_for_summary = action_records or []
     completion = build_completion_summary(month_key, report_date)
     home_classes = reminder_home_classes(visible_teacher_ids)
-    home_meta_by_teacher = reminder_home_class_meta_by_teacher(home_classes)
+    completion_rows_by_teacher = reminder_completion_rows_by_teacher(completion)
     activity_keys_by_teacher = {teacher_id: set() for teacher_id in visible_teacher_ids}
     for item in home_classes:
         if not item.get("completion_activity"):
@@ -2492,75 +2558,41 @@ def build_completion_reminder_plan_source(month_key, report_date, visible_teache
         teacher_id: reminder_teacher_seed(teacher_id)
         for teacher_id in visible_teacher_ids
     }
-    database_keys_by_teacher = {teacher_id: set() for teacher_id in visible_teacher_ids}
-    extra_keys_by_teacher = {teacher_id: set() for teacher_id in visible_teacher_ids}
-    database_roster_is_authoritative = completion.get("roster_source") == "assignment"
 
-    for row in completion.get("classes", []):
-        teacher_id = normalize_teacher_id(row.get("teacher_id"))
+    for item in home_classes:
+        teacher_id = class_teacher_id(item)
         if visible_teacher_ids and teacher_id not in visible_teacher_ids:
             continue
-        row = {
-            **row,
-            "completion_activity": reminder_class_is_in_activity(
-                row.get("name", ""),
-                activity_keys_by_teacher.get(teacher_id, set()),
-            ),
-        }
-        is_database_row = database_roster_is_authoritative or bool(row.get("lookup_matched"))
-        if not is_database_row:
-            continue
-        local_meta = reminder_local_class_meta(row, home_meta_by_teacher)
-        if local_meta:
-            row["title_week_number"] = local_meta.get("title_week_number")
-            row["title_week_label"] = local_meta.get("title_week_label", "")
-            row["completion_assessed"] = bool(local_meta.get("completion_assessed", True))
-            row["local_class_id"] = local_meta.get("class_id", "")
-            row["local_class_name"] = local_meta.get("class_name", "")
-        else:
-            row["title_week_number"] = None
-            row["title_week_label"] = ""
-            row["completion_assessed"] = True
-            row["local_class_id"] = ""
-            row["local_class_name"] = ""
         if teacher_id not in teacher_lookup:
             teacher_lookup[teacher_id] = reminder_teacher_seed(teacher_id)
-            teacher_lookup[teacher_id]["teacher_name"] = row.get("teacher_name") or "未分配"
-            database_keys_by_teacher.setdefault(teacher_id, set())
-            extra_keys_by_teacher.setdefault(teacher_id, set())
-        teacher_lookup[teacher_id]["database_count"] += 1
+
+        completion_row = reminder_completion_row_for_home_class(item, completion_rows_by_teacher)
+        row = reminder_home_class_plan_row(item, completion_row)
+        row["completion_activity"] = bool(item.get("completion_activity")) or reminder_class_is_in_activity(
+            row.get("class_name", ""),
+            activity_keys_by_teacher.get(teacher_id, set()),
+        )
+
         teacher_lookup[teacher_id]["class_count"] += 1
-        database_keys_by_teacher.setdefault(teacher_id, set()).update(reminder_class_match_keys(row.get("name", "")))
+        if completion_row:
+            teacher_lookup[teacher_id]["database_count"] += 1
+        else:
+            teacher_lookup[teacher_id]["extra_count"] += 1
 
         has_comparison = (
             row.get("completion_assessed", True)
-            and
-            row.get("lookup_matched")
+            and completion_row
             and row.get("completion_rate") is not None
             and row.get("last_month_completion") is not None
             and row.get("change_from_last_month") is not None
         )
-        if not has_comparison:
+        if has_comparison:
+            teacher_lookup[teacher_id]["priorities"].append(row)
+        elif completion_row:
             teacher_lookup[teacher_id]["ignored_count"] += 1
             teacher_lookup[teacher_id]["database_fallbacks"].append(row)
-            continue
-        teacher_lookup[teacher_id]["priorities"].append(row)
-
-    for item in home_classes:
-        teacher_id = class_teacher_id(item)
-        if teacher_id not in teacher_lookup:
-            teacher_lookup[teacher_id] = reminder_teacher_seed(teacher_id)
-            database_keys_by_teacher.setdefault(teacher_id, set())
-            extra_keys_by_teacher.setdefault(teacher_id, set())
-        class_keys = reminder_local_class_keys(item)
-        if class_keys and class_keys & database_keys_by_teacher.get(teacher_id, set()):
-            continue
-        if class_keys and class_keys & extra_keys_by_teacher.get(teacher_id, set()):
-            continue
-        extra_keys_by_teacher.setdefault(teacher_id, set()).update(class_keys)
-        teacher_lookup[teacher_id]["class_count"] += 1
-        teacher_lookup[teacher_id]["extra_count"] += 1
-        teacher_lookup[teacher_id]["extra_classes"].append(item)
+        else:
+            teacher_lookup[teacher_id]["extra_classes"].append(row)
 
     teacher_order = {teacher["id"]: index for index, teacher in enumerate(TEACHERS)}
     ordered_groups = []
@@ -2571,9 +2603,11 @@ def build_completion_reminder_plan_source(month_key, report_date, visible_teache
         sorted_rows = sorted(
             group["priorities"],
             key=lambda row: (
-                -rounded_metric(-(row.get("change_from_last_month") or 0)),
+                not reminder_row_requires_high_frequency(row),
+                -(reminder_gap_from_last_month(row) or -999),
                 row.get("completion_rate") if row.get("completion_rate") is not None else 101,
-                row.get("name", ""),
+                row.get("title_week_number") or 999,
+                row.get("class_name", "") or row.get("name", ""),
             ),
         )
         priority_rows = [reminder_priority_row(row, index) for index, row in enumerate(sorted_rows)]
@@ -2584,13 +2618,21 @@ def build_completion_reminder_plan_source(month_key, report_date, visible_teache
                 key=lambda row: (
                     not row.get("completion_assessed", True),
                     row.get("completion_rate") if row.get("completion_rate") is not None else 101,
-                    row.get("name", ""),
+                    row.get("title_week_number") or 999,
+                    row.get("class_name", "") or row.get("name", ""),
                 ),
             )
         ]
         extra_rows = [
-            reminder_home_class_row(item)
-            for item in sorted(group["extra_classes"], key=lambda item: item.get("name", ""))
+            reminder_database_fallback_row(row)
+            for row in sorted(
+                group["extra_classes"],
+                key=lambda row: (
+                    not row.get("completion_assessed", True),
+                    row.get("title_week_number") or 999,
+                    row.get("class_name", "") or row.get("name", ""),
+                ),
+            )
         ]
         assessed_database_fallback_rows = [row for row in database_fallback_rows if row.get("completion_assessed", True)]
         renewal_database_fallback_rows = [row for row in database_fallback_rows if not row.get("completion_assessed", True)]
@@ -2666,6 +2708,7 @@ def generate_weekly_reminder_plan(cycle_key, source_date, generated_by=""):
             "plan_source_date": source_date,
             "generated_at": now_text,
             "generated_by": generated_by,
+            "rule_version": REMINDER_PLAN_RULE_VERSION,
             "is_frozen": True,
         }
     )
@@ -2689,6 +2732,10 @@ def ensure_weekly_reminder_plan(report_date):
     store = load_reminder_plans()
     plan = store.get("plans", {}).get(cycle_key)
     if plan:
+        if plan.get("rule_version") != REMINDER_PLAN_RULE_VERSION:
+            source_date = plan.get("plan_source_date") or reminder_plan_source_date(cycle_key)
+            with REMINDER_PLANS_LOCK:
+                return save_weekly_reminder_plan(cycle_key, source_date, "system-rule-update")
         if reconcile_weekly_reminder_plan(plan):
             store.setdefault("plans", {})[cycle_key] = plan
             store["updated_at"] = plan.get("updated_at", datetime.now().isoformat(timespec="seconds"))
@@ -2700,6 +2747,9 @@ def ensure_weekly_reminder_plan(report_date):
         store = load_reminder_plans()
         plan = store.get("plans", {}).get(cycle_key)
         if plan:
+            if plan.get("rule_version") != REMINDER_PLAN_RULE_VERSION:
+                source_date = plan.get("plan_source_date") or source_date
+                return save_weekly_reminder_plan(cycle_key, source_date, "system-rule-update")
             if reconcile_weekly_reminder_plan(plan):
                 store.setdefault("plans", {})[cycle_key] = plan
                 store["updated_at"] = plan.get("updated_at", datetime.now().isoformat(timespec="seconds"))
