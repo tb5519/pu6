@@ -2879,6 +2879,13 @@ input {
   display: none;
 }
 
+.reminder-student-table .reminder-scroll-spacer td {
+  height: min(120vh, 1000px);
+  border-right: 0;
+  border-bottom: 0;
+  background: #ffffff;
+}
+
 .reminder-student-table .reminder-sticky-col {
   position: sticky;
   z-index: 3;
@@ -3001,6 +3008,34 @@ input {
   display: grid;
   gap: 4px;
   min-width: 0;
+  justify-items: center;
+}
+
+.reminder-activity-progress.has-image {
+  gap: 5px;
+}
+
+.reminder-activity-thumb {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(126, 86, 216, 0.18);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.reminder-activity-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.reminder-activity-progress .plant-visual.compact {
+  transform: scale(0.72);
+  margin: -8px 0;
 }
 
 .reminder-activity-progress .activity-stage-badge {
@@ -3305,6 +3340,7 @@ input {
 }
 
 .class-card {
+  position: relative;
   min-height: 178px;
   display: flex;
   flex-direction: column;
@@ -3315,6 +3351,26 @@ input {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 18px 42px rgba(67, 45, 133, 0.1);
+}
+
+.class-card.has-class-activity-reminder {
+  padding-top: 30px;
+}
+
+.class-activity-reminder-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 12px;
+  border-radius: 8px 0 8px 0;
+  color: #0f5132;
+  background: #dff7d7;
+  font-size: 12px;
+  font-weight: 950;
+  box-shadow: 0 8px 18px rgba(31, 115, 80, 0.12);
 }
 
 .class-card.is-activity-class {
@@ -4525,6 +4581,11 @@ input {
   background: #f4f9fd;
 }
 
+.database-ranking-panel.topic-renewal-rate {
+  border-color: #c8ece5;
+  background: #f6fcfa;
+}
+
 .database-ranking-panel h3,
 .database-ranking-panel > span {
   display: block;
@@ -5557,6 +5618,32 @@ input {
   white-space: nowrap;
 }
 
+.renewal-student-name-input {
+  width: calc(100% - 24px);
+  min-width: 72px;
+  max-width: 138px;
+  height: 28px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #140f38;
+  background: transparent;
+  font: inherit;
+  font-weight: 900;
+}
+
+.renewal-student-name-input:hover,
+.renewal-student-name-input:focus {
+  border-color: #d8cdf4;
+  background: #fff;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(111, 63, 241, 0.1);
+}
+
+.renewal-student-name-input.is-saving {
+  opacity: 0.62;
+}
+
 .renewal-name-note-card {
   position: absolute;
   left: 6px;
@@ -6275,6 +6362,98 @@ input {
   margin: 0;
   color: #191143;
   font-size: 20px;
+}
+
+.database-row-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid #d8cdf4;
+  border-radius: 999px;
+  color: #5b4a83;
+  background: #fbf9ff;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.database-row-check input {
+  width: 13px;
+  height: 13px;
+  accent-color: #6f3ff1;
+}
+
+.database-row-check:has(input:checked) {
+  color: #116453;
+  border-color: #9dd9c0;
+  background: #e6f8ef;
+}
+
+.closing-renewal-dashboard {
+  border-color: rgba(200, 236, 229, 0.95);
+  background: #f6fcfa;
+  padding: 14px 16px;
+}
+
+.closing-renewal-summary {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  align-items: center;
+  gap: 8px 18px;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #c8ece5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.closing-renewal-summary article {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.closing-renewal-summary span {
+  color: #60756d;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.closing-renewal-summary strong {
+  color: #17392f;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.closing-renewal-dashboard .database-table-wrap {
+  margin-top: 8px;
+  max-height: 260px;
+}
+
+.database-table.closing-renewal-table {
+  min-width: 760px;
+}
+
+.closing-renewal-table th,
+.closing-renewal-table td {
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
+.closing-renewal-total-row td {
+  color: #17392f !important;
+  background: #e8f7f1 !important;
+  font-weight: 950;
 }
 
 .database-category-list {

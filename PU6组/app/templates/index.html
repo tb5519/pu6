@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260623-reminder-activity-sticky') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260628-renewal-rate-ranking') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260612-renewal-message-type') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260623-reminder-activity-sticky') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260628-class-activity-week') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260621-daily-reminder') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260618-completion-rank-tooltip') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260621-renewal-note-square') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/database.js', v='20260628-renewal-rate-ranking') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260628-renewal-clean-admin') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260604-account-admin') }}" defer></script>
     {% endif %}
@@ -771,18 +771,18 @@
                     <tbody id="db-rankReferralRows"></tbody>
                   </table>
                 </section>
-                <section class="database-ranking-panel topic-gmv">
-                  <h3>GMV排名</h3>
-                  <span>按总金额</span>
+                <section class="database-ranking-panel topic-renewal-rate">
+                  <h3>续费率排名</h3>
+                  <span>按班级续费率</span>
                   <table class="database-ranking-table">
                     <thead>
                       <tr>
                         <th>排名</th>
                         <th>班主任</th>
-                        <th>金额</th>
+                        <th>续费率</th>
                       </tr>
                     </thead>
-                    <tbody id="db-rankGmvRows"></tbody>
+                    <tbody id="db-rankRenewalRateRows"></tbody>
                   </table>
                 </section>
               </div>
@@ -946,6 +946,72 @@
               </div>
             </div>
             <section class="database-block">
+              <div class="panel-title-row">
+                <div>
+                  <h3>续费率数据</h3>
+                  <span class="tool-status">展示已进入续费期的班级，按 W 数从低到高排列</span>
+                </div>
+              </div>
+              <div class="database-table-wrap compact">
+                <table class="database-table renewal-rate-table">
+                  <thead>
+                    <tr>
+                      <th>结营统计</th>
+                      <th>老师</th>
+                      <th>班级名称</th>
+                      <th>W数</th>
+                      <th>班级人数</th>
+                      <th>报名人数</th>
+                      <th>续费率</th>
+                      <th>距离跳档还差</th>
+                    </tr>
+                  </thead>
+                  <tbody id="db-renewalRateRows"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="database-block closing-renewal-dashboard" aria-label="结营班级续费率看板">
+              <div class="panel-title-row">
+                <div>
+                  <h3>结营班级续费率看板</h3>
+                  <span class="tool-status">勾选上方班级后，总续报率 = 所选班级总报名人数 ÷ 所选班级总人数</span>
+                </div>
+              </div>
+              <div class="closing-renewal-summary">
+                <article>
+                  <span>已选班级</span>
+                  <strong id="db-closingRenewalClassCount">0</strong>
+                </article>
+                <article>
+                  <span>总人数</span>
+                  <strong id="db-closingRenewalStudentCount">0</strong>
+                </article>
+                <article>
+                  <span>总报名人数</span>
+                  <strong id="db-closingRenewalEnrolledCount">0</strong>
+                </article>
+                <article>
+                  <span>总续报率</span>
+                  <strong id="db-closingRenewalRate">-</strong>
+                </article>
+              </div>
+              <div class="database-table-wrap compact">
+                <table class="database-table closing-renewal-table">
+                  <thead>
+                    <tr>
+                      <th>老师</th>
+                      <th>班级名称</th>
+                      <th>W数</th>
+                      <th>班级人数</th>
+                      <th>报名人数</th>
+                      <th>续报率</th>
+                    </tr>
+                  </thead>
+                  <tbody id="db-closingRenewalRows"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="database-block">
               <div class="database-table-wrap compact">
                 <table class="database-table">
                   <thead>
@@ -1073,17 +1139,6 @@
               <span id="renewal-teacherActiveLabel">全部老师</span>
             </div>
             <div id="renewal-teacherList" class="renewal-teacher-list"></div>
-          </section>
-
-          <section id="renewal-historyUploadPanel" class="renewal-upload-panel is-hidden" aria-label="续费历史数据上传">
-            <div>
-              <h2>上传续费历史数据</h2>
-              <p>支持 xlsx/csv，按班主任、班级、学员账号或姓名匹配，导入铺垫、报名、卡点、跟进和备注。</p>
-            </div>
-            <div class="renewal-upload-actions">
-              <input id="renewal-historyFileInput" class="is-hidden" type="file" accept=".xlsx,.csv,text/csv">
-              <button id="renewal-historyUploadButton" class="ghost-button compact-button" type="button">上传历史表格</button>
-            </div>
           </section>
 
           <section class="renewal-add-panel">

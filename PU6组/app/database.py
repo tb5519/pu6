@@ -2,6 +2,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import os
 import re
 import uuid
@@ -127,6 +128,17 @@ def reminder_week_is_assessed(week_number):
     return week in COMPLETION_PERFORMANCE_BASE_TARGETS
 
 
+COMPLETION_DATABASE_WEEK_LIMIT = 41
+
+
+def completion_database_week_in_scope(week_number):
+    try:
+        week = int(week_number)
+    except (TypeError, ValueError):
+        return False
+    return 1 <= week <= COMPLETION_DATABASE_WEEK_LIMIT
+
+
 DATABASE_METRICS = {
     "learning": {"field": "learning_status", "label": "学情"},
     "renewal": {"field": "renewal_orders", "label": "续费单量"},
@@ -167,6 +179,10 @@ def classes_file():
 
 def users_file():
     return current_app.config["USERS_FILE"]
+
+
+def renewal_projects_file():
+    return current_app.config["RENEWAL_PROJECTS_FILE"]
 
 
 def completion_assignments_file():
@@ -546,6 +562,14 @@ def parse_student_count(value):
     return max(0, int(float(match.group(0))))
 
 
+def normalize_locked_student_count(value, fallback=0):
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        count = int(fallback or 0)
+    return max(0, min(count, 9999))
+
+
 def completion_class_id(class_name):
     normalized = normalize_completion_header(class_name)
     digest = hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:16]
@@ -847,9 +871,9 @@ def rows_by_class_name(snapshot):
         return {}
     lookup = {}
     for row in snapshot.get("rows", []):
-        key = completion_lookup_key(row.get("name", ""))
-        if key and key not in lookup:
-            lookup[key] = row
+        for key in reminder_class_match_keys(row.get("name", "")):
+            if key and key not in lookup:
+                lookup[key] = row
     return lookup
 
 
@@ -920,11 +944,14 @@ def completion_performance_local_lookup():
     store = load_json(classes_file(), {"classes": []})
     by_teacher = {}
     by_key = {}
+    by_id = {}
     for item in store.get("classes", []):
         if not isinstance(item, dict):
             continue
         teacher_id = class_teacher_id(item)
         week_number = current_title_week_number(item)
+        if not completion_database_week_in_scope(week_number):
+            continue
         meta = {
             "id": item.get("id", ""),
             "name": item.get("name", ""),
@@ -935,6 +962,8 @@ def completion_performance_local_lookup():
             "title_week_number": week_number,
             "title_week_label": f"W{week_number}" if week_number else "",
         }
+        if meta["id"]:
+            by_id[meta["id"]] = meta
         keys = set()
         for value in (item.get("name", ""), item.get("note", "")):
             keys.update(reminder_class_match_keys(value))
@@ -942,10 +971,14 @@ def completion_performance_local_lookup():
             if teacher_id:
                 by_teacher.setdefault(teacher_id, {})[key] = meta
             by_key.setdefault(key, meta)
-    return {"by_teacher": by_teacher, "by_key": by_key}
+    return {"by_teacher": by_teacher, "by_key": by_key, "by_id": by_id}
 
 
 def completion_performance_local_meta(row, local_lookup):
+    for field in ("local_class_id", "id", "class_id"):
+        class_id = str(row.get(field) or "").strip()
+        if class_id and class_id in local_lookup.get("by_id", {}):
+            return local_lookup["by_id"][class_id]
     teacher_id = normalize_teacher_id(row.get("teacher_id"))
     keys = reminder_class_match_keys(row.get("name") or row.get("class_name", ""))
     for key in keys:
@@ -999,7 +1032,7 @@ def completion_performance_status(local_meta, week_number, completion_rate, thre
     if not week_number:
         return "no_week", "缺少W"
     if not thresholds:
-        return "not_assessed", "W41后不核算"
+        return "not_assessed", "暂无绩效档位"
     if completion_rate is None:
         return "no_completion", "缺少完成度"
     if not best_tier:
@@ -1111,27 +1144,34 @@ def build_completion_performance_summary(completion):
 
 
 def completion_roster_classes(month_key):
-    assignments = load_completion_assignments()
-    if assignments:
-        return [
-            {
-                "id": item.get("id") or completion_class_id(item.get("name", "")),
-                "name": item.get("name", ""),
-                "teacher_id": normalize_teacher_id(item.get("teacher_id")),
-                "teacher_name": teacher_label(item.get("teacher_id")) or item.get("teacher_name") or "未分配",
-                "student_count": None,
-                "active_student_count": 0,
-                "average_completion": None,
-                "category_counts": blank_category_counts(),
-                "updated_at": item.get("updated_at", ""),
-            }
-            for item in assignments
-        ], True
-
-    summary = build_class_completion_summary(month_key)
+    store = load_json(classes_file(), {"classes": []})
     by_name = {}
-    for row in summary.get("classes", []):
-        key = completion_lookup_key(row.get("name", ""))
+    for item in store.get("classes", []):
+        if not isinstance(item, dict):
+            continue
+        week_number = current_title_week_number(item)
+        if not completion_database_week_in_scope(week_number):
+            continue
+        keys = reminder_local_class_keys(item)
+        if not keys:
+            continue
+        teacher_id = class_teacher_id(item)
+        student_count = len(item.get("students", []) if isinstance(item.get("students"), list) else [])
+        row = {
+            "id": item.get("id", ""),
+            "name": item.get("name", ""),
+            "teacher_id": teacher_id,
+            "teacher_name": teacher_label(teacher_id) or "未分配",
+            "student_count": student_count,
+            "active_student_count": 0,
+            "average_completion": None,
+            "category_counts": blank_category_counts(),
+            "updated_at": item.get("updated_at", ""),
+            "title_week_number": week_number,
+            "title_week_label": f"W{week_number}" if week_number else "",
+            "class_keys": sorted(keys),
+        }
+        key = f"{teacher_id}|{sorted(keys)[0]}"
         if not key:
             continue
         current = by_name.get(key)
@@ -1142,7 +1182,7 @@ def completion_roster_classes(month_key):
         )
         if should_replace:
             by_name[key] = row
-    return list(by_name.values()), False
+    return list(by_name.values()), True
 
 
 def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_date=None):
@@ -1194,24 +1234,15 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
     classes = []
     total_students = 0
     active_students = 0
-    matched_upload_keys = set()
     display_sources = []
     roster_classes, roster_is_authoritative = completion_roster_classes(month_key)
 
     for roster_row in roster_classes:
-        key = completion_lookup_key(roster_row.get("name", ""))
-        upload_row = uploaded_rows.get(key)
-        if upload_row:
-            matched_upload_keys.add(key)
-        display_sources.append((roster_row, upload_row, key))
-
-    if not roster_is_authoritative:
-        for upload_row in snapshot.get("rows", []):
-            key = completion_lookup_key(upload_row.get("name", ""))
-            if not key or key in matched_upload_keys:
-                continue
-            display_sources.append((None, upload_row, key))
-            matched_upload_keys.add(key)
+        keys = roster_row.get("class_keys") or sorted(reminder_class_match_keys(roster_row.get("name", "")))
+        matched_key = next((key for key in keys if uploaded_rows.get(key)), "")
+        if not matched_key:
+            continue
+        display_sources.append((roster_row, uploaded_rows.get(matched_key), matched_key))
 
     for roster_row, upload_row, lookup_key in display_sources:
         source_row = upload_row or roster_row or {}
@@ -1245,6 +1276,8 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
         row = {
             "id": class_id,
             "name": class_name,
+            "local_class_id": (roster_row or {}).get("id", ""),
+            "local_class_name": (roster_row or {}).get("name", ""),
             "teacher_id": teacher_id,
             "teacher_name": teacher_name,
             "student_count": student_count,
@@ -1263,6 +1296,8 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
             "lookup_matched": bool(upload_row),
             "category_counts": blank_category_counts(),
             "updated_at": snapshot.get("uploaded_at", ""),
+            "title_week_number": (roster_row or {}).get("title_week_number"),
+            "title_week_label": (roster_row or {}).get("title_week_label", ""),
         }
         classes.append(row)
         total_students += parse_student_count(student_count)
@@ -1306,7 +1341,7 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
         "uploaded_at": snapshot.get("uploaded_at", ""),
         "uploaded_by": snapshot.get("uploaded_by", ""),
         "can_upload": can_upload_completion_data(),
-        "roster_source": "assignment" if roster_is_authoritative else "classes",
+        "roster_source": "classes",
         "history_dates": history_dates,
         "visible_history_dates": history_dates[:2],
         "older_history_dates": history_dates[2:],
@@ -1329,50 +1364,24 @@ def build_completion_summary(month_key, report_date=None, compare_date=None):
     if snapshot:
         return build_completion_snapshot_summary(month_key, snapshot, store, compare_date)
 
-    if load_completion_assignments():
-        summary = build_completion_snapshot_summary(month_key, {"date": "", "rows": []}, store, compare_date)
-        summary["source"] = "assignment"
-        summary["snapshot_date"] = ""
-        summary["uploaded_at"] = ""
-        summary["uploaded_by"] = ""
-        summary["history_dates"] = []
-        summary["visible_history_dates"] = []
-        summary["older_history_dates"] = []
-        summary["compare_dates"] = []
-        summary["comparison"] = {
-            "previous_snapshot_date": "",
-            "previous_change": None,
-            "compare_date": "",
-            "compare_change": None,
-            "last_month_source_date": "",
-            "last_month_source_month": previous_month_key(month_key),
-            "last_month_change": None,
-        }
-        return summary
-
-    summary = build_class_completion_summary(month_key)
-    summary.update(
-        {
-            "source": "classes",
-            "snapshot_date": "",
-            "uploaded_at": "",
-            "uploaded_by": "",
-            "can_upload": can_upload_completion_data(),
-            "history_dates": [],
-            "visible_history_dates": [],
-            "older_history_dates": [],
-            "compare_dates": [],
-            "comparison": {
-                "previous_snapshot_date": "",
-                "previous_change": None,
-                "compare_date": "",
-                "compare_change": None,
-                "last_month_source_date": "",
-                "last_month_source_month": previous_month_key(month_key),
-                "last_month_change": None,
-            },
-        }
-    )
+    summary = build_completion_snapshot_summary(month_key, {"date": "", "rows": []}, store, compare_date)
+    summary["source"] = "empty"
+    summary["snapshot_date"] = ""
+    summary["uploaded_at"] = ""
+    summary["uploaded_by"] = ""
+    summary["history_dates"] = []
+    summary["visible_history_dates"] = []
+    summary["older_history_dates"] = []
+    summary["compare_dates"] = []
+    summary["comparison"] = {
+        "previous_snapshot_date": "",
+        "previous_change": None,
+        "compare_date": "",
+        "compare_change": None,
+        "last_month_source_date": "",
+        "last_month_source_month": previous_month_key(month_key),
+        "last_month_change": None,
+    }
     return summary
 
 
@@ -1465,6 +1474,114 @@ def build_renewal_summary(month_key, report_date, completion_teachers):
         "month_total": sum(row["month_total"] for row in row_list),
         "week_totals": week_totals,
         "rows": row_list,
+    }
+
+
+RENEWAL_RATE_TARGETS = [0.3, 0.35, 0.4, 0.45, 0.5]
+
+
+def renewal_rate_enrolled_count(project, source_class):
+    if not isinstance(project, dict):
+        return 0
+    valid_ids = {
+        str(student.get("id"))
+        for student in (source_class or {}).get("students", [])
+        if str(student.get("id") or "").strip()
+    }
+    enrolled_ids = set()
+    followups = project.get("student_followups") if isinstance(project.get("student_followups"), dict) else {}
+    for student_id, record in followups.items():
+        student_key = str(student_id or "").strip()
+        if not student_key or (valid_ids and student_key not in valid_ids):
+            continue
+        if isinstance(record, dict) and record.get("enrolled"):
+            enrolled_ids.add(student_key)
+    for student_id in project.get("enrolled_student_ids", []):
+        student_key = str(student_id or "").strip()
+        if not student_key or student_key in followups:
+            continue
+        if valid_ids and student_key not in valid_ids:
+            continue
+        enrolled_ids.add(student_key)
+    return len(enrolled_ids)
+
+
+def renewal_rate_student_count(project, source_class):
+    source_count = len(source_class.get("students", []) if isinstance(source_class.get("students"), list) else [])
+    if isinstance(project, dict) and project.get("locked_student_count") not in (None, ""):
+        return normalize_locked_student_count(project.get("locked_student_count"), source_count)
+    return source_count
+
+
+def renewal_rate_gap(student_count, enrolled_count):
+    if student_count <= 0:
+        return {
+            "next_target_rate": None,
+            "gap_count": None,
+            "gap_label": "-",
+        }
+    for index, target_rate in enumerate(RENEWAL_RATE_TARGETS):
+        target_count = int(math.ceil(student_count * target_rate))
+        if enrolled_count < target_count:
+            gap = max(0, target_count - enrolled_count)
+            return {
+                "next_target_rate": target_rate,
+                "gap_count": gap,
+                "gap_label": f"{'达标' if index == 0 else '跳档'}还差 {gap} 人",
+            }
+    return {
+        "next_target_rate": None,
+        "gap_count": 0,
+        "gap_label": "已达最高档",
+    }
+
+
+def build_renewal_rate_summary(month_key, report_date):
+    class_store = load_json(classes_file(), {"classes": []})
+    project_store = load_json(renewal_projects_file(), {"projects": []})
+    projects_by_class_id = {
+        str(project.get("class_id") or ""): project
+        for project in project_store.get("projects", [])
+        if str(project.get("class_id") or "").strip()
+    }
+    rows = []
+    for item in class_store.get("classes", []):
+        if not isinstance(item, dict):
+            continue
+        week_number = current_title_week_number(item)
+        if not week_number or week_number <= COMPLETION_DATABASE_WEEK_LIMIT:
+            continue
+        class_id = str(item.get("id") or "").strip()
+        project = projects_by_class_id.get(class_id, {})
+        teacher_id = class_teacher_id(item)
+        student_count = renewal_rate_student_count(project, item)
+        enrolled_count = renewal_rate_enrolled_count(project, item)
+        renewal_rate = round(enrolled_count / student_count * 100, 2) if student_count else None
+        gap = renewal_rate_gap(student_count, enrolled_count)
+        rows.append({
+            "class_id": class_id,
+            "class_name": item.get("name", ""),
+            "teacher_id": teacher_id,
+            "teacher_name": teacher_label(teacher_id) or "未分配",
+            "week_number": week_number,
+            "week_label": f"W{week_number}",
+            "student_count": student_count,
+            "enrolled_count": enrolled_count,
+            "renewal_rate": renewal_rate,
+            **gap,
+        })
+    rows.sort(key=lambda row: (
+        row.get("week_number") or 999,
+        row.get("teacher_name") or "",
+        row.get("class_name") or "",
+    ))
+    return {
+        "target_rate": RENEWAL_RATE_TARGETS[0],
+        "jump_targets": RENEWAL_RATE_TARGETS[1:],
+        "class_count": len(rows),
+        "student_count": sum(row["student_count"] for row in rows),
+        "enrolled_count": sum(row["enrolled_count"] for row in rows),
+        "rows": rows,
     }
 
 
@@ -1740,6 +1857,7 @@ def build_monthly_archive(month_key, report_date):
             "completion": completion,
             "learning": build_learning_summary(month_key, report_date, completion),
             "renewal": build_renewal_summary(month_key, report_date, completion_teachers),
+            "renewal_rate": build_renewal_rate_summary(month_key, report_date),
             "referral": build_referral_summary(month_key, report_date, completion_teachers),
             "gmv": build_gmv_summary(month_key, report_date, completion_teachers),
             "completion_performance": build_completion_performance_summary(completion),
@@ -3329,6 +3447,7 @@ def database_summary():
             "completion": completion,
             "learning": build_learning_summary(month_key, report_date, completion),
             "renewal": build_renewal_summary(month_key, report_date, completion_teachers),
+            "renewal_rate": build_renewal_rate_summary(month_key, report_date),
             "referral": build_referral_summary(month_key, report_date, completion_teachers),
             "gmv": build_gmv_summary(month_key, report_date, completion_teachers),
             "completion_performance": build_completion_performance_summary(completion),

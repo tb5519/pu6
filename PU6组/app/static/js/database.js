@@ -42,6 +42,12 @@ const databaseLearningTargetRows = document.querySelector("#db-learningTargetRow
 const databaseLearningCancelButton = document.querySelector("#db-learningCancelButton");
 const databaseLearningSaveButton = document.querySelector("#db-learningSaveButton");
 const databaseRenewalRows = document.querySelector("#db-renewalRows");
+const databaseRenewalRateRows = document.querySelector("#db-renewalRateRows");
+const databaseClosingRenewalClassCount = document.querySelector("#db-closingRenewalClassCount");
+const databaseClosingRenewalStudentCount = document.querySelector("#db-closingRenewalStudentCount");
+const databaseClosingRenewalEnrolledCount = document.querySelector("#db-closingRenewalEnrolledCount");
+const databaseClosingRenewalRate = document.querySelector("#db-closingRenewalRate");
+const databaseClosingRenewalRows = document.querySelector("#db-closingRenewalRows");
 const databaseReferralRows = document.querySelector("#db-referralRows");
 const databaseGmvRenewalRows = document.querySelector("#db-gmvRenewalRows");
 const databaseGmvReferralRows = document.querySelector("#db-gmvReferralRows");
@@ -53,17 +59,19 @@ const databaseRankCompletionRows = document.querySelector("#db-rankCompletionRow
 const databaseRankLearningRows = document.querySelector("#db-rankLearningRows");
 const databaseRankRenewalRows = document.querySelector("#db-rankRenewalRows");
 const databaseRankReferralRows = document.querySelector("#db-rankReferralRows");
-const databaseRankGmvRows = document.querySelector("#db-rankGmvRows");
+const databaseRankRenewalRateRows = document.querySelector("#db-rankRenewalRateRows");
 const databaseCategoryList = document.querySelector("#db-categoryList");
 const databaseUpdatedAt = document.querySelector("#db-updatedAt");
 
 const DATABASE_CATEGORIES = ["完课超赞", "异常断课", "断续上课", "长期不上课", "周末欠缺", "偶尔断课", "暂无数据"];
 const LEARNING_TARGET_RATES = [0.26, 0.28, 0.3];
 const GMV_SECTION_LABELS = { renewal: "续费", referral: "转介绍" };
+const CLOSING_RENEWAL_STORAGE_KEY = "pu6ClosingRenewalClassIds";
 let currentDatabaseData = null;
 let selectedCompletionCompareDate = "";
 let showOlderCompletionDates = false;
 let gmvEditMode = false;
+let selectedClosingRenewalClassIds = loadClosingRenewalSelection();
 
 function setDatabaseMessage(message, isError = false) {
   if (!databaseMessage) return;
@@ -132,6 +140,36 @@ function escapeDatabaseSelector(value) {
 
 function databaseCount(source, key) {
   return Number(source?.[key] || 0);
+}
+
+function loadClosingRenewalSelection() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CLOSING_RENEWAL_STORAGE_KEY) || "[]");
+    return new Set(Array.isArray(saved) ? saved.map((item) => String(item || "")).filter(Boolean) : []);
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function saveClosingRenewalSelection() {
+  try {
+    localStorage.setItem(CLOSING_RENEWAL_STORAGE_KEY, JSON.stringify(Array.from(selectedClosingRenewalClassIds)));
+  } catch (error) {
+    // 本地存储不可用时，只保留当前页面内的勾选状态。
+  }
+}
+
+function renewalRateClassKey(row = {}) {
+  return String(
+    row.class_id
+    || `${row.teacher_id || ""}|${row.class_name || ""}|${row.week_number || ""}`
+  ).trim();
+}
+
+function renewalRateValue(enrolledCount, studentCount) {
+  const students = Number(studentCount || 0);
+  if (!students) return null;
+  return Number(enrolledCount || 0) / students * 100;
 }
 
 function formatDatabaseInteger(value) {
@@ -323,9 +361,9 @@ function renderCompletionComparison(completion = {}) {
 
   if (databaseCompletionSnapshotStatus) {
     if (completion.source === "snapshot") {
-      databaseCompletionSnapshotStatus.textContent = `${sourceLabel}，按班级分配表匹配 Joanna 上传数据`;
+      databaseCompletionSnapshotStatus.textContent = `${sourceLabel}，按我的班级 W1-W41 匹配 Joanna 上传数据`;
     } else if (completion.source === "assignment") {
-      databaseCompletionSnapshotStatus.textContent = "已读取班级分配表，等待 Joanna 上传完课数据";
+      databaseCompletionSnapshotStatus.textContent = "等待 Joanna 上传完课数据，上传后仅展示我的班级 W1-W41";
     } else {
       databaseCompletionSnapshotStatus.textContent = "尚未上传完课快照，暂按原班级学员明细展示";
     }
@@ -373,6 +411,93 @@ function renderRenewalRows(rows = []) {
       `;
     })
     .join("");
+}
+
+function renderClosingRenewalDashboard(rows = []) {
+  if (!databaseClosingRenewalRows) return;
+  const selectedRows = rows.filter((row) => selectedClosingRenewalClassIds.has(renewalRateClassKey(row)));
+  const classCount = selectedRows.length;
+  const studentCount = selectedRows.reduce((sum, row) => sum + databaseCount(row, "student_count"), 0);
+  const enrolledCount = selectedRows.reduce((sum, row) => sum + databaseCount(row, "enrolled_count"), 0);
+  const totalRate = renewalRateValue(enrolledCount, studentCount);
+
+  if (databaseClosingRenewalClassCount) databaseClosingRenewalClassCount.textContent = String(classCount);
+  if (databaseClosingRenewalStudentCount) databaseClosingRenewalStudentCount.textContent = String(studentCount);
+  if (databaseClosingRenewalEnrolledCount) databaseClosingRenewalEnrolledCount.textContent = String(enrolledCount);
+  if (databaseClosingRenewalRate) databaseClosingRenewalRate.textContent = formatDatabasePercentFixed(totalRate);
+
+  databaseClosingRenewalRows.innerHTML = selectedRows.length
+    ? `${selectedRows.map((row) => `
+      <tr>
+        <td class="database-strong-cell">${escapeDatabaseText(row.teacher_name || "-")}</td>
+        <td>${escapeDatabaseText(row.class_name || "-")}</td>
+        <td>${escapeDatabaseText(row.week_label || (row.week_number ? `W${row.week_number}` : "-"))}</td>
+        <td>${databaseCount(row, "student_count")}</td>
+        <td>${databaseCount(row, "enrolled_count")}</td>
+        <td class="database-percent-cell">${formatDatabasePercentFixed(row.renewal_rate)}</td>
+      </tr>
+    `).join("")}
+      <tr class="closing-renewal-total-row">
+        <td class="database-strong-cell" colspan="3">所选班级合计</td>
+        <td>${studentCount}</td>
+        <td>${enrolledCount}</td>
+        <td class="database-percent-cell">${formatDatabasePercentFixed(totalRate)}</td>
+      </tr>
+    `
+    : `<tr><td colspan="6" class="database-empty-cell">请先在上方续费率数据中勾选结营班级。</td></tr>`;
+}
+
+function renderRenewalRateRows(rows = []) {
+  if (!databaseRenewalRateRows) return;
+  if (!rows.length) {
+    databaseRenewalRateRows.innerHTML = `<tr><td colspan="8" class="database-empty-cell">暂无进入续费期的班级。</td></tr>`;
+    renderClosingRenewalDashboard([]);
+    return;
+  }
+
+  databaseRenewalRateRows.innerHTML = rows
+    .map((row) => {
+      const gapCount = row.gap_count;
+      const gapClass = Number(gapCount || 0) <= 0 ? "is-positive" : "is-negative";
+      const classKey = renewalRateClassKey(row);
+      const checked = selectedClosingRenewalClassIds.has(classKey) ? "checked" : "";
+      return `
+        <tr>
+          <td>
+            <label class="database-row-check" title="纳入结营班级续费率看板">
+              <input
+                type="checkbox"
+                data-closing-renewal-class="${escapeDatabaseText(classKey)}"
+                ${checked}
+              >
+              <span>结营</span>
+            </label>
+          </td>
+          <td class="database-strong-cell">${escapeDatabaseText(row.teacher_name || "-")}</td>
+          <td>${escapeDatabaseText(row.class_name || "-")}</td>
+          <td>${escapeDatabaseText(row.week_label || (row.week_number ? `W${row.week_number}` : "-"))}</td>
+          <td>${databaseCount(row, "student_count")}</td>
+          <td>${databaseCount(row, "enrolled_count")}</td>
+          <td class="database-percent-cell">${formatDatabasePercentFixed(row.renewal_rate)}</td>
+          <td class="database-gap-cell ${gapClass}">${escapeDatabaseText(row.gap_label || "-")}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  databaseRenewalRateRows.querySelectorAll("[data-closing-renewal-class]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const classKey = input.dataset.closingRenewalClass || "";
+      if (input.checked) {
+        selectedClosingRenewalClassIds.add(classKey);
+      } else {
+        selectedClosingRenewalClassIds.delete(classKey);
+      }
+      saveClosingRenewalSelection();
+      renderClosingRenewalDashboard(rows);
+    });
+  });
+  renderClosingRenewalDashboard(rows);
 }
 
 function renderLearningRows(rows = []) {
@@ -945,21 +1070,36 @@ function completionRankingRows(completion = {}, performance = {}) {
     .filter(Boolean);
 }
 
-function gmvRankingRows(gmv = {}) {
-  const groups = {};
-  ["renewal", "referral"].forEach((sectionKey) => {
-    (gmv[sectionKey]?.rows || []).forEach((row) => {
-      const teacherId = row.teacher_id || row.teacher_name || "unknown";
-      const group = groups[teacherId] || {
-        teacher_id: teacherId,
+function renewalRateRankingRows(renewalRate = {}) {
+  return (renewalRate.rows || [])
+    .map((row) => {
+      const value = Number(row.renewal_rate);
+      if (Number.isNaN(value)) return null;
+      return {
+        teacher_id: row.teacher_id,
         teacher_name: row.teacher_name || "未分配",
-        value: 0,
+        class_id: row.class_id,
+        class_name: row.class_name,
+        value,
       };
-      group.value += Number(row.month_total || 0);
-      groups[teacherId] = group;
-    });
-  });
-  return Object.values(groups);
+    })
+    .filter(Boolean);
+}
+
+function renderRenewalRateRankingRows(target, rows = []) {
+  if (!target) return;
+  const sortedRows = rankedRows(rows);
+  if (!sortedRows.length) {
+    target.innerHTML = `<tr><td colspan="3" class="database-ranking-empty">暂无续费率排名</td></tr>`;
+    return;
+  }
+  target.innerHTML = sortedRows.map((row) => `
+    <tr>
+      <td><span class="database-rank-badge rank-${Math.min(row.rank, 3)}">${row.rank}</span></td>
+      <td>${escapeDatabaseText(row.teacher_name || "未分配")}</td>
+      <td class="database-ranking-value" title="班级：${escapeDatabaseText(row.class_name || "-")}">${formatDatabasePercentFixed(row.value)}</td>
+    </tr>
+  `).join("");
 }
 
 function renderDatabaseRankings(data = {}) {
@@ -982,10 +1122,9 @@ function renderDatabaseRankings(data = {}) {
     (data.referral?.rows || []).map((row) => ({ ...row, value: row.conversions_month_total })),
     (value) => `${formatDatabaseInteger(value)}单`
   );
-  renderRankingRows(
-    databaseRankGmvRows,
-    gmvRankingRows(data.gmv || {}),
-    (value) => formatDatabaseMoney(value)
+  renderRenewalRateRankingRows(
+    databaseRankRenewalRateRows,
+    renewalRateRankingRows(data.renewal_rate || {})
   );
 }
 
@@ -1024,6 +1163,7 @@ function renderDatabase(data) {
     renderLearningEditor(data);
   }
   renderRenewalRows(data.renewal?.rows || []);
+  renderRenewalRateRows(data.renewal_rate?.rows || []);
   renderReferralRows(data.referral?.rows || []);
   renderGmv(data);
   renderCompletionPerformance(data.completion_performance || {});

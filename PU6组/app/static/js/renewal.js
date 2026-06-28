@@ -16,9 +16,6 @@ const renewalDetailMeta = document.querySelector("#renewal-detailMeta");
 const renewalDetailSummary = document.querySelector("#renewal-detailSummary");
 const renewalStudentList = document.querySelector("#renewal-studentList");
 const renewalWeekSelect = document.querySelector("#renewal-weekSelect");
-const renewalHistoryUploadPanel = document.querySelector("#renewal-historyUploadPanel");
-const renewalHistoryFileInput = document.querySelector("#renewal-historyFileInput");
-const renewalHistoryUploadButton = document.querySelector("#renewal-historyUploadButton");
 
 const RENEWAL_STAGE_DESCRIPTIONS = {
   "铺垫阶段": "提前建立续费认知，持续同步孩子学习收获。",
@@ -678,6 +675,7 @@ function renderRenewalEnrolledToggle(project, student, disabledAttr, compact = f
 
 function renderRenewalStudentNameCell(project, student, disabledAttr, extraClass = "") {
   const noteText = String(student.followup_note || "").trim();
+  const studentName = String(student.name || "").trim();
   const noteCard = noteText ? `
     <button
       class="renewal-name-note-card"
@@ -696,7 +694,17 @@ function renderRenewalStudentNameCell(project, student, disabledAttr, extraClass
       data-renewal-name-note="${escapeRenewalAttr(student.followup_note || "暂无备注")}"
     >
       <span class="renewal-student-name-line">
-        <span class="renewal-student-name-text">${escapeRenewalText(student.name || "-")}</span>
+        <input
+          class="renewal-student-name-input"
+          type="text"
+          value="${escapeRenewalAttr(studentName)}"
+          data-renewal-student-name="${escapeRenewalText(project.id)}"
+          data-renewal-student-id="${escapeRenewalText(student.id)}"
+          data-renewal-original-name="${escapeRenewalAttr(studentName)}"
+          aria-label="编辑学员姓名"
+          autocomplete="off"
+          ${disabledAttr}
+        >
       </span>
       ${noteCard}
       ${renderRenewalEnrolledToggle(project, student, disabledAttr, true)}
@@ -1045,18 +1053,12 @@ function renderRenewalBoard(projects = []) {
   }).join("");
 }
 
-function renderRenewalHistoryUploadPanel(data = renewalData) {
-  if (!renewalHistoryUploadPanel) return;
-  renewalHistoryUploadPanel.classList.toggle("is-hidden", !data?.can_manage_all);
-}
-
 function renderRenewal(data) {
   renewalData = data;
   ensureRenewalTeacherSelection();
   const visibleProjects = renewalProjectsForActiveTeacher(data.projects || []);
   updateRenewalMenuBadge(data);
   renderRenewalTeacherPanel();
-  renderRenewalHistoryUploadPanel(data);
   renderRenewalClassOptions(data.available_classes || []);
   renderRenewalBoard(visibleProjects);
 }
@@ -1083,17 +1085,14 @@ function refreshRenewalShellFromData(data) {
   renderRenewalBoard(renewalProjectsForActiveTeacher(renewalData.projects || []));
   if (renewalDetailView?.classList.contains("is-hidden")) {
     renderRenewalTeacherPanel();
-    renderRenewalHistoryUploadPanel(data);
   } else {
     renewalTeacherPanel?.classList.add("is-hidden");
-    renewalHistoryUploadPanel?.classList.add("is-hidden");
   }
 }
 
 function showRenewalDetail(shouldShow) {
   renewalAddPanel?.classList.toggle("is-hidden", shouldShow);
   renewalTeacherPanel?.classList.toggle("is-hidden", shouldShow || !renewalData?.can_manage_all);
-  renewalHistoryUploadPanel?.classList.toggle("is-hidden", shouldShow || !renewalData?.can_manage_all);
   renewalStageBoard?.classList.toggle("is-hidden", shouldShow);
   renewalDetailView?.classList.toggle("is-hidden", !shouldShow);
   if (!shouldShow) {
@@ -1437,40 +1436,6 @@ async function loadRenewal() {
   }
 }
 
-async function uploadRenewalHistory(file) {
-  if (!file) return;
-  const formData = new FormData();
-  formData.append("file", file);
-  setRenewalMessage("正在导入续费历史数据...");
-  if (renewalHistoryUploadButton) renewalHistoryUploadButton.disabled = true;
-  try {
-    const response = await fetch("/api/renewal/history-upload", {
-      method: "POST",
-      body: formData,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.error || "续费历史数据导入失败，请稍后重试。");
-    }
-    if (data.board) {
-      showRenewalDetail(false);
-      renderRenewal(data.board);
-    } else {
-      await loadRenewal();
-    }
-    const skippedRows = Array.isArray(data.skipped_rows) ? data.skipped_rows : [];
-    const skippedPreview = skippedRows.length
-      ? `；跳过示例：${skippedRows.slice(0, 3).map((item) => `${item.row || ""}${item.reason ? ` ${item.reason}` : ""}`).join(" / ")}`
-      : "";
-    setRenewalMessage(`已导入 ${Number(data.imported_count || 0)} 条续费记录，新建 ${Number(data.created_project_count || 0)} 个续费班级，跳过 ${Number(data.skipped_count || 0)} 行${skippedPreview}`);
-  } catch (error) {
-    setRenewalMessage(error.message, true);
-  } finally {
-    if (renewalHistoryUploadButton) renewalHistoryUploadButton.disabled = false;
-    if (renewalHistoryFileInput) renewalHistoryFileInput.value = "";
-  }
-}
-
 async function addRenewalProject(event) {
   event.preventDefault();
   const classId = renewalClassSelect?.value || "";
@@ -1549,6 +1514,38 @@ async function updateRenewalStudent(projectId, studentId, payload, options = {})
     setRenewalMessage(error.message, true);
     return null;
   }
+}
+
+async function saveRenewalStudentName(nameInput) {
+  const projectId = nameInput.dataset.renewalStudentName;
+  const studentId = nameInput.dataset.renewalStudentId;
+  const previousName = String(nameInput.dataset.renewalOriginalName || "").trim();
+  const nextName = String(nameInput.value || "").trim();
+  if (!projectId || !studentId) return;
+  if (!nextName) {
+    nameInput.value = previousName;
+    setRenewalMessage("请输入学员姓名。", true);
+    return;
+  }
+  if (nextName === previousName) {
+    nameInput.value = previousName;
+    return;
+  }
+  nameInput.disabled = true;
+  nameInput.classList.add("is-saving");
+  const data = await updateRenewalStudent(
+    projectId,
+    studentId,
+    { student_name: nextName },
+    { successMessage: "学员姓名已更新。" }
+  );
+  if (!data) {
+    nameInput.value = previousName;
+    nameInput.disabled = false;
+    nameInput.classList.remove("is-saving");
+    return;
+  }
+  nameInput.dataset.renewalOriginalName = nextName;
 }
 
 async function saveRenewalFollowupNote(noteInput) {
@@ -1795,12 +1792,6 @@ async function deleteRenewalProject(projectId) {
 function initRenewal() {
   if (!renewalStageBoard) return;
   renewalAddForm?.addEventListener("submit", addRenewalProject);
-  renewalHistoryUploadButton?.addEventListener("click", () => {
-    renewalHistoryFileInput?.click();
-  });
-  renewalHistoryFileInput?.addEventListener("change", () => {
-    uploadRenewalHistory(renewalHistoryFileInput.files?.[0]);
-  });
   renewalMenuButton?.addEventListener("click", () => {
     showRenewalDetail(false);
     loadRenewal();
@@ -1877,6 +1868,12 @@ function initRenewal() {
     if (leaderNote) refreshRenewalTalkSelectOptions(leaderNote);
   });
   renewalStudentList?.addEventListener("change", (event) => {
+    const studentNameInput = event.target.closest("[data-renewal-student-name]");
+    if (studentNameInput) {
+      saveRenewalStudentName(studentNameInput);
+      return;
+    }
+
     const enrolledCheckbox = event.target.closest("[data-renewal-enrolled]");
     if (enrolledCheckbox) {
       updateRenewalStudent(
@@ -1957,6 +1954,13 @@ function initRenewal() {
   });
   renewalStudentList?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
+    const studentNameInput = event.target.closest("[data-renewal-student-name]");
+    if (studentNameInput) {
+      event.preventDefault();
+      studentNameInput.blur();
+      return;
+    }
+
     const noteInput = event.target.closest("[data-renewal-followup-note]");
     if (!noteInput) return;
     event.preventDefault();

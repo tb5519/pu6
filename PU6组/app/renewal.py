@@ -16,6 +16,7 @@ from app.classes import (
     current_month_key,
     get_student_weeks,
     load_store as load_class_store,
+    save_store as save_class_store,
 )
 from app.teachers import TEACHERS, normalize_match_text, normalize_teacher_id, teacher_id_for_username, teacher_label
 
@@ -1269,7 +1270,8 @@ def get_project(project_id):
     project = find_project(store, project_id)
     if project is None or not can_read_project(project):
         return jsonify({"error": "续费项目不存在。"}), 404
-    classes_by_id = class_lookup()
+    class_store = load_class_store()
+    classes_by_id = {item.get("id"): item for item in class_store.get("classes", []) if item.get("id")}
     source_class = classes_by_id.get(project.get("class_id"))
     changed = prune_project_followups(project, source_class)
     changed = ensure_project_student_count_lock(project, source_class) or changed
@@ -1287,7 +1289,8 @@ def update_student_enrollment(project_id, student_id):
     if project is None or not can_edit_project(project):
         return jsonify({"error": "续费项目不存在。"}), 404
 
-    classes_by_id = class_lookup()
+    class_store = load_class_store()
+    classes_by_id = {item.get("id"): item for item in class_store.get("classes", []) if item.get("id")}
     source_class = classes_by_id.get(project.get("class_id"))
     if source_class is None:
         return jsonify({"error": "该续费班级已不在完课班级列表中。"}), 404
@@ -1300,6 +1303,17 @@ def update_student_enrollment(project_id, student_id):
 
     record = student_followup_record(project, student_id)
     had_update = False
+    class_had_update = False
+    if "student_name" in payload:
+        next_name = str(payload.get("student_name") or "").strip()[:80]
+        if not next_name:
+            return jsonify({"error": "请输入学员姓名。"}), 400
+        if next_name != str(student.get("name") or "").strip():
+            updated_at = now_iso()
+            student["name"] = next_name
+            student["updated_at"] = updated_at
+            source_class["updated_at"] = updated_at
+            class_had_update = True
     if "followup_status" in payload:
         record["status"] = normalize_followup_status(payload.get("followup_status"))
         had_update = True
@@ -1369,8 +1383,11 @@ def update_student_enrollment(project_id, student_id):
         had_update = True
     if had_update and "weekly_followup" not in payload and "general_followup" not in payload:
         record["followed_at"] = now_iso()
-    project["updated_at"] = now_iso()
-    save_store(store)
+    if had_update:
+        project["updated_at"] = now_iso()
+        save_store(store)
+    if class_had_update:
+        save_class_store(class_store)
     return jsonify({
         "project": serialize_project_detail(project, classes_by_id),
         "board": build_payload(),

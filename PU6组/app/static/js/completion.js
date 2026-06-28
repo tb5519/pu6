@@ -618,6 +618,13 @@ function shouldShowAppTaskReminder(weekNumber) {
   return Number.isFinite(value) && value > 0 && value % 3 === 0;
 }
 
+const CLASS_ACTIVITY_WEEK_NUMBERS = new Set([4, 8, 14, 19, 22, 26, 41, 53]);
+
+function shouldShowClassActivityReminder(weekNumber) {
+  const value = Number(weekNumber);
+  return Number.isFinite(value) && CLASS_ACTIVITY_WEEK_NUMBERS.has(value);
+}
+
 function applyClassTitleWeekNumber(force = false) {
   if (!classImageWeekNumber) return;
   const classWeekNumber = currentClassTitleWeekNumber();
@@ -1385,8 +1392,10 @@ function renderClassList() {
       const isEditing = editingClassId === item.id;
       const note = String(item.note || "").trim();
       const titleWeekNumber = currentClassTitleWeekNumber(item);
+      const showClassActivityReminder = shouldShowClassActivityReminder(titleWeekNumber);
       return `
-        <article class="class-card ${item.completion_activity ? "is-activity-class" : ""}">
+        <article class="class-card ${item.completion_activity ? "is-activity-class" : ""} ${showClassActivityReminder ? "has-class-activity-reminder" : ""}">
+          ${showClassActivityReminder ? `<span class="class-activity-reminder-badge">班级活动</span>` : ""}
           <div>
             <div class="class-card-topline">
               <span class="module-eyebrow">班级</span>
@@ -1591,11 +1600,34 @@ function reminderClassNamesMatch(firstName, secondName) {
 }
 
 function findLocalClassForReminder(item = {}) {
-  if (item.source === "my_class") {
+  const localId = item.local_class_id || (item.source === "my_class" ? item.class_id : "");
+  if (localId) {
+    const byLocalId = classes.find((classItem) => classItem.id === localId);
+    if (byLocalId) return byLocalId;
+  }
+  if (item.source === "my_class" && item.class_id) {
     const byId = classes.find((classItem) => classItem.id === item.class_id);
     if (byId) return byId;
   }
-  return classes.find((classItem) => reminderClassNamesMatch(classItem.name, item.class_name)) || null;
+  const names = [item.local_class_name, item.class_name].filter(Boolean);
+  const matches = classes.filter((classItem) => (
+    names.some((name) => reminderClassNamesMatch(classItem.name, name))
+  ));
+  if (!matches.length) return null;
+  const teacherId = item.teacher_id || "";
+  if (teacherId) {
+    const teacherMatch = matches.find((classItem) => classItem.teacher_id === teacherId);
+    if (teacherMatch) return teacherMatch;
+  }
+  const namedMatch = matches.find((classItem) => (
+    item.local_class_name && classItem.name === item.local_class_name
+  ));
+  return namedMatch || matches[0];
+}
+
+function reminderDisplayClassName(item = {}) {
+  const localClass = findLocalClassForReminder(item);
+  return localClass?.name || item.local_class_name || item.class_name || "";
 }
 
 function showReminderHome() {
@@ -1621,7 +1653,7 @@ function showReminderDetail(item) {
   setReminderDetailMessage("");
 
   if (reminderDetailTitle) {
-    reminderDetailTitle.textContent = item.class_name || "班级催课";
+    reminderDetailTitle.textContent = reminderDisplayClassName(item) || "班级催课";
   }
   if (reminderDetailMeta) {
     const parts = [
@@ -1788,6 +1820,26 @@ function renderReminderPromptCell(row = {}, rowIndex = 0, canRecordPhoneCall = f
   `;
 }
 
+function renderPlantVisualMarkup(stage = {}, waterCount = 0, student = {}) {
+  const variety = plantVariety(student);
+  const revealClass = waterCount >= 3 ? variety.className : "plant-secret";
+  return `
+    <span class="plant-visual compact ${stage.className || ""} ${revealClass}" aria-hidden="true">
+      <i class="plant-seed"></i>
+      <i class="plant-stem"></i>
+      <i class="plant-leaf left"></i>
+      <i class="plant-leaf right"></i>
+      <i class="plant-branch left"></i>
+      <i class="plant-branch right"></i>
+      <i class="plant-crown"></i>
+      <i class="plant-bloom one"></i>
+      <i class="plant-bloom two"></i>
+      <i class="plant-fruit one"></i>
+      <i class="plant-fruit two"></i>
+    </span>
+  `;
+}
+
 function renderReminderStudentName(student = {}) {
   const name = escapeText(student.name || "-");
   const enrolled = Boolean(student.renewal_enrolled);
@@ -1834,10 +1886,17 @@ function reminderActivityStageInfo(student = {}) {
   const visuals = normalizeActivityVisuals(completionActivity || {});
   const stageIndex = activityStageIndex(waterCount, visuals);
   const stage = plantStage(waterCount, plantVariety(student), student);
+  const asset = activityVisualAsset(student, waterCount);
   const label = visuals.stage_labels[stageIndex]
     || ACTIVITY_STAGE_DEFAULTS[Math.min(stageIndex, ACTIVITY_STAGE_DEFAULTS.length - 1)]
     || "暂无活动状态";
-  return { label, stageIndex, waterCount, className: stage.className };
+  return {
+    label,
+    stageIndex,
+    waterCount,
+    className: stage.className,
+    imageUrl: asset?.url || "",
+  };
 }
 
 function reminderActivityStageOptions(rows = []) {
@@ -1901,10 +1960,17 @@ function renderReminderCategoryFilter(rows = [], options = {}) {
 function renderReminderActivityProgressCell(row = {}) {
   const stage = row.activityStage;
   if (!stage) return "";
+  const student = row.student || {};
   const progress = Math.max(0, Math.min(ACTIVITY_MAX_PROGRESS, Number(stage.waterCount) || 0));
+  const imageUrl = stage.imageUrl || "";
   return `
     <td class="reminder-sticky-col reminder-sticky-activity">
-      <div class="reminder-activity-progress">
+      <div class="reminder-activity-progress ${imageUrl ? "has-image" : ""}">
+        ${imageUrl ? `
+          <span class="reminder-activity-thumb">
+            <img src="${escapeText(imageUrl)}" alt="${escapeText(stage.label)}">
+          </span>
+        ` : renderPlantVisualMarkup(stage, progress, student)}
         <span class="activity-stage-badge ${stage.className || ""}">${escapeText(stage.label)}</span>
         <strong>${progress}/${ACTIVITY_MAX_PROGRESS}</strong>
         <div class="water-progress compact"><i style="width: ${(progress / ACTIVITY_MAX_PROGRESS) * 100}%"></i></div>
@@ -1965,6 +2031,8 @@ function renderReminderStudentTable(rows = [], options = {}) {
       `;
     })
     .join("");
+  const columnCount = 4 + (options.showActivityFilter ? 1 : 0) + (WEEK_KEYS.length * DAY_COUNT);
+  const spacerRow = `<tr class="reminder-scroll-spacer" aria-hidden="true"><td colspan="${columnCount}"></td></tr>`;
 
   return `
     <section class="reminder-student-section">
@@ -1988,7 +2056,7 @@ function renderReminderStudentTable(rows = [], options = {}) {
             </tr>
             <tr>${dayHeaders}</tr>
           </thead>
-          <tbody>${bodyRows}</tbody>
+          <tbody>${bodyRows}${spacerRow}</tbody>
         </table>
       </div>
       <div class="reminder-filter-empty is-hidden" data-reminder-filter-empty>当前分类暂无需要催课的学员。</div>
@@ -2120,7 +2188,7 @@ function reminderStudentPayload({ student, stats, prompt, phone_call }) {
 
 function reminderRecoveryQuery(item = {}) {
   const params = new URLSearchParams();
-  params.set("class_name", item.class_name || "");
+  params.set("class_name", reminderDisplayClassName(item) || item.class_name || "");
   params.set("day_key", item.day_key || "");
   params.set("recover_from", item.recover_from || "");
   if (item.teacher_id) params.set("teacher_id", item.teacher_id);
@@ -2137,7 +2205,7 @@ async function loadReminderRecoveryRecords(item = {}) {
 
 function reminderActionQuery(item = {}) {
   const params = new URLSearchParams();
-  params.set("class_name", item.class_name || "");
+  params.set("class_name", reminderDisplayClassName(item) || item.class_name || "");
   params.set("day_key", item.day_key || "");
   params.set("task_label", item.task_label || "催课");
   params.set("recover_from", item.recover_from || "");
@@ -2224,7 +2292,7 @@ function renderReminderActionRecords(records = []) {
       ${records.map((record) => `
         <article class="reminder-saved-record">
           <div class="reminder-recovery-record-head">
-            <strong>${escapeText(record.teacher_name || "-")} · ${escapeText(record.class_name || "-")}</strong>
+            <strong>${escapeText(record.teacher_name || "-")} · ${escapeText(reminderDisplayClassName(record) || "-")}</strong>
             <span>${escapeText(record.origin_day_label || record.recovery_day_label || "-")} ${escapeText(record.task_label || "催课")} · ${Number(record.student_count || 0)} 名 · ${escapeText(reminderRecordTime(record))}</span>
           </div>
           <div class="reminder-table-wrap">
@@ -2262,25 +2330,20 @@ function renderReminderSnapshotTable(students = [], currentRows = []) {
     )))
     .join("");
   const rows = students.map((student) => {
-    const weeks = normalizeWeeks(student.weeks);
+    const currentRow = findReminderCurrentRow(student, currentRows);
+    const weeks = normalizeWeeks(currentRow?.stats?.weeks || {});
     const result = reminderRecoveryResult(student, currentRows);
     const dayCells = WEEK_KEYS
       .flatMap((week) => weeks[week].map((rate, dayIndex) => (
         `<td class="${dayIndex === 0 ? "week-group-start" : ""}">${renderReminderSnapshotDayCell(rate)}</td>`
       )))
       .join("");
-    const incompleteText = (student.incomplete_days || [])
-      .map((item) => item.label || `${weekLabel(item.week)}第${item.day}天`)
-      .filter(Boolean)
-      .join("、") || "无";
     return `
       <tr>
-        <td class="reminder-student-name">${renderReminderStudentName(student)}</td>
-        <td>${escapeText(student.account || "-")}</td>
+        <td class="reminder-student-name reminder-sticky-col reminder-sticky-name">${renderReminderStudentName(student)}</td>
         <td>${renderHabitCell(student.category || "暂无数据")}</td>
         <td>${renderMonthlyCell(student.monthly_completion)}</td>
         <td class="reminder-recovery-result-cell">${renderReminderRecoveryResultCell(result)}</td>
-        <td class="reminder-student-prompt">${escapeText(incompleteText)}</td>
         <td class="reminder-student-prompt">${escapeText(student.prompt || "")}</td>
         ${dayCells}
       </tr>
@@ -2292,12 +2355,10 @@ function renderReminderSnapshotTable(students = [], currentRows = []) {
       <table class="reminder-student-table reminder-recovery-table">
         <thead>
           <tr>
-            <th rowspan="2">学员姓名</th>
-            <th rowspan="2">学员账号</th>
+            <th class="reminder-sticky-col reminder-sticky-name" rowspan="2">学员姓名</th>
             <th rowspan="2">催课时分类</th>
             <th rowspan="2">催课时完成度</th>
             <th rowspan="2">回收结果</th>
-            <th rowspan="2">催课时未达标日期</th>
             <th rowspan="2">催课时建议</th>
             ${weekHeaders}
           </tr>
@@ -2463,7 +2524,7 @@ async function completeReminderArrangement() {
     recover_from: activeReminderClass.recover_from || "",
     teacher_id: activeReminderClass.teacher_id || classData?.teacher_id || "",
     class_id: activeReminderClass.class_id || "",
-    class_name: activeReminderClass.class_name || classData?.name || "",
+    class_name: reminderDisplayClassName(activeReminderClass) || classData?.name || "",
     local_class_id: localClass?.id || classData?.id || "",
     local_class_name: classData?.name || localClass?.name || "",
     source: activeReminderClass.source || "",
@@ -2518,8 +2579,10 @@ function renderReminderArrangementError(message) {
 
 async function fetchReminderMatchedClass(item = {}) {
   const params = new URLSearchParams();
-  if (item.class_id) params.set("class_id", item.class_id);
-  if (item.class_name) params.set("class_name", item.class_name);
+  const classId = item.local_class_id || item.class_id || "";
+  const className = reminderDisplayClassName(item) || item.class_name || "";
+  if (classId) params.set("class_id", classId);
+  if (className) params.set("class_name", className);
   if (item.teacher_id) params.set("teacher_id", item.teacher_id);
   const data = await apiRequest(`/api/classes/reminder-match?${params.toString()}`);
   return data.class || null;
@@ -2680,7 +2743,7 @@ function renderReminderPriorities(groups = []) {
                   <span class="reminder-rank">#${item.rank}</span>
                   <span class="reminder-stars" aria-label="${item.stars}星">${reminderStars(item.stars)}</span>
                 </td>
-                <td class="reminder-class-name">${escapeText(item.class_name)}</td>
+                <td class="reminder-class-name">${escapeText(reminderDisplayClassName(item))}</td>
                 <td>${formatCompletion(item.completion_rate)}</td>
                 <td>${formatCompletion(item.last_month_completion)}</td>
                 <td class="${Number(item.change_from_last_month || 0) < 0 ? "is-negative" : "is-positive"}">
@@ -2727,7 +2790,7 @@ function reminderClassChips(items = [], emptyText = "无", context = {}) {
       <button class="reminder-class-chip ${item.source === "my_class" ? "is-extra" : ""} ${isCompleted ? "is-completed" : ""}" type="button" data-reminder-open="${escapeText(token)}">
         ${isCompleted ? `<span class="reminder-done-mark" title="${escapeText(completedTitle)}">✅</span>` : ""}
         <em>${item.rank ? `#${item.rank}` : (item.source === "my_class" ? "补" : "库")}</em>
-        <span class="reminder-class-chip-name">${escapeText(item.class_name)}</span>
+        <span class="reminder-class-chip-name">${escapeText(reminderDisplayClassName(item))}</span>
         ${showUploadMark ? `<small class="reminder-upload-mark ${uploadClass}" title="${escapeText(uploadTitle)}">${escapeText(uploadText)}</small>` : ""}
       </button>
     `;
@@ -2848,6 +2911,9 @@ async function loadReminderPlan(force = false) {
   if (reminderPriorityStatus) reminderPriorityStatus.textContent = "正在读取数据库完课对比数据...";
   if (reminderScheduleStatus) reminderScheduleStatus.textContent = "正在生成本周催课节奏...";
   try {
+    if (!classes.length) {
+      await loadClasses();
+    }
     const data = await apiRequest("/api/database/completion-reminders");
     renderReminderPlan(data);
     reminderPlanLoaded = true;
