@@ -2509,9 +2509,14 @@ def build_reminder_schedule(schedule_rows, action_records=None):
     fill_rows = regular_rows + activity_rows + high_frequency_rows
     fill_cursor = 0
 
-    def fill_daily_rows(existing_rows, target_count):
+    def fill_daily_rows(existing_rows, target_count, excluded_signatures=None):
         nonlocal fill_cursor
-        selected = dedupe(existing_rows)
+        excluded_signatures = excluded_signatures or set()
+        selected = [
+            row
+            for row in dedupe(existing_rows)
+            if reminder_schedule_row_signature(row) not in excluded_signatures
+        ]
         if len(selected) >= target_count or not fill_rows:
             return selected
 
@@ -2522,22 +2527,29 @@ def build_reminder_schedule(schedule_rows, action_records=None):
             fill_cursor += 1
             attempts += 1
             signature = reminder_schedule_row_signature(row)
+            if signature in excluded_signatures:
+                continue
             if any(reminder_schedule_row_signature(item) == signature for item in selected):
                 continue
             selected.append(row)
         return selected
 
     for item in REMINDER_WEEK_FLOW:
+        recover_classes = buckets.get(item["recover_from"] or "", [])
+        recover_signatures = reminder_rows_signature_set(recover_classes)
         new_classes = []
         if item["key"] in {"monday", "tuesday", "friday"}:
             new_classes.extend(high_frequency_rows)
         if item["key"] in {"monday", "friday"}:
             new_classes.extend(activity_rows)
-        new_classes = fill_daily_rows(new_classes, item.get("new_count", REMINDER_DAILY_MIN_CLASSES))
+        new_classes = fill_daily_rows(
+            new_classes,
+            item.get("new_count", REMINDER_DAILY_MIN_CLASSES),
+            recover_signatures,
+        )
         if new_classes:
             buckets[item["key"]] = new_classes
 
-        recover_classes = buckets.get(item["recover_from"] or "", [])
         output.append(
             {
                 "key": item["key"],
