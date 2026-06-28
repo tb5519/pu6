@@ -28,7 +28,7 @@ const RENEWAL_SECOND_MONTH_STAGE = "续报次月";
 const RENEWAL_CLOSING_STAGE = "结营续报";
 const RENEWAL_FOLLOWUP_STATUSES = ["愿意继续学", "需要考虑", "拒绝", "未接听"];
 const RENEWAL_FOLLOWUP_METHODS = ["私信", "电话"];
-const RENEWAL_LEADER_ACTION_TYPES = ["留言", "去电"];
+const RENEWAL_LEADER_ACTION_TYPES = ["留言", "去电", "跟进"];
 const RENEWAL_BLOCKER_OPTIONS = ["升初中", "时间紧张", "经济", "学员问题", "线下", "效果不满意", "不知道顾虑", "不回复", "拒绝早报"];
 const RENEWAL_ADD_BLOCKER_VALUE = "__add_current_blocker__";
 const RENEWAL_WEEK_STORAGE_KEY = "pu6RenewalSelectedWeek";
@@ -313,6 +313,31 @@ function renewalTalkLabel(track, keyword = "") {
   return compactRenewalTalkLabel(snippet ? `${scene} · ${snippet}` : scene, 46);
 }
 
+function renewalTalkPreviewText(track) {
+  return [
+    track.scene ? `场景：${track.scene}` : "",
+    track.keywords ? `关键词：${track.keywords}` : "",
+    String(track.text || "").trim(),
+  ].filter(Boolean).join("\n\n");
+}
+
+function getRenewalTalkCandidates(student, keyword, limit = 32) {
+  const searchKeyword = String(keyword || student?.leader_talk_keyword || student?.leader_note || "").trim();
+  const sourceTracks = getRenewalLibraryTalkTracks();
+  const scoredTracks = sourceTracks
+    .map((track) => ({ track, ...renewalTalkMatch(track, searchKeyword) }))
+    .sort((a, b) => (b.score - a.score) || (Number(b.track.priority || 0) - Number(a.track.priority || 0)));
+  const matchedTracks = searchKeyword
+    ? scoredTracks.filter((item) => item.matched)
+    : scoredTracks;
+  return {
+    sourceTracks,
+    matchedTracks,
+    tracks: matchedTracks.slice(0, limit).map((item) => item.track),
+    searchKeyword,
+  };
+}
+
 function renewalTalkMatchesSelected(track, student) {
   const selectedText = String(student?.leader_talk_text || "").trim();
   const selectedType = String(student?.leader_talk_type || "").trim();
@@ -326,17 +351,7 @@ function renderRenewalTalkOptions(student, keyword) {
   const selectedText = String(student?.leader_talk_text || "").trim();
   const selectedType = String(student?.leader_talk_type || "").trim();
   const canUseSavedTalk = selectedText && selectedType === RENEWAL_MESSAGE_TALK_TYPE;
-  const searchKeyword = String(keyword || student?.leader_talk_keyword || student?.leader_note || "").trim();
-  const sourceTracks = getRenewalLibraryTalkTracks();
-  const scoredTracks = sourceTracks
-    .map((track) => ({ track, ...renewalTalkMatch(track, searchKeyword) }))
-    .sort((a, b) => (b.score - a.score) || (Number(b.track.priority || 0) - Number(a.track.priority || 0)));
-  const matchedTracks = searchKeyword
-    ? scoredTracks.filter((item) => item.matched)
-    : scoredTracks;
-  const tracks = matchedTracks
-    .slice(0, 32)
-    .map((item) => item.track);
+  const { sourceTracks, matchedTracks, tracks, searchKeyword } = getRenewalTalkCandidates(student, keyword, 32);
 
   const selectedInOptions = canUseSavedTalk && tracks.some((track) => renewalTalkMatchesSelected(track, student));
   const savedOption = canUseSavedTalk && !selectedInOptions ? `
@@ -354,10 +369,41 @@ function renderRenewalTalkOptions(student, keyword) {
     ...tracks.map((track) => `
       <option
         value="${escapeRenewalText(track.id)}"
+        title="${escapeRenewalAttr(renewalTalkPreviewText(track))}"
         ${renewalTalkMatchesSelected(track, student) ? " selected" : ""}
       >${escapeRenewalText(renewalTalkLabel(track, searchKeyword))}</option>
     `),
   ].join("");
+}
+
+function renderRenewalTalkCandidateButtons(project, student, keyword) {
+  const { sourceTracks, matchedTracks, tracks, searchKeyword } = getRenewalTalkCandidates(student, keyword, 4);
+  if (!sourceTracks.length) {
+    return `<div class="renewal-leader-talk-candidate-wrap" data-renewal-talk-candidates><div class="renewal-leader-talk-empty">暂无留言推荐</div></div>`;
+  }
+  if (searchKeyword && !matchedTracks.length) {
+    return `<div class="renewal-leader-talk-candidate-wrap" data-renewal-talk-candidates><div class="renewal-leader-talk-empty">没有匹配留言，可直接写自定义留言</div></div>`;
+  }
+  if (!tracks.length) return `<div class="renewal-leader-talk-candidate-wrap" data-renewal-talk-candidates></div>`;
+  return `
+    <div class="renewal-leader-talk-candidate-wrap" data-renewal-talk-candidates>
+      <div class="renewal-leader-talk-candidates" aria-label="留言话术候选">
+        ${tracks.map((track) => `
+          <button
+            class="renewal-leader-talk-candidate"
+            type="button"
+            data-renewal-select-talk="${escapeRenewalText(project.id)}"
+            data-renewal-student-id="${escapeRenewalText(student.id)}"
+            data-renewal-talk-id="${escapeRenewalAttr(track.id)}"
+            data-renewal-talk-preview="${escapeRenewalAttr(renewalTalkPreviewText(track))}"
+            title="悬停预览完整话术，点击选用"
+          >
+            <span>${escapeRenewalText(renewalTalkLabel(track, searchKeyword))}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function findRenewalTalkTrackById(trackId) {
@@ -367,21 +413,82 @@ function findRenewalTalkTrackById(trackId) {
 function refreshRenewalTalkSelectOptions(input) {
   const plan = input?.closest(".renewal-leader-plan");
   const select = plan?.querySelector("[data-renewal-leader-talk]");
-  if (!select) return;
-  const previousValue = select.value;
-  const savedKeyword = select.dataset.renewalTalkKeyword || "";
+  const candidateWrap = plan?.querySelector("[data-renewal-talk-candidates]");
+  const previousValue = select?.value || "";
+  const savedKeyword = select?.dataset?.renewalTalkKeyword || "";
   const shouldKeepSelection = String(input.value || "").trim() === String(savedKeyword || "").trim();
   const selectedStudent = {
-    leader_talk_title: shouldKeepSelection ? select.dataset.renewalTalkTitle || "" : "",
-    leader_talk_text: shouldKeepSelection ? select.dataset.renewalTalkText || "" : "",
-    leader_talk_type: shouldKeepSelection ? select.dataset.renewalTalkType || "" : "",
+    leader_talk_title: shouldKeepSelection ? select?.dataset?.renewalTalkTitle || "" : "",
+    leader_talk_text: shouldKeepSelection ? select?.dataset?.renewalTalkText || "" : "",
+    leader_talk_type: shouldKeepSelection ? select?.dataset?.renewalTalkType || "" : "",
     leader_talk_keyword: input.value,
     leader_note: input.value,
+    id: input.dataset.renewalStudentId || select?.dataset?.renewalStudentId || "",
   };
-  select.innerHTML = renderRenewalTalkOptions(selectedStudent, input.value);
-  if (Array.from(select.options).some((option) => option.value === previousValue)) {
+  if (select) {
+    select.innerHTML = renderRenewalTalkOptions(selectedStudent, input.value);
+  }
+  if (select && Array.from(select.options).some((option) => option.value === previousValue)) {
     select.value = previousValue;
   }
+  if (candidateWrap) {
+    candidateWrap.outerHTML = renderRenewalTalkCandidateButtons(
+      { id: input.dataset.renewalLeaderNote || select?.dataset?.renewalLeaderTalk || "" },
+      selectedStudent,
+      input.value
+    );
+  }
+}
+
+function saveRenewalLeaderTalkSelection(projectId, studentId, selectedTrack, keyword = "") {
+  return updateRenewalStudent(
+    projectId,
+    studentId,
+    {
+      leader_note: "",
+      leader_action_type: "留言",
+      leader_talk_keyword: selectedTrack ? keyword : "",
+      leader_talk_type: selectedTrack ? RENEWAL_MESSAGE_TALK_TYPE : "",
+      leader_talk_title: selectedTrack?.scene || "",
+      leader_talk_text: selectedTrack?.text || "",
+    },
+    { successMessage: selectedTrack ? "留言话术已选择，关键词已清空。" : "盘单话术已清空。" }
+  );
+}
+
+function saveRenewalLeaderTextPlan(trigger) {
+  const projectId = trigger?.dataset?.renewalLeaderTextSave || trigger?.dataset?.renewalLeaderTextNote;
+  const studentId = trigger?.dataset?.renewalStudentId;
+  const mode = trigger?.dataset?.renewalLeaderPlanMode === "call" ? "call" : "custom";
+  const plan = trigger?.closest(".renewal-leader-plan");
+  const input = plan?.querySelector(`[data-renewal-leader-text-note][data-renewal-leader-plan-mode="${mode}"]`);
+  const noteText = String(input?.value || "").trim();
+  if (!projectId || !studentId || !input) return null;
+  return updateRenewalStudent(
+    projectId,
+    studentId,
+    {
+      leader_action_type: mode === "call" ? "去电" : "跟进",
+      leader_note: noteText,
+      leader_talk_keyword: "",
+      leader_talk_type: "",
+      leader_talk_title: "",
+      leader_talk_text: "",
+    },
+    { successMessage: noteText ? "盘单内容已保存。" : "盘单内容已清空。" }
+  );
+}
+
+function setRenewalLeaderEditorMode(button) {
+  const plan = button?.closest(".renewal-leader-plan");
+  const mode = button?.dataset?.renewalLeaderModeButton || "";
+  if (!plan || !mode) return;
+  plan.querySelectorAll("[data-renewal-leader-mode-button]").forEach((item) => {
+    item.classList.toggle("is-active", item.dataset.renewalLeaderModeButton === mode);
+  });
+  plan.querySelectorAll("[data-renewal-leader-mode-panel]").forEach((panel) => {
+    panel.classList.toggle("is-hidden", panel.dataset.renewalLeaderModePanel !== mode);
+  });
 }
 
 async function copyRenewalText(text, button, resetLabel = "复制") {
@@ -867,15 +974,20 @@ function renderRenewalLeaderPlanCell(project, student, disabledAttr) {
   const rawLeaderTalkText = student.leader_talk_text || "";
   const leaderTalkText = leaderTalkType === RENEWAL_MESSAGE_TALK_TYPE ? rawLeaderTalkText : "";
   const leaderTalkKeyword = student.leader_talk_keyword || leaderNote;
-  const leaderSearchValue = leaderTalkText ? "" : leaderNote;
+  const leaderTalkSearchValue = leaderTalkText ? leaderTalkKeyword : "";
+  const activeLeaderMode = isCallPlan ? "call" : leaderTalkText ? "talk" : "custom";
+  const callLeaderNoteValue = isCallPlan ? leaderNote : "";
+  const customLeaderNoteValue = !isCallPlan && !leaderTalkText ? leaderNote : "";
   const hasLeaderPlan = Boolean(leaderNote || leaderTalkText || isCallPlan);
   if (!canManage && !hasLeaderPlan) {
     return `<td class="renewal-leader-plan-cell is-empty"></td>`;
   }
   const leaderActionBadge = isCallPlan
     ? `<span class="renewal-leader-action-badge is-call">去电</span>`
-    : `<span class="renewal-leader-action-badge">留言</span>`;
-  const teacherLeaderNoteText = leaderNote || (leaderTalkText ? "这里有留言需跟进" : isCallPlan ? "组长建议去电了解情况" : "");
+    : leaderActionType === "跟进"
+      ? `<span class="renewal-leader-action-badge is-custom">跟进</span>`
+      : `<span class="renewal-leader-action-badge">留言</span>`;
+  const teacherLeaderNoteText = leaderNote || (leaderTalkText ? "这里有留言需跟进" : isCallPlan ? "组长建议去电了解情况" : "组长有跟进动作需处理");
   const isDone = Boolean(student.leader_note_done);
   const adminPlanStatus = isDone ? "已完成" : hasLeaderPlan ? "待跟进" : "未设置";
   const doneTitle = student.leader_note_done
@@ -893,8 +1005,7 @@ function renderRenewalLeaderPlanCell(project, student, disabledAttr) {
     </label>
   ` : "";
   const teacherPlanDetail = !canManage && hasLeaderPlan && !isDone ? `
-    <details class="renewal-teacher-plan-detail">
-      <summary>${leaderTalkText ? "查看话术" : "查看说明"}</summary>
+    <div class="renewal-teacher-plan-detail">
       <div class="renewal-leader-note-text${hasLeaderPlan ? "" : " is-empty"}"${leaderTalkText ? ` data-renewal-talk-preview="${escapeRenewalAttr(leaderTalkText)}"` : ""}>
         ${escapeRenewalText(teacherLeaderNoteText)}
       </div>
@@ -908,7 +1019,7 @@ function renderRenewalLeaderPlanCell(project, student, disabledAttr) {
           >复制</button>
         </div>
       ` : ""}
-    </details>
+    </div>
   ` : "";
   const noteContent = canManage ? `
     <details class="renewal-leader-editor">
@@ -920,42 +1031,76 @@ function renderRenewalLeaderPlanCell(project, student, disabledAttr) {
         <span class="renewal-leader-edit-text">${hasLeaderPlan ? "编辑" : "添加"}</span>
       </summary>
       <div class="renewal-leader-admin-fields">
-        <select
-          class="renewal-leader-action-select"
-          data-renewal-leader-action="${escapeRenewalText(project.id)}"
-          data-renewal-student-id="${escapeRenewalText(student.id)}"
-          title="选择组员需要执行的盘单动作"
-          ${disabledAttr}
-        >
-          ${RENEWAL_LEADER_ACTION_TYPES.map((actionType) => `
-            <option value="${escapeRenewalText(actionType)}"${leaderActionType === actionType ? " selected" : ""}>${escapeRenewalText(actionType)}</option>
+        <div class="renewal-leader-mode-row">
+          ${[
+            ["call", "去电"],
+            ["talk", "留言话术"],
+            ["custom", "自定义"],
+          ].map(([mode, label]) => `
+            <button
+              class="renewal-leader-mode-button${activeLeaderMode === mode ? " is-active" : ""}"
+              type="button"
+              data-renewal-leader-mode-button="${mode}"
+              ${disabledAttr}
+            >${label}</button>
           `).join("")}
-        </select>
-        <input
-          class="renewal-leader-note-input"
-          type="text"
-          value="${escapeRenewalText(leaderSearchValue)}"
-          data-renewal-leader-note="${escapeRenewalText(project.id)}"
-          data-renewal-student-id="${escapeRenewalText(student.id)}"
-          placeholder="关键词匹配留言"
-          title="${escapeRenewalAttr("只用于筛选留言推荐，选中话术后会自动清空")}"
-          autocomplete="off"
-          autocorrect="off"
-          spellcheck="false"
-          ${disabledAttr}
-        >
-        <select
-          class="renewal-leader-talk-select"
-          data-renewal-leader-talk="${escapeRenewalText(project.id)}"
-          data-renewal-student-id="${escapeRenewalText(student.id)}"
-          data-renewal-talk-title="${escapeRenewalAttr(leaderTalkTitle)}"
-          data-renewal-talk-text="${escapeRenewalAttr(leaderTalkText)}"
-          data-renewal-talk-type="${escapeRenewalAttr(leaderTalkType)}"
-          data-renewal-talk-keyword="${escapeRenewalAttr(leaderTalkKeyword)}"
-          ${disabledAttr}
-        >
-          ${renderRenewalTalkOptions(student, leaderTalkKeyword)}
-        </select>
+        </div>
+        <div class="renewal-leader-mode-panel${activeLeaderMode === "call" ? "" : " is-hidden"}" data-renewal-leader-mode-panel="call">
+          <textarea
+            class="renewal-leader-text-input"
+            rows="3"
+            maxlength="500"
+            data-renewal-leader-text-note="${escapeRenewalText(project.id)}"
+            data-renewal-leader-plan-mode="call"
+            data-renewal-student-id="${escapeRenewalText(student.id)}"
+            placeholder="写一下建议去电时重点沟通什么"
+            ${disabledAttr}
+          >${escapeRenewalText(callLeaderNoteValue)}</textarea>
+          <button
+            class="ghost-button compact-button renewal-leader-text-save"
+            type="button"
+            data-renewal-leader-text-save="${escapeRenewalText(project.id)}"
+            data-renewal-leader-plan-mode="call"
+            data-renewal-student-id="${escapeRenewalText(student.id)}"
+            ${disabledAttr}
+          >保存</button>
+        </div>
+        <div class="renewal-leader-mode-panel${activeLeaderMode === "talk" ? "" : " is-hidden"}" data-renewal-leader-mode-panel="talk">
+          <input
+            class="renewal-leader-note-input"
+            type="text"
+            value="${escapeRenewalText(leaderTalkSearchValue)}"
+            data-renewal-leader-note="${escapeRenewalText(project.id)}"
+            data-renewal-student-id="${escapeRenewalText(student.id)}"
+            placeholder="输入关键词匹配留言话术"
+            title="${escapeRenewalAttr("输入关键词后，下方会推荐留言话术")}"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            ${disabledAttr}
+          >
+          ${renderRenewalTalkCandidateButtons(project, student, leaderTalkSearchValue)}
+        </div>
+        <div class="renewal-leader-mode-panel${activeLeaderMode === "custom" ? "" : " is-hidden"}" data-renewal-leader-mode-panel="custom">
+          <textarea
+            class="renewal-leader-text-input"
+            rows="3"
+            maxlength="500"
+            data-renewal-leader-text-note="${escapeRenewalText(project.id)}"
+            data-renewal-leader-plan-mode="custom"
+            data-renewal-student-id="${escapeRenewalText(student.id)}"
+            placeholder="写给组员的其他跟进动作"
+            ${disabledAttr}
+          >${escapeRenewalText(customLeaderNoteValue)}</textarea>
+          <button
+            class="ghost-button compact-button renewal-leader-text-save"
+            type="button"
+            data-renewal-leader-text-save="${escapeRenewalText(project.id)}"
+            data-renewal-leader-plan-mode="custom"
+            data-renewal-student-id="${escapeRenewalText(student.id)}"
+            ${disabledAttr}
+          >保存</button>
+        </div>
       </div>
     </details>
   ` : isDone && hasLeaderPlan ? `
@@ -1932,17 +2077,11 @@ function initRenewal() {
       const selectedTrack = leaderTalk.value ? findRenewalTalkTrackById(leaderTalk.value) : null;
       const nextKeyword = String(noteInput?.value || "").trim();
       if (noteInput) noteInput.value = "";
-      updateRenewalStudent(
+      saveRenewalLeaderTalkSelection(
         leaderTalk.dataset.renewalLeaderTalk,
         leaderTalk.dataset.renewalStudentId,
-        {
-          leader_note: "",
-          leader_talk_keyword: selectedTrack ? nextKeyword : "",
-          leader_talk_type: selectedTrack ? RENEWAL_MESSAGE_TALK_TYPE : "",
-          leader_talk_title: selectedTrack?.scene || "",
-          leader_talk_text: selectedTrack?.text || "",
-        },
-        { successMessage: selectedTrack ? "留言话术已选择，关键词已清空。" : "盘单话术已清空。" }
+        selectedTrack,
+        nextKeyword
       );
       return;
     }
@@ -1962,9 +2101,16 @@ function initRenewal() {
     }
 
     const noteInput = event.target.closest("[data-renewal-followup-note]");
-    if (!noteInput) return;
-    event.preventDefault();
-    saveRenewalFollowupNote(noteInput);
+    if (noteInput) {
+      event.preventDefault();
+      saveRenewalFollowupNote(noteInput);
+      return;
+    }
+    const leaderTextNote = event.target.closest("[data-renewal-leader-text-note]");
+    if (leaderTextNote && event.ctrlKey) {
+      event.preventDefault();
+      saveRenewalLeaderTextPlan(leaderTextNote);
+    }
   });
   renewalStudentList?.addEventListener("dblclick", (event) => {
     const noteCard = event.target.closest("[data-renewal-note-card]");
@@ -1977,6 +2123,31 @@ function initRenewal() {
     );
   });
   renewalStudentList?.addEventListener("click", (event) => {
+    const leaderModeButton = event.target.closest("[data-renewal-leader-mode-button]");
+    if (leaderModeButton) {
+      setRenewalLeaderEditorMode(leaderModeButton);
+      return;
+    }
+    const leaderTalkCandidate = event.target.closest("[data-renewal-select-talk]");
+    if (leaderTalkCandidate) {
+      const plan = leaderTalkCandidate.closest(".renewal-leader-plan");
+      const noteInput = plan?.querySelector("[data-renewal-leader-note]");
+      const selectedTrack = findRenewalTalkTrackById(leaderTalkCandidate.dataset.renewalTalkId || "");
+      const nextKeyword = String(noteInput?.value || "").trim();
+      if (noteInput) noteInput.value = "";
+      saveRenewalLeaderTalkSelection(
+        leaderTalkCandidate.dataset.renewalSelectTalk,
+        leaderTalkCandidate.dataset.renewalStudentId,
+        selectedTrack,
+        nextKeyword
+      );
+      return;
+    }
+    const leaderTextSave = event.target.closest("[data-renewal-leader-text-save]");
+    if (leaderTextSave) {
+      saveRenewalLeaderTextPlan(leaderTextSave);
+      return;
+    }
     const copyTalkButton = event.target.closest("[data-renewal-copy-talk]");
     if (copyTalkButton) {
       copyRenewalText(copyTalkButton.dataset.renewalCopyTalk || "", copyTalkButton);
