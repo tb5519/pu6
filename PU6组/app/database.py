@@ -2311,11 +2311,95 @@ def append_unique_reminder_rows(target, rows):
         seen.add(signature)
 
 
+def reminder_plan_source_context(plan):
+    source_date = (
+        str(plan.get("plan_source_date") or "").strip()
+        or str(plan.get("date") or "").strip()
+        or datetime.now().strftime("%Y-%m-%d")
+    )
+    month_key = str(plan.get("month") or "").strip() or source_date[:7] or datetime.now().strftime("%Y-%m")
+    cycle_key = str(plan.get("cycle_key") or "").strip() or reminder_cycle_key_for_date(source_date)
+    return month_key, source_date, cycle_key
+
+
+def reminder_group_row_signatures(group):
+    rows = []
+    for key in ("priorities", "database_fallbacks", "extra_classes"):
+        rows.extend([row for row in group.get(key, []) if isinstance(row, dict)])
+    return reminder_rows_signature_set(rows)
+
+
+def reminder_group_count_rows(group):
+    rows = []
+    seen = set()
+    for key in ("priorities", "database_fallbacks", "extra_classes"):
+        for row in group.get(key, []):
+            if not isinstance(row, dict):
+                continue
+            signature = reminder_schedule_row_signature(row)
+            if signature in seen:
+                continue
+            rows.append(row)
+            seen.add(signature)
+    return rows
+
+
+def reminder_row_has_completion_data(row):
+    return bool(
+        row.get("completion_data_matched")
+        or row.get("database_class_id")
+        or row.get("lookup_matched")
+        or row.get("completion_rate") is not None
+        or row.get("last_month_completion") is not None
+    )
+
+
+def append_missing_current_home_classes(plan):
+    month_key, source_date, cycle_key = reminder_plan_source_context(plan)
+    source_plan = build_completion_reminder_plan_source(
+        month_key,
+        source_date,
+        reminder_all_teacher_ids(),
+        action_records=None,
+        cycle_key=cycle_key,
+    )
+    target_groups = {
+        normalize_teacher_id(group.get("teacher_id")): group
+        for group in plan.get("groups", [])
+        if isinstance(group, dict)
+    }
+    changed = False
+    for source_group in source_plan.get("groups", []):
+        teacher_id = normalize_teacher_id(source_group.get("teacher_id"))
+        if not teacher_id:
+            continue
+        target_group = target_groups.get(teacher_id)
+        if target_group is None:
+            plan.setdefault("groups", []).append(source_group)
+            target_groups[teacher_id] = source_group
+            changed = True
+            continue
+
+        existing_signatures = reminder_group_row_signatures(target_group)
+        for key in ("priorities", "database_fallbacks", "extra_classes"):
+            target_rows = target_group.setdefault(key, [])
+            for source_row in source_group.get(key, []):
+                if not isinstance(source_row, dict):
+                    continue
+                signature = reminder_schedule_row_signature(source_row)
+                if signature in existing_signatures:
+                    continue
+                target_rows.append({**source_row})
+                existing_signatures.add(signature)
+                changed = True
+    return changed
+
+
 def reconcile_weekly_reminder_plan(plan):
     if not isinstance(plan, dict) or not isinstance(plan.get("groups"), list):
         return False
 
-    changed = False
+    changed = append_missing_current_home_classes(plan)
     meta_by_teacher, meta_by_id = reminder_plan_local_meta_index()
 
     for group in plan.get("groups", []):
@@ -2363,12 +2447,19 @@ def reconcile_weekly_reminder_plan(plan):
             + renewal_database_fallback_rows
             + renewal_extra_rows
         )
+        counted_rows = reminder_group_count_rows({
+            "priorities": priority_rows,
+            "database_fallbacks": fallback_rows,
+            "extra_classes": extra_rows,
+        })
 
         rebuilt_schedule = build_reminder_schedule(schedule_rows)
         next_values = {
             "priorities": priority_rows,
             "database_fallbacks": fallback_rows,
             "extra_classes": extra_rows,
+            "class_count": len(counted_rows),
+            "database_count": sum(1 for row in counted_rows if reminder_row_has_completion_data(row)),
             "included_count": len(priority_rows),
             "ignored_count": len(fallback_rows),
             "extra_count": len(extra_rows),
