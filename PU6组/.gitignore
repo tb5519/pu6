@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .env
 .DS_Store
+flask-local*.log
 instance/*
 !instance/.gitkeep
 instance/*.json

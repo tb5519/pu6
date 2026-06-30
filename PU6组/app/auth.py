@@ -16,7 +16,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.teachers import normalize_teacher_id, teacher_id_for_username, teacher_label, teacher_options
+from app.teachers import normalize_account_teacher_id, normalize_teacher_id, teacher_id_for_username, teacher_label, teacher_options
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -85,6 +85,21 @@ def current_teacher_id():
 
 def can_manage_accounts():
     return current_teacher_id() == SUPER_ADMIN_TEACHER_ID
+
+
+def new_account_teacher_id(username, users):
+    base_id = normalize_account_teacher_id(username)
+    existing_ids = {
+        str(user.get("teacher_id") or "").strip()
+        for user in users.values()
+        if isinstance(user, dict) and str(user.get("teacher_id") or "").strip()
+    }
+    candidate = base_id
+    suffix = 2
+    while candidate in existing_ids or normalize_teacher_id(candidate):
+        candidate = f"{base_id}_{suffix}"
+        suffix += 1
+    return candidate
 
 
 def serialize_account(user):
@@ -165,7 +180,7 @@ def add_user(username, password, display_name, role, teacher_id=""):
     if role not in ACCOUNT_ROLES:
         raise click.ClickException("账号角色不正确。")
 
-    teacher_id = normalize_teacher_id(teacher_id)
+    teacher_id = normalize_teacher_id(teacher_id) or normalize_account_teacher_id(teacher_id or username)
 
     users[username] = {
         "username": username,
@@ -192,6 +207,21 @@ def reset_user_password(username, password):
     return users[username]
 
 
+def set_user_active(username, active):
+    username = normalize_username(username)
+    users = load_users()
+    if username not in users:
+        raise click.ClickException(f"账号 {username} 不存在。")
+
+    teacher_id = normalize_teacher_id(users[username].get("teacher_id")) or teacher_id_for_username(username)
+    if teacher_id == SUPER_ADMIN_TEACHER_ID and not active:
+        raise click.ClickException("不能停用超级管理员账号。")
+
+    users[username]["active"] = bool(active)
+    save_users(users)
+    return users[username]
+
+
 @auth_bp.get("/api/accounts")
 @login_required
 def list_accounts():
@@ -213,13 +243,12 @@ def create_account():
         return jsonify({"error": "只有Joanna账号可以新增组员账号。"}), 403
 
     payload = request.get_json(silent=True) or {}
-    teacher_id = normalize_teacher_id(payload.get("teacher_id"))
-    if not teacher_id:
-        return jsonify({"error": "请选择账号对应的班主任。"}), 400
+    username = normalize_username(str(payload.get("username") or ""))
+    teacher_id = new_account_teacher_id(username, load_users())
 
     try:
         user = add_user(
-            payload.get("username", ""),
+            username,
             payload.get("password", ""),
             payload.get("display_name", ""),
             "member",
@@ -240,6 +269,21 @@ def update_account_password(username):
     payload = request.get_json(silent=True) or {}
     try:
         user = reset_user_password(username, payload.get("password", ""))
+    except click.ClickException as error:
+        return jsonify({"error": str(error)}), 400
+
+    return jsonify({"account": serialize_account(user)})
+
+
+@auth_bp.put("/api/accounts/<username>/status")
+@login_required
+def update_account_status(username):
+    if not can_manage_accounts():
+        return jsonify({"error": "只有Joanna账号可以停用或启用组员账号。"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        user = set_user_active(username, payload.get("active", True))
     except click.ClickException as error:
         return jsonify({"error": str(error)}), 400
 

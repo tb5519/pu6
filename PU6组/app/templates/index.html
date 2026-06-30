@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260628-renewal-leader-simple') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260630-account-status') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260612-renewal-message-type') }}" defer></script>
     <script src="{{ url_for('static', filename='js/completion.js', v='20260628-class-activity-week') }}" defer></script>
@@ -12,7 +12,7 @@
     <script src="{{ url_for('static', filename='js/database.js', v='20260628-renewal-rate-ranking') }}" defer></script>
     <script src="{{ url_for('static', filename='js/renewal.js', v='20260628-renewal-leader-simple') }}" defer></script>
     {% if can_manage_accounts %}
-    <script src="{{ url_for('static', filename='js/account-admin.js', v='20260604-account-admin') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
     {% endif %}
   </head>
   <body class="app-body">
@@ -1210,7 +1210,7 @@
               <div class="panel-title-row">
                 <div>
                   <h2>新增组员账号</h2>
-                  <span class="tool-status">账号创建后即可登录</span>
+                  <span class="tool-status">账号创建后会自动生成班主任身份</span>
                 </div>
               </div>
               <form id="account-createForm" class="account-form">
@@ -1221,12 +1221,6 @@
                 <label>
                   <span>显示名称</span>
                   <input id="account-displayName" name="display_name" type="text" autocomplete="off" placeholder="例如：陈晓Grace">
-                </label>
-                <label>
-                  <span>对应班主任</span>
-                  <select id="account-teacher" name="teacher_id">
-                    <option value="">选择班主任</option>
-                  </select>
                 </label>
                 <label>
                   <span>初始密码</span>
@@ -1249,9 +1243,11 @@
                     <tr>
                       <th>账号</th>
                       <th>显示名称</th>
-                      <th>对应班主任</th>
+                      <th>班主任身份</th>
                       <th>权限</th>
+                      <th>状态</th>
                       <th>重置密码</th>
+                      <th>账号操作</th>
                     </tr>
                   </thead>
                   <tbody id="account-rows"></tbody>

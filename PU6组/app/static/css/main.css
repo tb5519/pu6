@@ -6920,7 +6920,12 @@ input {
 }
 
 .account-table {
-  min-width: 760px;
+  min-width: 920px;
+}
+
+.account-table tr.is-inactive-account td {
+  color: #8f86aa;
+  background: #faf8fd;
 }
 
 .account-role-badge {
@@ -6940,11 +6945,46 @@ input {
   background: #e3f7ef;
 }
 
+.account-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: #116453;
+  background: #e3f7ef;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.account-status-badge.is-inactive {
+  color: #8a4b0f;
+  background: #fff1da;
+}
+
 .account-password-reset {
   display: grid;
   grid-template-columns: minmax(120px, 1fr) auto;
   gap: 8px;
   align-items: center;
+}
+
+.account-status-button.is-danger {
+  color: #b42318;
+  border-color: #f1b3a8;
+  background: #fff7f5;
+}
+
+.account-status-button.is-enable {
+  color: #116453;
+  border-color: #bfe8d7;
+  background: #f0fbf6;
+}
+
+.account-action-muted {
+  color: #9a91b5;
+  font-size: 12px;
+  font-weight: 850;
 }
 
 .learning-settings-table {
