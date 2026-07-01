@@ -865,13 +865,9 @@ function activityStageIndex(waterCount, visuals = normalizeActivityVisuals(compl
   if (stageCount <= 1) return 0;
   if (progressValue >= maxValue) return stageCount - 1;
   if (progressValue <= 0) return 0;
-  if (stageCount === ACTIVITY_MAX_PROGRESS && maxValue === ACTIVITY_MAX_PROGRESS) {
-    return Math.max(0, Math.min(stageCount - 2, progressValue - 1));
-  }
-  if (stageCount === 2) return 0;
-  const middleCount = Math.max(1, stageCount - 2);
-  const index = Math.ceil((progressValue / maxValue) * middleCount);
-  return Math.max(1, Math.min(stageCount - 2, index));
+  const step = maxValue / stageCount;
+  const index = Math.floor(progressValue / step);
+  return Math.max(0, Math.min(stageCount - 1, index));
 }
 
 function activityVisualAsset(student, waterCount, maxProgress = ACTIVITY_MAX_PROGRESS) {
@@ -892,6 +888,9 @@ function plantStage(waterCount, variety, student = null, maxProgress = ACTIVITY_
   if (Number(waterCount) >= Number(maxProgress || ACTIVITY_MAX_PROGRESS)) {
     const resultLabels = visuals.result_labels;
     const resultName = student ? resultLabels[activityResultIndex(student)] : variety.name;
+    if (normalizeActivityRule(completionActivity || {}).type === ACTIVITY_RULE_DAILY_POINTS) {
+      return { label: resultName || stageLabel, className: "is-bloom" };
+    }
     return { label: resultName ? `${stageLabel} · ${resultName}` : stageLabel, className: "is-bloom" };
   }
   if (stageIndex >= 3) return { label: stageLabel, className: "is-mystery" };
@@ -1329,7 +1328,9 @@ async function generateActivityImage() {
     font: "900 42px Microsoft YaHei, Arial, sans-serif",
     color: "#183a2f",
   });
-  const finalStageLabel = activityVisuals.stage_labels[activityVisuals.stage_labels.length - 1] || "满进度";
+  const finalStageLabel = normalizeActivityRule(completionActivity || {}).type === ACTIVITY_RULE_DAILY_POINTS
+    ? activityVisuals.result_labels[0] || "满分达成"
+    : activityVisuals.stage_labels[activityVisuals.stage_labels.length - 1] || "满进度";
   const imageNote = activityVisuals.image_note || completionActivity?.description || "按本月完课任务累计活动进度。";
   const imageFooter = activityVisuals.image_footer || "本图统计本月当前累计活动进度，补交完成后会自动更新。";
 
@@ -2044,7 +2045,7 @@ function reminderActivityStageInfo(student = {}) {
   const stageIndex = activityStageIndex(progress.value, visuals, progress.max);
   const stage = plantStage(progress.value, plantVariety(student), student, progress.max);
   const asset = activityVisualAsset(student, progress.value, progress.max);
-  const label = visuals.stage_labels[stageIndex]
+  const label = stage.label || visuals.stage_labels[stageIndex]
     || ACTIVITY_STAGE_DEFAULTS[Math.min(stageIndex, ACTIVITY_STAGE_DEFAULTS.length - 1)]
     || "暂无活动状态";
   return {
