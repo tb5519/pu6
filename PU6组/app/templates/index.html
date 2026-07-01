@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260630-account-status') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260701-activity-points') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260612-renewal-message-type') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260628-class-activity-week') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260701-activity-points') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260621-daily-reminder') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260628-renewal-rate-ranking') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/database.js', v='20260630-renewal-rank-tooltip') }}" defer></script>
     <script src="{{ url_for('static', filename='js/renewal.js', v='20260628-renewal-leader-simple') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
@@ -327,6 +327,23 @@
                       <span>活动说明</span>
                       <textarea id="cc-activityDescriptionInput" name="description" rows="3" maxlength="500" placeholder="写给老师看的活动规则说明"></textarea>
                     </label>
+                    <div class="activity-rule-grid">
+                      <label>
+                        <span>活动规则</span>
+                        <select id="cc-activityRuleType">
+                          <option value="weekly_full">每周达标制</option>
+                          <option value="daily_points">每日积分制</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>目标积分</span>
+                        <input id="cc-activityTargetPoints" type="number" min="1" max="999" step="0.5" value="48" placeholder="例如：48">
+                      </label>
+                      <label class="activity-description-field">
+                        <span>得分规则</span>
+                        <input id="cc-activityPointRules" type="text" value="100=2,90=1,80=0.5" placeholder="例如：100=2,90=1,80=0.5">
+                      </label>
+                    </div>
                     <section class="activity-visual-editor">
                       <div class="activity-visual-head">
                         <div>

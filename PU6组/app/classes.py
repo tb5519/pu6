@@ -32,6 +32,13 @@ DEFAULT_ACTIVITY_STAGE_LABELS = ["盲盒种子", "发芽", "抽枝", "神秘小�
 DEFAULT_ACTIVITY_RESULT_LABELS = ["彩虹花", "向日葵", "樱花树", "蓝绣球", "小橘树", "紫铃兰"]
 ACTIVITY_STAGE_LIMIT = 8
 ACTIVITY_RESULT_LIMIT = 12
+ACTIVITY_RULE_TYPES = {"weekly_full", "daily_points"}
+DEFAULT_ACTIVITY_POINT_RULES = [
+    {"min_rate": 100, "points": 2},
+    {"min_rate": 90, "points": 1},
+    {"min_rate": 80, "points": 0.5},
+]
+DEFAULT_ACTIVITY_TARGET_POINTS = 48
 DEFAULT_COMPLETION_ACTIVITY = {
     "eyebrow": "6月完课活动",
     "title": "盲盒种子成长计划",
@@ -113,9 +120,7 @@ def local_date_key(value=None):
 def export_cycle_anchor(value=None):
     target = value or datetime.now()
     anchor = datetime(target.year, target.month, target.day)
-    monday_based_day = anchor.weekday()
-    offset = 4 - monday_based_day if monday_based_day >= 4 else -(monday_based_day + 3)
-    return anchor + timedelta(days=offset)
+    return anchor - timedelta(days=anchor.weekday())
 
 
 def parse_title_week_number(value):
@@ -138,6 +143,32 @@ def parse_date_key(value):
         return None
 
 
+def parse_datetime_key(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return parse_date_key(text)
+
+
+def title_week_anchor_for_item(item):
+    anchor = parse_date_key(item.get("title_week_anchor"))
+    if anchor is None:
+        return None
+    if item.get("title_week_anchor_mode") == "monday":
+        return anchor
+    if anchor.weekday() == 4:
+        saved_at = (
+            parse_datetime_key(item.get("title_week_set_at"))
+            or parse_datetime_key(item.get("updated_at"))
+        )
+        if saved_at is not None:
+            return export_cycle_anchor(saved_at)
+    return anchor
+
+
 def current_title_week_number(item):
     try:
         base_number = parse_title_week_number(
@@ -147,7 +178,7 @@ def current_title_week_number(item):
         return None
     if not base_number:
         return None
-    anchor = parse_date_key(item.get("title_week_anchor"))
+    anchor = title_week_anchor_for_item(item)
     if anchor is None:
         return base_number
     elapsed_weeks = max(0, int((export_cycle_anchor() - anchor).total_seconds() // WEEK_SECONDS))
@@ -334,6 +365,54 @@ def normalize_activity_visuals(value=None):
     return visuals
 
 
+def parse_activity_number(value, default=0):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    if number != number:
+        return default
+    return number
+
+
+def normalize_activity_point_rules(value=None):
+    source = value if isinstance(value, list) else DEFAULT_ACTIVITY_POINT_RULES
+    rules = []
+    for item in source:
+        if not isinstance(item, dict):
+            continue
+        min_rate = parse_activity_number(item.get("min_rate"), None)
+        points = parse_activity_number(item.get("points"), None)
+        if min_rate is None or points is None:
+            continue
+        min_rate = max(0, min(100, min_rate))
+        points = max(0, min(100, points))
+        rules.append({"min_rate": min_rate, "points": points})
+    if not rules:
+        rules = [dict(item) for item in DEFAULT_ACTIVITY_POINT_RULES]
+    return sorted(rules, key=lambda item: item["min_rate"], reverse=True)[:8]
+
+
+def normalize_activity_rule(value=None):
+    rule = {
+        "type": "weekly_full",
+        "target_points": 4,
+        "unit_label": "次",
+        "point_rules": [dict(item) for item in DEFAULT_ACTIVITY_POINT_RULES],
+    }
+    if not isinstance(value, dict):
+        return rule
+    rule_type = str(value.get("type") or "").strip()
+    if rule_type in ACTIVITY_RULE_TYPES:
+        rule["type"] = rule_type
+    if rule["type"] == "daily_points":
+        target_points = parse_activity_number(value.get("target_points"), DEFAULT_ACTIVITY_TARGET_POINTS)
+        rule["target_points"] = max(1, min(999, target_points))
+        rule["unit_label"] = str(value.get("unit_label") or "分").strip()[:6] or "分"
+        rule["point_rules"] = normalize_activity_point_rules(value.get("point_rules"))
+    return rule
+
+
 def serialize_activity_visuals(item):
     visuals = normalize_activity_visuals(item.get("visuals"))
     for image_group in ("stage_images", "result_images"):
@@ -348,6 +427,7 @@ def build_completion_activity(fields=None, status="draft", participant_ids=None)
         "id": uuid.uuid4().hex,
         **DEFAULT_COMPLETION_ACTIVITY,
         "visuals": default_activity_visuals(),
+        "rule": normalize_activity_rule(),
         "status": normalize_activity_status(status),
         "participant_class_ids": list(dict.fromkeys(participant_ids or [])),
         "created_at": timestamp,
@@ -422,6 +502,8 @@ def update_activity_fields(item, payload):
         item["title"] = title[:80]
     if "description" in payload:
         item["description"] = str(payload.get("description") or "").strip()[:500]
+    if isinstance(payload.get("rule"), dict):
+        item["rule"] = normalize_activity_rule(payload.get("rule"))
     visuals_payload = payload.get("visuals") if isinstance(payload.get("visuals"), dict) else {}
     if "stage_labels" in payload:
         visuals_payload["stage_labels"] = payload.get("stage_labels")
@@ -456,6 +538,7 @@ def serialize_completion_activity(item, include_private=False):
         "title": item.get("title") or DEFAULT_COMPLETION_ACTIVITY["title"],
         "description": item.get("description") or DEFAULT_COMPLETION_ACTIVITY["description"],
         "status": normalize_activity_status(item.get("status")),
+        "rule": normalize_activity_rule(item.get("rule")),
         "visuals": serialize_activity_visuals(item),
         "participant_class_ids": activity_participant_ids(item),
         "published_at": item.get("published_at", ""),
@@ -544,6 +627,9 @@ def create_completion_activity(activity_store, payload):
         value = payload.get(key) if key in payload else (source or {}).get(key)
         if value is not None:
             fields[key] = value
+    rule_value = payload.get("rule") if isinstance(payload.get("rule"), dict) else (source or {}).get("rule")
+    if isinstance(rule_value, dict):
+        fields["rule"] = rule_value
     source_visuals = normalize_activity_visuals((source or {}).get("visuals"))
     if source:
         fields["visuals"] = source_visuals
@@ -1655,9 +1741,13 @@ def update_class(class_id):
         if title_week_number:
             item["title_week_base_number"] = title_week_number
             item["title_week_anchor"] = local_date_key(export_cycle_anchor())
+            item["title_week_anchor_mode"] = "monday"
+            item["title_week_set_at"] = now_iso()
         else:
             item.pop("title_week_base_number", None)
             item.pop("title_week_anchor", None)
+            item.pop("title_week_anchor_mode", None)
+            item.pop("title_week_set_at", None)
             item.pop("title_week_number", None)
     if "teacher_id" in payload:
         item["teacher_id"] = normalize_teacher_id(payload.get("teacher_id"))

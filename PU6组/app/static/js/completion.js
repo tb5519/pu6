@@ -20,6 +20,9 @@ const activityAdminForm = document.querySelector("[data-activity-admin-form]");
 const activityEyebrowInput = document.querySelector("#cc-activityEyebrowInput");
 const activityTitleInput = document.querySelector("#cc-activityTitleInput");
 const activityDescriptionInput = document.querySelector("#cc-activityDescriptionInput");
+const activityRuleTypeInput = document.querySelector("#cc-activityRuleType");
+const activityTargetPointsInput = document.querySelector("#cc-activityTargetPoints");
+const activityPointRulesInput = document.querySelector("#cc-activityPointRules");
 const activityStageLabelsInput = document.querySelector("#cc-activityStageLabels");
 const activityResultLabelsInput = document.querySelector("#cc-activityResultLabels");
 const activityImageNoteInput = document.querySelector("#cc-activityImageNote");
@@ -82,6 +85,14 @@ const ACTIVITY_RESULT_DEFAULTS = ["彩虹花", "向日葵", "樱花树", "蓝绣
 const ACTIVITY_STAGE_LIMIT = 8;
 const ACTIVITY_RESULT_LIMIT = 12;
 const ACTIVITY_MAX_PROGRESS = 4;
+const ACTIVITY_RULE_WEEKLY = "weekly_full";
+const ACTIVITY_RULE_DAILY_POINTS = "daily_points";
+const ACTIVITY_DEFAULT_TARGET_POINTS = 48;
+const ACTIVITY_POINT_RULE_DEFAULTS = [
+  { min_rate: 100, points: 2 },
+  { min_rate: 90, points: 1 },
+  { min_rate: 80, points: 0.5 },
+];
 const PLANT_VARIETIES = [
   { name: "彩虹花", className: "plant-rainbow" },
   { name: "向日葵", className: "plant-sunflower" },
@@ -200,6 +211,91 @@ function normalizeActivityVisuals(activity = {}) {
   };
 }
 
+function normalizeActivityPointRules(value = ACTIVITY_POINT_RULE_DEFAULTS) {
+  const source = Array.isArray(value) ? value : ACTIVITY_POINT_RULE_DEFAULTS;
+  const rules = source
+    .map((item) => ({
+      min_rate: Number(item?.min_rate),
+      points: Number(item?.points),
+    }))
+    .filter((item) => Number.isFinite(item.min_rate) && Number.isFinite(item.points) && item.points > 0)
+    .map((item) => ({
+      min_rate: Math.max(0, Math.min(100, item.min_rate)),
+      points: Math.max(0, Math.min(100, item.points)),
+    }))
+    .sort((first, second) => second.min_rate - first.min_rate)
+    .slice(0, 8);
+  return rules.length ? rules : ACTIVITY_POINT_RULE_DEFAULTS.map((item) => ({ ...item }));
+}
+
+function normalizeActivityRule(activity = {}) {
+  const rawRule = activity?.rule || {};
+  const type = rawRule.type === ACTIVITY_RULE_DAILY_POINTS ? ACTIVITY_RULE_DAILY_POINTS : ACTIVITY_RULE_WEEKLY;
+  if (type === ACTIVITY_RULE_DAILY_POINTS) {
+    const targetPoints = Number(rawRule.target_points);
+    return {
+      type,
+      target_points: Number.isFinite(targetPoints) && targetPoints > 0 ? targetPoints : ACTIVITY_DEFAULT_TARGET_POINTS,
+      unit_label: String(rawRule.unit_label || "分").trim() || "分",
+      point_rules: normalizeActivityPointRules(rawRule.point_rules),
+    };
+  }
+  return {
+    type: ACTIVITY_RULE_WEEKLY,
+    target_points: ACTIVITY_MAX_PROGRESS,
+    unit_label: "次",
+    point_rules: normalizeActivityPointRules(rawRule.point_rules),
+  };
+}
+
+function activityRuleLabel(activity = {}) {
+  return normalizeActivityRule(activity).type === ACTIVITY_RULE_DAILY_POINTS ? "每日积分制" : "每周达标制";
+}
+
+function activityPointRulesToText(rules = ACTIVITY_POINT_RULE_DEFAULTS) {
+  return normalizeActivityPointRules(rules)
+    .map((item) => `${item.min_rate}=${item.points}`)
+    .join(",");
+}
+
+function parseActivityPointRules(text = "") {
+  const rules = String(text || "")
+    .split(/[,，、\n]+/)
+    .map((item) => {
+      const match = item.trim().match(/^(\d+(?:\.\d+)?)\s*[=:：]\s*(\d+(?:\.\d+)?)$/);
+      if (!match) return null;
+      return {
+        min_rate: Number(match[1]),
+        points: Number(match[2]),
+      };
+    })
+    .filter(Boolean);
+  return normalizeActivityPointRules(rules);
+}
+
+function activityRulePayload() {
+  const type = activityRuleTypeInput?.value === ACTIVITY_RULE_DAILY_POINTS
+    ? ACTIVITY_RULE_DAILY_POINTS
+    : ACTIVITY_RULE_WEEKLY;
+  if (type !== ACTIVITY_RULE_DAILY_POINTS) {
+    return { type: ACTIVITY_RULE_WEEKLY };
+  }
+  const targetPoints = Number(activityTargetPointsInput?.value || ACTIVITY_DEFAULT_TARGET_POINTS);
+  return {
+    type: ACTIVITY_RULE_DAILY_POINTS,
+    target_points: Number.isFinite(targetPoints) && targetPoints > 0 ? targetPoints : ACTIVITY_DEFAULT_TARGET_POINTS,
+    unit_label: "分",
+    point_rules: parseActivityPointRules(activityPointRulesInput?.value || activityPointRulesToText()),
+  };
+}
+
+function syncActivityRuleFields() {
+  const isDailyPoints = activityRuleTypeInput?.value === ACTIVITY_RULE_DAILY_POINTS;
+  [activityTargetPointsInput, activityPointRulesInput].forEach((input) => {
+    input?.closest("label")?.classList.toggle("is-hidden", !isDailyPoints);
+  });
+}
+
 function visualLabelsPayload() {
   return {
     stage_labels: splitActivityLabels(activityStageLabelsInput?.value || "", ACTIVITY_STAGE_DEFAULTS, ACTIVITY_STAGE_LIMIT),
@@ -235,6 +331,7 @@ function activityFormPayload() {
     eyebrow: activityEyebrowInput?.value.trim() || "完课活动",
     title,
     description: activityDescriptionInput?.value.trim() || "",
+    rule: activityRulePayload(),
     visuals: visualLabelsPayload(),
   };
 }
@@ -327,6 +424,11 @@ function renderActivityAdminForm() {
   if (activityDescriptionInput) {
     activityDescriptionInput.value = selected?.description || "";
   }
+  const selectedRule = normalizeActivityRule(selected || {});
+  if (activityRuleTypeInput) activityRuleTypeInput.value = selectedRule.type;
+  if (activityTargetPointsInput) activityTargetPointsInput.value = selectedRule.type === ACTIVITY_RULE_DAILY_POINTS ? selectedRule.target_points : ACTIVITY_DEFAULT_TARGET_POINTS;
+  if (activityPointRulesInput) activityPointRulesInput.value = activityPointRulesToText(selectedRule.point_rules);
+  syncActivityRuleFields();
   const selectedVisuals = selected ? normalizeActivityVisuals(selected) : null;
   if (activityStageLabelsInput) activityStageLabelsInput.value = selectedVisuals?.stage_labels?.join("、") || "";
   if (activityResultLabelsInput) activityResultLabelsInput.value = selectedVisuals?.result_labels?.join("、") || "";
@@ -355,7 +457,7 @@ function renderActivityAdminForm() {
       <article class="activity-archive-item ${item.id === editingActivityId ? "is-selected" : ""}">
         <div>
           <h3>${escapeText(item.eyebrow || "完课活动")} · ${escapeText(item.title || "未命名活动")}</h3>
-          <p>${activityStatusLabel(item.status)} · ${normalizeActivityVisuals(item).stage_labels.length} 个阶段${item.participant_class_ids?.length ? ` · ${item.participant_class_ids.length} 个班级参与` : ""}</p>
+          <p>${activityStatusLabel(item.status)} · ${activityRuleLabel(item)} · ${normalizeActivityVisuals(item).stage_labels.length} 个阶段${item.participant_class_ids?.length ? ` · ${item.participant_class_ids.length} 个班级参与` : ""}</p>
         </div>
         <div class="activity-archive-actions">
           ${item.status === "draft" ? `<button class="ghost-button compact-button" type="button" data-activity-edit="${escapeText(item.id)}">编辑草稿</button>` : ""}
@@ -687,9 +789,55 @@ function weekCompleted(values = []) {
   return values.filter((rate) => Number(rate) >= 100).length >= ACTIVITY_WEEK_GOAL;
 }
 
-function studentWaterCount(student) {
+function studentWeeklyFullProgress(student) {
   const weeks = normalizeWeeks(student.weeks);
   return WEEK_KEYS.reduce((count, week) => count + (weekCompleted(weeks[week]) ? 1 : 0), 0);
+}
+
+function studentWaterCount(student) {
+  return studentWeeklyFullProgress(student);
+}
+
+function activityPointForRate(rate, rules = ACTIVITY_POINT_RULE_DEFAULTS) {
+  const value = Number(rate);
+  if (!Number.isFinite(value)) return 0;
+  const match = normalizeActivityPointRules(rules).find((rule) => value >= rule.min_rate);
+  return match ? match.points : 0;
+}
+
+function formatActivityProgressValue(value) {
+  const number = Number(value) || 0;
+  return Number.isInteger(number) ? String(number) : number.toFixed(1).replace(/\.0$/, "");
+}
+
+function studentActivityProgress(student, activity = completionActivity) {
+  const rule = normalizeActivityRule(activity || {});
+  if (rule.type !== ACTIVITY_RULE_DAILY_POINTS) {
+    const value = studentWeeklyFullProgress(student);
+    return {
+      value,
+      max: ACTIVITY_MAX_PROGRESS,
+      unit: "次",
+      label: `${value}/${ACTIVITY_MAX_PROGRESS}`,
+      detail: `${value}/${ACTIVITY_MAX_PROGRESS} 次`,
+      ratio: value / ACTIVITY_MAX_PROGRESS,
+      isComplete: value >= ACTIVITY_MAX_PROGRESS,
+    };
+  }
+  const weeks = normalizeWeeks(student.weeks);
+  const value = WEEK_KEYS.reduce((total, week) => (
+    total + weeks[week].reduce((weekTotal, rate) => weekTotal + activityPointForRate(rate, rule.point_rules), 0)
+  ), 0);
+  const max = Number(rule.target_points) || ACTIVITY_DEFAULT_TARGET_POINTS;
+  return {
+    value,
+    max,
+    unit: rule.unit_label || "分",
+    label: `${formatActivityProgressValue(value)}/${formatActivityProgressValue(max)}`,
+    detail: `${formatActivityProgressValue(value)}/${formatActivityProgressValue(max)} ${rule.unit_label || "分"}`,
+    ratio: Math.max(0, Math.min(1, max ? value / max : 0)),
+    isComplete: value >= max,
+  };
 }
 
 function stableStudentHash(student) {
@@ -710,24 +858,26 @@ function activityResultIndex(student) {
   return stableStudentHash(student) % Math.max(1, resultLabels.length);
 }
 
-function activityStageIndex(waterCount, visuals = normalizeActivityVisuals(completionActivity || {})) {
+function activityStageIndex(waterCount, visuals = normalizeActivityVisuals(completionActivity || {}), maxProgress = ACTIVITY_MAX_PROGRESS) {
   const stageCount = Math.max(1, visuals.stage_labels.length);
+  const progressValue = Number(waterCount) || 0;
+  const maxValue = Math.max(1, Number(maxProgress) || ACTIVITY_MAX_PROGRESS);
   if (stageCount <= 1) return 0;
-  if (waterCount >= ACTIVITY_MAX_PROGRESS) return stageCount - 1;
-  if (waterCount <= 0) return 0;
-  if (stageCount === ACTIVITY_MAX_PROGRESS) {
-    return Math.max(0, Math.min(stageCount - 2, waterCount - 1));
+  if (progressValue >= maxValue) return stageCount - 1;
+  if (progressValue <= 0) return 0;
+  if (stageCount === ACTIVITY_MAX_PROGRESS && maxValue === ACTIVITY_MAX_PROGRESS) {
+    return Math.max(0, Math.min(stageCount - 2, progressValue - 1));
   }
   if (stageCount === 2) return 0;
   const middleCount = Math.max(1, stageCount - 2);
-  const index = Math.ceil((waterCount / (ACTIVITY_MAX_PROGRESS - 1)) * middleCount);
+  const index = Math.ceil((progressValue / maxValue) * middleCount);
   return Math.max(1, Math.min(stageCount - 2, index));
 }
 
-function activityVisualAsset(student, waterCount) {
+function activityVisualAsset(student, waterCount, maxProgress = ACTIVITY_MAX_PROGRESS) {
   const visuals = normalizeActivityVisuals(completionActivity || {});
-  const stageIndex = activityStageIndex(waterCount, visuals);
-  if (waterCount >= ACTIVITY_MAX_PROGRESS) {
+  const stageIndex = activityStageIndex(waterCount, visuals, maxProgress);
+  if (Number(waterCount) >= Number(maxProgress || ACTIVITY_MAX_PROGRESS)) {
     return visuals.result_images?.[String(activityResultIndex(student))]
       || visuals.stage_images?.[String(stageIndex)]
       || null;
@@ -735,11 +885,11 @@ function activityVisualAsset(student, waterCount) {
   return visuals.stage_images?.[String(stageIndex)] || null;
 }
 
-function plantStage(waterCount, variety, student = null) {
+function plantStage(waterCount, variety, student = null, maxProgress = ACTIVITY_MAX_PROGRESS) {
   const visuals = normalizeActivityVisuals(completionActivity || {});
-  const stageIndex = activityStageIndex(waterCount, visuals);
+  const stageIndex = activityStageIndex(waterCount, visuals, maxProgress);
   const stageLabel = visuals.stage_labels[stageIndex] || ACTIVITY_STAGE_DEFAULTS[Math.min(stageIndex, ACTIVITY_STAGE_DEFAULTS.length - 1)];
-  if (waterCount >= ACTIVITY_MAX_PROGRESS) {
+  if (Number(waterCount) >= Number(maxProgress || ACTIVITY_MAX_PROGRESS)) {
     const resultLabels = visuals.result_labels;
     const resultName = student ? resultLabels[activityResultIndex(student)] : variety.name;
     return { label: resultName ? `${stageLabel} · ${resultName}` : stageLabel, className: "is-bloom" };
@@ -1027,8 +1177,14 @@ function drawFinalPlant(ctx, cx, cy, size, variety) {
   });
 }
 
-function drawActivityPlant(ctx, x, y, size, student) {
-  const waterCount = studentWaterCount(student);
+function activityVisualLevel(progress = studentActivityProgress({})) {
+  if (progress.isComplete) return ACTIVITY_MAX_PROGRESS;
+  if (!progress.value || !progress.max) return 0;
+  return Math.max(1, Math.min(ACTIVITY_MAX_PROGRESS - 1, Math.ceil(progress.ratio * (ACTIVITY_MAX_PROGRESS - 1))));
+}
+
+function drawActivityPlant(ctx, x, y, size, student, progress = studentActivityProgress(student)) {
+  const waterCount = activityVisualLevel(progress);
   const variety = plantVariety(student);
   const cx = x + size / 2;
   const cy = y + size / 2;
@@ -1124,21 +1280,21 @@ async function generateActivityImage() {
 
   const activityVisuals = normalizeActivityVisuals(completionActivity || {});
   const rows = await Promise.all(students.map(async (student) => {
-    const waterCount = studentWaterCount(student);
+    const progress = studentActivityProgress(student);
     const variety = plantVariety(student);
-    const asset = activityVisualAsset(student, waterCount);
+    const asset = activityVisualAsset(student, progress.value, progress.max);
     return {
       student,
-      waterCount,
+      progress,
       variety,
-      stage: plantStage(waterCount, variety, student),
+      stage: plantStage(progress.value, variety, student, progress.max),
       image: await loadActivityCanvasImage(asset?.url),
     };
   }));
-  const totalWater = rows.reduce((total, row) => total + row.waterCount, 0);
-  const maxWater = rows.length * ACTIVITY_MAX_PROGRESS;
-  const growthRate = maxWater ? (totalWater / maxWater) * 100 : 0;
-  const grownCount = rows.filter((row) => row.waterCount >= ACTIVITY_MAX_PROGRESS).length;
+  const totalProgress = rows.reduce((total, row) => total + row.progress.value, 0);
+  const maxProgress = rows.reduce((total, row) => total + row.progress.max, 0);
+  const progressRate = maxProgress ? (totalProgress / maxProgress) * 100 : 0;
+  const grownCount = rows.filter((row) => row.progress.isComplete).length;
 
   const width = 1200;
   const margin = 56;
@@ -1192,12 +1348,13 @@ async function generateActivityImage() {
     color: "#60756d",
     align: "center",
   });
-  drawFitText(ctx, formatCompletion(growthRate), width - margin - 170, 144, 220, {
+  drawFitText(ctx, formatCompletion(progressRate), width - margin - 170, 144, 220, {
     font: "900 44px Microsoft YaHei, Arial, sans-serif",
     color: "#17624d",
     align: "center",
   });
-  drawFitText(ctx, `${totalWater}/${maxWater} 次进度 · ${grownCount} 人${finalStageLabel}`, width - margin - 170, 170, 220, {
+  const classProgressText = `${formatActivityProgressValue(totalProgress)}/${formatActivityProgressValue(maxProgress)} ${rows[0]?.progress.unit || ""} · ${grownCount} 人${finalStageLabel}`;
+  drawFitText(ctx, classProgressText, width - margin - 170, 170, 220, {
     font: "800 18px Microsoft YaHei, Arial, sans-serif",
     color: "#7c6f4b",
     align: "center",
@@ -1208,15 +1365,15 @@ async function generateActivityImage() {
     const rowIndex = Math.floor(index / columns);
     const x = margin + col * (cardWidth + cardGap);
     const y = headerHeight + rowIndex * (cardHeight + cardGap);
-    const cardFill = row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#f4fff6" : "#ffffff";
-    const accent = row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#39a978" : row.waterCount > 0 ? "#9ed79e" : "#cfd9d4";
+    const cardFill = row.progress.isComplete ? "#f4fff6" : "#ffffff";
+    const accent = row.progress.isComplete ? "#39a978" : row.progress.value > 0 ? "#9ed79e" : "#cfd9d4";
 
     fillRoundedRect(ctx, x, y, cardWidth, cardHeight, 18, cardFill);
     strokeRoundedRect(ctx, x, y, cardWidth, cardHeight, 18, accent, 2);
     if (row.image) {
       drawActivityUploadedImage(ctx, x + 18, y + 21, 104, row.image);
     } else {
-      drawActivityPlant(ctx, x + 18, y + 21, 104, row.student);
+      drawActivityPlant(ctx, x + 18, y + 21, 104, row.student, row.progress);
     }
 
     drawFitText(ctx, row.student.name || "未命名学员", x + 140, y + 42, cardWidth - 172, {
@@ -1225,22 +1382,22 @@ async function generateActivityImage() {
     });
     drawFitText(ctx, row.stage.label, x + 140, y + 72, cardWidth - 172, {
       font: "800 18px Microsoft YaHei, Arial, sans-serif",
-      color: row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#17624d" : "#6b7c73",
+      color: row.progress.isComplete ? "#17624d" : "#6b7c73",
     });
-    drawFitText(ctx, `本月进度 ${row.waterCount}/${ACTIVITY_MAX_PROGRESS} 次`, x + 140, y + 105, 220, {
+    drawFitText(ctx, `本月进度 ${row.progress.detail}`, x + 140, y + 105, 220, {
       font: "900 24px Microsoft YaHei, Arial, sans-serif",
-      color: row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#17624d" : "#3d4c5d",
+      color: row.progress.isComplete ? "#17624d" : "#3d4c5d",
     });
-    drawFitText(ctx, `${Math.round((row.waterCount / ACTIVITY_MAX_PROGRESS) * 100)}%`, x + cardWidth - 34, y + 105, 150, {
+    drawFitText(ctx, `${Math.round(row.progress.ratio * 100)}%`, x + cardWidth - 34, y + 105, 150, {
       font: "800 18px Microsoft YaHei, Arial, sans-serif",
       color: "#6b7c73",
       align: "right",
     });
 
     fillRoundedRect(ctx, x + 140, y + 122, cardWidth - 174, 9, 5, "#e4ece8");
-    fillRoundedRect(ctx, x + 140, y + 122, (cardWidth - 174) * (row.waterCount / ACTIVITY_MAX_PROGRESS), 9, 5, "#39a978");
-    fillRoundedRect(ctx, x + cardWidth - 132, y + 24, 100, 32, 16, row.waterCount >= ACTIVITY_MAX_PROGRESS ? "#d9f2d4" : "#fbf1cb");
-    drawFitText(ctx, `${row.waterCount}/${ACTIVITY_MAX_PROGRESS}`, x + cardWidth - 82, y + 46, 82, {
+    fillRoundedRect(ctx, x + 140, y + 122, (cardWidth - 174) * row.progress.ratio, 9, 5, "#39a978");
+    fillRoundedRect(ctx, x + cardWidth - 132, y + 24, 100, 32, 16, row.progress.isComplete ? "#d9f2d4" : "#fbf1cb");
+    drawFitText(ctx, row.progress.label, x + cardWidth - 82, y + 46, 82, {
       font: "900 19px Microsoft YaHei, Arial, sans-serif",
       color: "#203247",
       align: "center",
@@ -1822,7 +1979,7 @@ function renderReminderPromptCell(row = {}, rowIndex = 0, canRecordPhoneCall = f
 
 function renderPlantVisualMarkup(stage = {}, waterCount = 0, student = {}) {
   const variety = plantVariety(student);
-  const revealClass = waterCount >= 3 ? variety.className : "plant-secret";
+  const revealClass = Number(waterCount) >= 3 ? variety.className : "plant-secret";
   return `
     <span class="plant-visual compact ${stage.className || ""} ${revealClass}" aria-hidden="true">
       <i class="plant-seed"></i>
@@ -1882,18 +2039,19 @@ function reminderCategoryOptions(rows = []) {
 }
 
 function reminderActivityStageInfo(student = {}) {
-  const waterCount = studentWaterCount(student);
+  const progress = studentActivityProgress(student);
   const visuals = normalizeActivityVisuals(completionActivity || {});
-  const stageIndex = activityStageIndex(waterCount, visuals);
-  const stage = plantStage(waterCount, plantVariety(student), student);
-  const asset = activityVisualAsset(student, waterCount);
+  const stageIndex = activityStageIndex(progress.value, visuals, progress.max);
+  const stage = plantStage(progress.value, plantVariety(student), student, progress.max);
+  const asset = activityVisualAsset(student, progress.value, progress.max);
   const label = visuals.stage_labels[stageIndex]
     || ACTIVITY_STAGE_DEFAULTS[Math.min(stageIndex, ACTIVITY_STAGE_DEFAULTS.length - 1)]
     || "暂无活动状态";
   return {
     label,
     stageIndex,
-    waterCount,
+    waterCount: activityVisualLevel(progress),
+    progress,
     className: stage.className,
     imageUrl: asset?.url || "",
   };
@@ -1961,7 +2119,8 @@ function renderReminderActivityProgressCell(row = {}) {
   const stage = row.activityStage;
   if (!stage) return "";
   const student = row.student || {};
-  const progress = Math.max(0, Math.min(ACTIVITY_MAX_PROGRESS, Number(stage.waterCount) || 0));
+  const progress = stage.progress || studentActivityProgress(student);
+  const visualLevel = Math.max(0, Math.min(ACTIVITY_MAX_PROGRESS, Number(stage.waterCount) || 0));
   const imageUrl = stage.imageUrl || "";
   return `
     <td class="reminder-sticky-col reminder-sticky-activity">
@@ -1970,10 +2129,10 @@ function renderReminderActivityProgressCell(row = {}) {
           <span class="reminder-activity-thumb">
             <img src="${escapeText(imageUrl)}" alt="${escapeText(stage.label)}">
           </span>
-        ` : renderPlantVisualMarkup(stage, progress, student)}
+        ` : renderPlantVisualMarkup(stage, visualLevel, student)}
         <span class="activity-stage-badge ${stage.className || ""}">${escapeText(stage.label)}</span>
-        <strong>${progress}/${ACTIVITY_MAX_PROGRESS}</strong>
-        <div class="water-progress compact"><i style="width: ${(progress / ACTIVITY_MAX_PROGRESS) * 100}%"></i></div>
+        <strong>${escapeText(progress.label)}</strong>
+        <div class="water-progress compact"><i style="width: ${progress.ratio * 100}%"></i></div>
       </div>
     </td>
   `;
@@ -2925,11 +3084,12 @@ async function loadReminderPlan(force = false) {
 
 function renderActivityProgressCell(student) {
   if (!activeClass?.completion_activity || !completionActivity) return "";
-  const waterCount = studentWaterCount(student);
+  const progress = studentActivityProgress(student);
+  const visualLevel = activityVisualLevel(progress);
   const variety = plantVariety(student);
-  const stage = plantStage(waterCount, variety, student);
-  const revealClass = waterCount >= 3 ? variety.className : "plant-secret";
-  const asset = activityVisualAsset(student, waterCount);
+  const stage = plantStage(progress.value, variety, student, progress.max);
+  const revealClass = visualLevel >= 3 ? variety.className : "plant-secret";
+  const asset = activityVisualAsset(student, progress.value, progress.max);
   return `
     <td class="activity-progress-cell">
       <div class="activity-plant-progress">
@@ -2954,8 +3114,8 @@ function renderActivityProgressCell(student) {
         `}
         <div class="activity-stage-copy">
           <span class="activity-stage-badge ${stage.className}">${stage.label}</span>
-          <strong>${waterCount}/${ACTIVITY_MAX_PROGRESS}</strong>
-          <div class="water-progress compact"><i style="width: ${(waterCount / ACTIVITY_MAX_PROGRESS) * 100}%"></i></div>
+          <strong>${escapeText(progress.label)}</strong>
+          <div class="water-progress compact"><i style="width: ${progress.ratio * 100}%"></i></div>
         </div>
       </div>
     </td>
@@ -3304,6 +3464,7 @@ function initCompletion() {
     endCompletionActivity().catch((error) => setClassMessage(error.message, true));
   });
 
+  activityRuleTypeInput?.addEventListener("change", syncActivityRuleFields);
   activityStageLabelsInput?.addEventListener("input", () => renderActivityVisualSlots());
   activityResultLabelsInput?.addEventListener("input", () => renderActivityVisualSlots());
 

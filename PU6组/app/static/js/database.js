@@ -1097,7 +1097,13 @@ function renderRenewalRateRankingRows(target, rows = []) {
     <tr>
       <td><span class="database-rank-badge rank-${Math.min(row.rank, 3)}">${row.rank}</span></td>
       <td>${escapeDatabaseText(row.teacher_name || "未分配")}</td>
-      <td class="database-ranking-value" title="班级：${escapeDatabaseText(row.class_name || "-")}">${formatDatabasePercentFixed(row.value)}</td>
+      <td class="database-ranking-value">
+        <span
+          class="database-ranking-hover"
+          title="班级：${escapeDatabaseText(row.class_name || "-")}"
+          data-ranking-tooltip="班级：${escapeDatabaseText(row.class_name || "-")}"
+        >${formatDatabasePercentFixed(row.value)}</span>
+      </td>
     </tr>
   `).join("");
 }

@@ -4584,6 +4584,7 @@ input {
 .database-ranking-panel.topic-renewal-rate {
   border-color: #c8ece5;
   background: #f6fcfa;
+  overflow: visible;
 }
 
 .database-ranking-panel h3,
@@ -4688,6 +4689,46 @@ input {
 .database-ranking-value {
   color: #191143 !important;
   font-weight: 950;
+}
+
+.database-ranking-hover {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  cursor: help;
+}
+
+.database-ranking-hover::after {
+  content: attr(data-ranking-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 9px;
+  border: 1px solid #c8ece5;
+  border-radius: 8px;
+  color: #17392f;
+  background: #ffffff;
+  box-shadow: 0 14px 32px rgba(45, 89, 76, 0.18);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  text-align: left;
+  transform: translate(-50%, 4px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  white-space: normal;
+}
+
+.database-ranking-hover:hover::after,
+.database-ranking-hover:focus::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .database-ranking-empty {
@@ -7460,6 +7501,7 @@ input {
 }
 
 .activity-admin-form input,
+.activity-admin-form select,
 .activity-admin-form textarea {
   width: 100%;
   border: 1px solid rgba(92, 108, 125, 0.2);
@@ -7471,10 +7513,17 @@ input {
 }
 
 .activity-description-field,
+.activity-rule-grid,
 .activity-visual-editor,
 .activity-admin-actions,
 .activity-archive-list {
   grid-column: 1 / -1;
+}
+
+.activity-rule-grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.7fr) minmax(120px, 0.45fr) minmax(220px, 1fr);
+  gap: 12px;
 }
 
 .activity-visual-editor {
@@ -8094,6 +8143,10 @@ input {
   }
 
   .activity-admin-form {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-rule-grid {
     grid-template-columns: 1fr;
   }
 
