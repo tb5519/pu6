@@ -43,6 +43,10 @@ def daily_report_file():
     return current_app.config["DAILY_REPORT_FILE"]
 
 
+def monthly_archives_file():
+    return current_app.config["MONTHLY_ARCHIVES_FILE"]
+
+
 def classes_file():
     return current_app.config["CLASSES_FILE"]
 
@@ -125,6 +129,20 @@ def weekly_comments_manual_flag(source):
 
 def selected_month_key(report_date):
     return report_date[:7]
+
+
+def period_start_for(report_date):
+    try:
+        path = monthly_archives_file()
+        if path.exists():
+            with path.open("r", encoding="utf-8") as file:
+                store = json.load(file)
+            start_date = str(store.get("current_period", {}).get("start_date") or "").strip()
+            if start_date and start_date <= report_date:
+                return start_date
+    except (json.JSONDecodeError, OSError):
+        pass
+    return f"{selected_month_key(report_date)}-01"
 
 
 def student_counts_by_teacher():
@@ -264,14 +282,15 @@ def build_daily_reminder(store, report_date):
 
 
 def calculate_month_totals(store, report_date, rows):
-    month_key = selected_month_key(report_date)
+    start_key = period_start_for(report_date)
     totals = {
         row["teacher_id"]: {field["key"]: 0 for field in REPORT_FIELDS}
         for row in rows
     }
 
     for date_key, report in store.get("reports", {}).items():
-        if not str(date_key).startswith(f"{month_key}-") or str(date_key) > report_date:
+        date_text = str(date_key)
+        if date_text < start_key or date_text > report_date:
             continue
         saved_by_teacher = saved_rows_by_teacher(report)
         for row in rows:
@@ -301,6 +320,8 @@ def apply_weekly_comment_defaults(store, report_date, rows):
         return rows
 
     monday_key = monday_key_for(report_date)
+    if monday_key < period_start_for(report_date):
+        return rows
     monday_report = store.get("reports", {}).get(monday_key, {})
     monday_rows = saved_rows_by_teacher(monday_report)
     if not monday_rows:
@@ -318,7 +339,7 @@ def apply_weekly_comment_defaults(store, report_date, rows):
 
 
 def calculate_weekly_base_totals(store, report_date):
-    start_key = monday_key_for(report_date)
+    start_key = period_start_for(report_date)
     output = {key: 0 for key in WEEKLY_SUMMARY_FIELDS}
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
@@ -418,6 +439,7 @@ def get_daily_report():
     return jsonify(
         {
             "date": report_date,
+            "period_start": period_start_for(report_date),
             "fields": REPORT_FIELDS,
             "rows": rows,
             "teachers": teacher_options(),
@@ -461,6 +483,7 @@ def save_daily_report():
         rows = build_report_rows(report_date, store=store)
         response = {
             "date": report_date,
+            "period_start": period_start_for(report_date),
             "fields": REPORT_FIELDS,
             "rows": rows,
             "teachers": teacher_options(),

@@ -7516,6 +7516,7 @@ input {
 .activity-rule-grid,
 .activity-visual-editor,
 .activity-admin-actions,
+.activity-participant-list,
 .activity-archive-list {
   grid-column: 1 / -1;
 }
@@ -7606,6 +7607,53 @@ input {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+.activity-participant-list {
+  padding: 12px;
+  border: 1px solid rgba(92, 108, 125, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.activity-participant-head,
+.activity-participant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.activity-participant-head strong {
+  color: #223246;
+}
+
+.activity-participant-head span,
+.activity-participant-item span {
+  color: #617084;
+  font-size: 12px;
+}
+
+.activity-participant-items {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.activity-participant-item {
+  padding: 8px 10px;
+  border: 1px solid rgba(92, 108, 125, 0.12);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.activity-participant-item strong {
+  display: block;
+  max-width: 520px;
+  overflow: hidden;
+  color: #26384c;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .activity-archive-list {

@@ -16,7 +16,7 @@ INSTANCE_JSON_DEFAULTS = {
     "COMPLETION_REMINDER_PLANS_FILE": {"plans": {}},
     "DAILY_REPORT_FILE": {"reports": {}},
     "DATABASE_SETTINGS_FILE": {"learning": {"classes": {}, "teachers": {}}, "gmv": {}},
-    "MONTHLY_ARCHIVES_FILE": {"archives": {}},
+    "MONTHLY_ARCHIVES_FILE": {"archives": {}, "current_period": {}},
     "RENEWAL_PROJECTS_FILE": {"projects": [], "blocker_options": []},
     "TALK_LIBRARY_FILE": {"learning_calls": {}},
     "VIDEOS_FILE": {"records": []},

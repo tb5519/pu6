@@ -1201,11 +1201,11 @@ async function archiveCurrentDatabaseMonth() {
   if (!databaseArchiveMonthButton || !databaseMonthInput || !databaseDateInput) return;
   const monthValue = databaseMonthInput.value || formatDatabaseMonth(new Date());
   const dateValue = databaseDateInput.value || `${monthValue}-01`;
-  const confirmed = window.confirm(`${monthValue} 的日报和数据库统计将被保存为月度存档，并切换到下个月重新开始统计。历史数据不会删除，继续吗？`);
+  const confirmed = window.confirm(`${dateValue} 截止的当前统计周期将被存档，并从下一天开始新周期。历史数据不会删除，继续吗？`);
   if (!confirmed) return;
 
   databaseArchiveMonthButton.disabled = true;
-  setDatabaseMessage("正在进行月度存档...");
+  setDatabaseMessage("正在存档当前统计周期...");
   try {
     const data = await databaseApiRequest("/api/database/monthly-archives", {
       method: "POST",
@@ -1230,7 +1230,8 @@ async function archiveCurrentDatabaseMonth() {
       },
     }));
     const reportCount = data.archive?.daily_report_count ?? 0;
-    setDatabaseMessage(`${monthValue} 已存档，共保存 ${reportCount} 天日报；当前已切换到 ${nextMonth || "下个月"}。`);
+    const periodLabel = data.archive?.period_label || `${monthValue} 当前周期`;
+    setDatabaseMessage(`${periodLabel} 已存档，共保存 ${reportCount} 天日报；新周期从 ${nextDate || "下一天"} 开始。`);
   } finally {
     databaseArchiveMonthButton.disabled = false;
   }

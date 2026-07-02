@@ -22,8 +22,10 @@ from app.teachers import (
 
 classes_bp = Blueprint("classes", __name__, url_prefix="/api/classes")
 
-WEEK_COUNT = 4
+DEFAULT_WEEK_COUNT = 4
+MAX_WEEK_COUNT = 8
 DAY_COUNT = 6
+MAX_DAY_COUNT = 7
 WEEK_SECONDS = 7 * 24 * 60 * 60
 HEADER_SCAN_LIMIT = 20
 ACTIVITY_STATUSES = {"draft", "active", "ended"}
@@ -51,6 +53,7 @@ CHINESE_NUMBERS = {
     4: "四",
     5: "五",
     6: "六",
+    7: "七",
 }
 
 NAME_COLUMNS = {
@@ -375,6 +378,14 @@ def parse_activity_number(value, default=0):
     return number
 
 
+def parse_activity_int(value, default, minimum, maximum):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(maximum, number))
+
+
 def normalize_activity_point_rules(value=None):
     source = value if isinstance(value, list) else DEFAULT_ACTIVITY_POINT_RULES
     rules = []
@@ -396,20 +407,36 @@ def normalize_activity_point_rules(value=None):
 def normalize_activity_rule(value=None):
     rule = {
         "type": "weekly_full",
-        "target_points": 4,
+        "week_count": DEFAULT_WEEK_COUNT,
+        "days_per_week": DAY_COUNT,
+        "target_points": DEFAULT_WEEK_COUNT,
         "unit_label": "次",
         "point_rules": [dict(item) for item in DEFAULT_ACTIVITY_POINT_RULES],
     }
-    if not isinstance(value, dict):
-        return rule
-    rule_type = str(value.get("type") or "").strip()
-    if rule_type in ACTIVITY_RULE_TYPES:
-        rule["type"] = rule_type
+    if isinstance(value, dict):
+        rule_type = str(value.get("type") or "").strip()
+        if rule_type in ACTIVITY_RULE_TYPES:
+            rule["type"] = rule_type
+        rule["week_count"] = parse_activity_int(
+            value.get("week_count"),
+            DEFAULT_WEEK_COUNT,
+            1,
+            MAX_WEEK_COUNT,
+        )
+        rule["days_per_week"] = parse_activity_int(
+            value.get("days_per_week"),
+            DAY_COUNT,
+            1,
+            MAX_DAY_COUNT,
+        )
     if rule["type"] == "daily_points":
-        target_points = parse_activity_number(value.get("target_points"), DEFAULT_ACTIVITY_TARGET_POINTS)
+        source = value if isinstance(value, dict) else {}
+        target_points = parse_activity_number(source.get("target_points"), DEFAULT_ACTIVITY_TARGET_POINTS)
         rule["target_points"] = max(1, min(999, target_points))
-        rule["unit_label"] = str(value.get("unit_label") or "分").strip()[:6] or "分"
-        rule["point_rules"] = normalize_activity_point_rules(value.get("point_rules"))
+        rule["unit_label"] = str(source.get("unit_label") or "分").strip()[:6] or "分"
+        rule["point_rules"] = normalize_activity_point_rules(source.get("point_rules"))
+    else:
+        rule["target_points"] = rule["week_count"]
     return rule
 
 
@@ -531,7 +558,28 @@ def update_activity_fields(item, payload):
     item["updated_at"] = now_iso()
 
 
-def serialize_completion_activity(item, include_private=False):
+def activity_participant_class_rows(item, class_store, active_activity=None):
+    participant_ids = set(activity_participant_ids(item))
+    rows = []
+    active_activity_id = (active_activity or {}).get("id")
+    for class_item in class_store.get("classes", []):
+        class_id = str(class_item.get("id") or "")
+        if class_id not in participant_ids:
+            continue
+        rows.append({
+            "id": class_id,
+            "name": class_item.get("name", ""),
+            "note": str(class_item.get("note") or "").strip(),
+            "teacher_id": class_teacher_id(class_item),
+            "teacher_name": teacher_label(class_teacher_id(class_item)),
+            "student_count": len(class_item.get("students", [])),
+            "owner": class_item.get("owner", ""),
+            "is_active_activity": active_activity_id == item.get("id"),
+        })
+    return sorted(rows, key=lambda row: (row.get("teacher_name", ""), row.get("name", "")))
+
+
+def serialize_completion_activity(item, include_private=False, class_store=None, active_activity=None):
     output = {
         "id": item.get("id", ""),
         "eyebrow": item.get("eyebrow") or DEFAULT_COMPLETION_ACTIVITY["eyebrow"],
@@ -547,19 +595,35 @@ def serialize_completion_activity(item, include_private=False):
     }
     if include_private:
         output["created_at"] = item.get("created_at", "")
+    if class_store is not None and can_manage_accounts():
+        output["participant_classes"] = activity_participant_class_rows(
+            item,
+            class_store,
+            active_activity,
+        )
     return output
 
 
-def completion_activity_payload(activity_store=None):
+def completion_activity_payload(activity_store=None, class_store=None):
     store = activity_store if activity_store is not None else load_activity_store()
+    classes_store = class_store if class_store is not None else load_store()
     active = active_completion_activity(store)
     payload = {
-        "activity": serialize_completion_activity(active) if active else None,
+        "activity": serialize_completion_activity(
+            active,
+            class_store=classes_store,
+            active_activity=active,
+        ) if active else None,
         "can_manage_activity": can_manage_accounts(),
     }
     if can_manage_accounts():
         payload["activities"] = [
-            serialize_completion_activity(item, include_private=True)
+            serialize_completion_activity(
+                item,
+                include_private=True,
+                class_store=classes_store,
+                active_activity=active,
+            )
             for item in store.get("activities", [])
         ]
     return payload
@@ -673,25 +737,42 @@ def can_read_class(item):
     return item.get("owner") == current_owner() or can_manage_accounts()
 
 
-def blank_week():
-    return [None for _ in range(DAY_COUNT)]
+def blank_week(day_count=DAY_COUNT):
+    safe_day_count = parse_activity_int(day_count, DAY_COUNT, 1, MAX_DAY_COUNT)
+    return [None for _ in range(safe_day_count)]
 
 
-def normalize_week_values(values):
-    output = blank_week()
+def normalize_week_values(values, day_count=DAY_COUNT):
+    safe_day_count = parse_activity_int(day_count, DAY_COUNT, 1, MAX_DAY_COUNT)
+    output = blank_week(safe_day_count)
     if not isinstance(values, list):
         return output
-    for index in range(min(DAY_COUNT, len(values))):
+    for index in range(min(safe_day_count, len(values))):
         output[index] = parse_completion(values[index])
     return output
 
 
-def normalize_weeks(weeks):
-    output = {str(week): blank_week() for week in range(1, WEEK_COUNT + 1)}
+def normalized_week_count(weeks=None, week_count=None):
+    count = parse_activity_int(week_count, DEFAULT_WEEK_COUNT, 1, MAX_WEEK_COUNT)
+    if isinstance(weeks, dict):
+        for key in weeks:
+            try:
+                number = int(key)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= number <= MAX_WEEK_COUNT:
+                count = max(count, number)
+    return count
+
+
+def normalize_weeks(weeks, week_count=None, day_count=DAY_COUNT):
+    safe_week_count = normalized_week_count(weeks, week_count)
+    safe_day_count = parse_activity_int(day_count, DAY_COUNT, 1, MAX_DAY_COUNT)
+    output = {str(week): blank_week(safe_day_count) for week in range(1, safe_week_count + 1)}
     if not isinstance(weeks, dict):
         return output
-    for week in range(1, WEEK_COUNT + 1):
-        output[str(week)] = normalize_week_values(weeks.get(str(week)))
+    for week in range(1, safe_week_count + 1):
+        output[str(week)] = normalize_week_values(weeks.get(str(week)), safe_day_count)
     return output
 
 
@@ -841,18 +922,24 @@ def get_student_account(student):
     return str(student.get("account") or student.get("phone") or "").strip()
 
 
-def get_student_weeks(student, month_key):
+def activity_period_rule(active_activity=None):
+    if isinstance(active_activity, dict):
+        return normalize_activity_rule(active_activity.get("rule"))
+    return normalize_activity_rule()
+
+
+def get_student_weeks(student, month_key, week_count=None, day_count=DAY_COUNT):
     months = student.get("months")
     if isinstance(months, dict):
         month_data = months.get(month_key, {})
-        return normalize_weeks(month_data.get("weeks", {}))
-    return normalize_weeks(student.get("weeks", {}))
+        return normalize_weeks(month_data.get("weeks", {}), week_count, day_count)
+    return normalize_weeks(student.get("weeks", {}), week_count, day_count)
 
 
-def ensure_month_data(student, month_key):
+def ensure_month_data(student, month_key, week_count=None, day_count=DAY_COUNT):
     months = student.setdefault("months", {})
     month_data = months.setdefault(month_key, {})
-    month_data["weeks"] = normalize_weeks(month_data.get("weeks", {}))
+    month_data["weeks"] = normalize_weeks(month_data.get("weeks", {}), week_count, day_count)
     return month_data
 
 
@@ -923,9 +1010,15 @@ def classify_student_habit(weeks):
     return "断续上课"
 
 
-def serialize_student(student, enrolled_ids=None):
+def serialize_student(student, enrolled_ids=None, active_activity=None):
     month_key = current_month_key()
-    weeks = get_student_weeks(student, month_key)
+    period_rule = activity_period_rule(active_activity)
+    weeks = get_student_weeks(
+        student,
+        month_key,
+        period_rule.get("week_count"),
+        period_rule.get("days_per_week"),
+    )
     student_id = str(student.get("id") or "")
     enrolled_lookup = enrolled_ids or set()
     return {
@@ -946,6 +1039,7 @@ def serialize_class(item, include_students=False, active_activity=True):
     teacher_id = class_teacher_id(item)
     title_week_number = current_title_week_number(item)
     activity_enabled = bool(item.get("completion_activity")) and bool(active_activity)
+    period_rule = activity_period_rule(active_activity if isinstance(active_activity, dict) else None)
     output = {
         "id": item["id"],
         "name": item["name"],
@@ -959,12 +1053,19 @@ def serialize_class(item, include_students=False, active_activity=True):
         "can_edit": item.get("owner") == current_owner(),
         "student_count": len(students),
         "completion_activity": activity_enabled,
+        "period": {
+            "week_count": period_rule.get("week_count", DEFAULT_WEEK_COUNT),
+            "days_per_week": period_rule.get("days_per_week", DAY_COUNT),
+        },
         "created_at": item.get("created_at", ""),
         "updated_at": item.get("updated_at", ""),
     }
     if include_students:
         enrolled_ids = renewal_enrolled_student_ids(item.get("id"))
-        output["students"] = [serialize_student(student, enrolled_ids) for student in students]
+        output["students"] = [
+            serialize_student(student, enrolled_ids, active_activity)
+            for student in students
+        ]
         output["month"] = current_month_key()
     return output
 
@@ -1013,6 +1114,13 @@ def team_class_summary(store):
 def find_owned_class(store, class_id):
     for item in store["classes"]:
         if item["id"] == class_id and item["owner"] == current_owner():
+            return item
+    return None
+
+
+def find_class_by_id(store, class_id):
+    for item in store["classes"]:
+        if item["id"] == class_id:
             return item
     return None
 
@@ -1155,7 +1263,7 @@ def pick_day_columns(headers):
     used_indexes = set()
     has_daily_completion_row = any(is_daily_completion_header(header) for header in headers)
 
-    for day in range(1, DAY_COUNT + 1):
+    for day in range(1, MAX_DAY_COUNT + 1):
         candidates = [normalize_header(candidate) for candidate in day_aliases(day)]
         for index, header in enumerate(headers):
             if index in used_indexes:
@@ -1352,8 +1460,8 @@ def parse_week_number(value):
         week = int(value)
     except (TypeError, ValueError):
         raise ValueError("请选择本月第几周。") from None
-    if week < 1 or week > WEEK_COUNT:
-        raise ValueError("周数只能选择第一周到第四周。")
+    if week < 1 or week > MAX_WEEK_COUNT:
+        raise ValueError(f"周数只能选择第1周到第{MAX_WEEK_COUNT}周。")
     return str(week)
 
 
@@ -1361,8 +1469,11 @@ def normalize_identity(value):
     return str(value or "").strip().lower()
 
 
-def sync_students_from_upload(target_class, imported_students, week_number):
+def sync_students_from_upload(target_class, imported_students, week_number, active_activity=None):
     students = target_class.setdefault("students", [])
+    period_rule = activity_period_rule(active_activity)
+    days_per_week = period_rule.get("days_per_week", DAY_COUNT)
+    week_count = period_rule.get("week_count", DEFAULT_WEEK_COUNT)
     existing_by_account = {
         normalize_identity(get_student_account(student)): student
         for student in students
@@ -1409,11 +1520,11 @@ def sync_students_from_upload(target_class, imported_students, week_number):
         current["updated_at"] = updated_at
 
         if imported.get("days"):
-            month_data = ensure_month_data(current, month_key)
-            week_values = blank_week()
+            month_data = ensure_month_data(current, month_key, week_count, days_per_week)
+            week_values = blank_week(days_per_week)
             for day, value in imported["days"].items():
                 day_index = int(day) - 1
-                if 0 <= day_index < DAY_COUNT:
+                if 0 <= day_index < len(week_values):
                     week_values[day_index] = value
             month_data["weeks"][week_number] = week_values
 
@@ -1593,6 +1704,41 @@ def update_activity(activity_id):
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
     return jsonify(completion_activity_payload(activity_store))
+
+
+@classes_bp.delete("/activities/<activity_id>/participants/<class_id>")
+@login_required
+def remove_activity_participant(activity_id, class_id):
+    if not can_manage_accounts():
+        return jsonify({"error": "只有管理员可以调整活动参与班级。"}), 403
+
+    class_store = load_store()
+    activity_store = load_activity_store(class_store)
+    activity = find_completion_activity(activity_store, activity_id)
+    if activity is None:
+        return jsonify({"error": "活动不存在。"}), 404
+
+    target_class = find_class_by_id(class_store, class_id)
+    if target_class is None:
+        return jsonify({"error": "班级不存在。"}), 404
+
+    participants = [
+        item
+        for item in activity_participant_ids(activity)
+        if item != target_class.get("id")
+    ]
+    activity["participant_class_ids"] = participants
+    activity["updated_at"] = now_iso()
+
+    active = active_completion_activity(activity_store)
+    if active and active.get("id") == activity.get("id"):
+        target_class["completion_activity"] = False
+        target_class["updated_at"] = now_iso()
+        sync_active_activity_to_classes(class_store, activity_store)
+
+    save_store(class_store)
+    save_activity_store(activity_store)
+    return jsonify(completion_activity_payload(activity_store, class_store))
 
 
 @classes_bp.post("/activities/<activity_id>/visuals")
@@ -1898,7 +2044,7 @@ def upload_students(class_id):
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
-    result = sync_students_from_upload(item, imported_students, week_number)
+    result = sync_students_from_upload(item, imported_students, week_number, active_activity)
     save_store(store)
     return jsonify({
         "result": result,

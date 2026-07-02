@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260701-activity-points') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260702-activity-participants') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260612-renewal-message-type') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260701-activity-point-bands') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260702-activity-participants') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260621-daily-reminder') }}" defer></script>
     <script src="{{ url_for('static', filename='js/database.js', v='20260630-renewal-rank-tooltip') }}" defer></script>
     <script src="{{ url_for('static', filename='js/renewal.js', v='20260628-renewal-leader-simple') }}" defer></script>
@@ -336,6 +336,14 @@
                         </select>
                       </label>
                       <label>
+                        <span>本期周数</span>
+                        <input id="cc-activityWeekCount" type="number" min="1" max="8" step="1" value="4" placeholder="例如：5">
+                      </label>
+                      <label>
+                        <span>每周任务天数</span>
+                        <input id="cc-activityDayCount" type="number" min="1" max="7" step="1" value="6" placeholder="例如：6">
+                      </label>
+                      <label>
                         <span>目标积分</span>
                         <input id="cc-activityTargetPoints" type="number" min="1" max="999" step="0.5" value="48" placeholder="例如：48">
                       </label>
@@ -375,6 +383,7 @@
                       <button class="danger-button compact-button" type="button" id="cc-activityEnd">结束当前活动</button>
                     </div>
                   </form>
+                  <div class="activity-participant-list" id="cc-activityParticipants" aria-label="已参与活动班级"></div>
                   <div class="activity-archive-list" id="cc-activityArchive" aria-label="历史完课活动"></div>
                 </div>
               </section>
@@ -623,10 +632,10 @@
                   <span id="dr-reportStatus" class="tool-status"></span>
                 </div>
                 <div class="daily-summary" aria-label="日报汇总">
-                  <span>本周转介绍线索 <strong id="dr-summaryReferralLeads">0</strong></span>
-                  <span>本周转介绍转化 <strong id="dr-summaryReferralConversions">0</strong></span>
-                  <span>本周续费单量 <strong id="dr-summaryRenewal">0</strong></span>
-                  <span>本周退费总数 <strong id="dr-summaryRefunds">0</strong></span>
+                  <span>本期转介绍线索 <strong id="dr-summaryReferralLeads">0</strong></span>
+                  <span>本期转介绍转化 <strong id="dr-summaryReferralConversions">0</strong></span>
+                  <span>本期续费单量 <strong id="dr-summaryRenewal">0</strong></span>
+                  <span>本期退费总数 <strong id="dr-summaryRefunds">0</strong></span>
                 </div>
               </div>
 
@@ -683,7 +692,7 @@
               </label>
               <button id="db-refreshButton" class="primary-button compact-button" type="button">刷新统计</button>
               {% if can_upload_completion_data %}
-              <button id="db-archiveMonthButton" class="ghost-button compact-button" type="button">存档本月</button>
+              <button id="db-archiveMonthButton" class="ghost-button compact-button" type="button">存档本期</button>
               {% endif %}
             </div>
           </header>

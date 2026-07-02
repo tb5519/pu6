@@ -21,6 +21,8 @@ const activityEyebrowInput = document.querySelector("#cc-activityEyebrowInput");
 const activityTitleInput = document.querySelector("#cc-activityTitleInput");
 const activityDescriptionInput = document.querySelector("#cc-activityDescriptionInput");
 const activityRuleTypeInput = document.querySelector("#cc-activityRuleType");
+const activityWeekCountInput = document.querySelector("#cc-activityWeekCount");
+const activityDayCountInput = document.querySelector("#cc-activityDayCount");
 const activityTargetPointsInput = document.querySelector("#cc-activityTargetPoints");
 const activityPointRulesInput = document.querySelector("#cc-activityPointRules");
 const activityStageLabelsInput = document.querySelector("#cc-activityStageLabels");
@@ -31,6 +33,7 @@ const activityVisualSlots = document.querySelector("#cc-activityVisualSlots");
 const activityPublishButton = document.querySelector("#cc-activityPublish");
 const activityEndButton = document.querySelector("#cc-activityEnd");
 const activityAdminStatus = document.querySelector("#cc-activityAdminStatus");
+const activityParticipants = document.querySelector("#cc-activityParticipants");
 const activityArchive = document.querySelector("#cc-activityArchive");
 const classNameInput = document.querySelector("#cc-className");
 const classWeekSelect = document.querySelector("#cc-weekSelect");
@@ -75,16 +78,17 @@ const reminderConfirmNo = document.querySelector("#cc-reminderConfirmNo");
 const reminderArrangementStatus = document.querySelector("#cc-reminderArrangementStatus");
 const reminderArrangementBody = document.querySelector("#cc-reminderArrangementBody");
 
-const WEEK_KEYS = ["1", "2", "3", "4"];
-const DAY_COUNT = 6;
-const ACTIVITY_WEEK_GOAL = 6;
+const DEFAULT_WEEK_COUNT = 4;
+const MAX_WEEK_COUNT = 8;
+const DEFAULT_DAY_COUNT = 6;
+const MAX_DAY_COUNT = 7;
 const IMAGE_WEEK_MEMORY_KEY = "pu6.completion.imageWeekNumber";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const ACTIVITY_STAGE_DEFAULTS = ["盲盒种子", "发芽", "抽枝", "神秘小树苗", "惊喜绽放"];
 const ACTIVITY_RESULT_DEFAULTS = ["彩虹花", "向日葵", "樱花树", "蓝绣球", "小橘树", "紫铃兰"];
 const ACTIVITY_STAGE_LIMIT = 8;
 const ACTIVITY_RESULT_LIMIT = 12;
-const ACTIVITY_MAX_PROGRESS = 4;
+const ACTIVITY_MAX_PROGRESS = DEFAULT_WEEK_COUNT;
 const ACTIVITY_RULE_WEEKLY = "weekly_full";
 const ACTIVITY_RULE_DAILY_POINTS = "daily_points";
 const ACTIVITY_DEFAULT_TARGET_POINTS = 48;
@@ -117,6 +121,30 @@ let reminderActionIndex = new Map();
 let reminderTodayKey = "";
 let editingClassId = null;
 let editingActivityId = "";
+
+function clampInteger(value, defaultValue, minValue, maxValue) {
+  const number = Number.parseInt(value, 10);
+  if (!Number.isFinite(number)) return defaultValue;
+  return Math.max(minValue, Math.min(maxValue, number));
+}
+
+function activePeriodSettings(sourceActivity = completionActivity) {
+  const rule = sourceActivity?.rule || {};
+  const fallbackPeriod = activeClass?.period || {};
+  return {
+    weekCount: clampInteger(rule.week_count ?? fallbackPeriod.week_count, DEFAULT_WEEK_COUNT, 1, MAX_WEEK_COUNT),
+    dayCount: clampInteger(rule.days_per_week ?? fallbackPeriod.days_per_week, DEFAULT_DAY_COUNT, 1, MAX_DAY_COUNT),
+  };
+}
+
+function activeWeekKeys(sourceActivity = completionActivity) {
+  const { weekCount } = activePeriodSettings(sourceActivity);
+  return Array.from({ length: weekCount }, (_, index) => String(index + 1));
+}
+
+function activeDayCount(sourceActivity = completionActivity) {
+  return activePeriodSettings(sourceActivity).dayCount;
+}
 
 function setCompletionSection(sectionName) {
   completionSectionButtons.forEach((button) => {
@@ -231,10 +259,14 @@ function normalizeActivityPointRules(value = ACTIVITY_POINT_RULE_DEFAULTS) {
 function normalizeActivityRule(activity = {}) {
   const rawRule = activity?.rule || {};
   const type = rawRule.type === ACTIVITY_RULE_DAILY_POINTS ? ACTIVITY_RULE_DAILY_POINTS : ACTIVITY_RULE_WEEKLY;
+  const weekCount = clampInteger(rawRule.week_count, DEFAULT_WEEK_COUNT, 1, MAX_WEEK_COUNT);
+  const dayCount = clampInteger(rawRule.days_per_week, DEFAULT_DAY_COUNT, 1, MAX_DAY_COUNT);
   if (type === ACTIVITY_RULE_DAILY_POINTS) {
     const targetPoints = Number(rawRule.target_points);
     return {
       type,
+      week_count: weekCount,
+      days_per_week: dayCount,
       target_points: Number.isFinite(targetPoints) && targetPoints > 0 ? targetPoints : ACTIVITY_DEFAULT_TARGET_POINTS,
       unit_label: String(rawRule.unit_label || "分").trim() || "分",
       point_rules: normalizeActivityPointRules(rawRule.point_rules),
@@ -242,7 +274,9 @@ function normalizeActivityRule(activity = {}) {
   }
   return {
     type: ACTIVITY_RULE_WEEKLY,
-    target_points: ACTIVITY_MAX_PROGRESS,
+    week_count: weekCount,
+    days_per_week: dayCount,
+    target_points: weekCount,
     unit_label: "次",
     point_rules: normalizeActivityPointRules(rawRule.point_rules),
   };
@@ -277,12 +311,20 @@ function activityRulePayload() {
   const type = activityRuleTypeInput?.value === ACTIVITY_RULE_DAILY_POINTS
     ? ACTIVITY_RULE_DAILY_POINTS
     : ACTIVITY_RULE_WEEKLY;
+  const weekCount = clampInteger(activityWeekCountInput?.value, DEFAULT_WEEK_COUNT, 1, MAX_WEEK_COUNT);
+  const dayCount = clampInteger(activityDayCountInput?.value, DEFAULT_DAY_COUNT, 1, MAX_DAY_COUNT);
   if (type !== ACTIVITY_RULE_DAILY_POINTS) {
-    return { type: ACTIVITY_RULE_WEEKLY };
+    return {
+      type: ACTIVITY_RULE_WEEKLY,
+      week_count: weekCount,
+      days_per_week: dayCount,
+    };
   }
   const targetPoints = Number(activityTargetPointsInput?.value || ACTIVITY_DEFAULT_TARGET_POINTS);
   return {
     type: ACTIVITY_RULE_DAILY_POINTS,
+    week_count: weekCount,
+    days_per_week: dayCount,
     target_points: Number.isFinite(targetPoints) && targetPoints > 0 ? targetPoints : ACTIVITY_DEFAULT_TARGET_POINTS,
     unit_label: "分",
     point_rules: parseActivityPointRules(activityPointRulesInput?.value || activityPointRulesToText()),
@@ -409,6 +451,48 @@ async function uploadActivityVisual(input) {
   setClassMessage("图片素材已上传。");
 }
 
+function renderActivityParticipants() {
+  if (!activityParticipants) return;
+  if (!completionActivity) {
+    activityParticipants.innerHTML = "";
+    activityParticipants.classList.add("is-hidden");
+    return;
+  }
+  const participantClasses = completionActivity.participant_classes || [];
+  activityParticipants.classList.remove("is-hidden");
+  if (!participantClasses.length) {
+    activityParticipants.innerHTML = `
+      <div class="activity-participant-head">
+        <strong>已参与班级</strong>
+        <span>当前暂无班级参与</span>
+      </div>
+    `;
+    return;
+  }
+  activityParticipants.innerHTML = `
+    <div class="activity-participant-head">
+      <strong>已参与班级</strong>
+      <span>${participantClasses.length} 个班级</span>
+    </div>
+    <div class="activity-participant-items">
+      ${participantClasses.map((item) => `
+        <div class="activity-participant-item">
+          <div>
+            <strong title="${escapeText(item.name)}">${escapeText(item.name || "未命名班级")}</strong>
+            <span>${escapeText(item.teacher_name || "未识别老师")} · ${Number(item.student_count || 0)} 名学员</span>
+          </div>
+          <button class="ghost-button compact-button" type="button" data-activity-remove-class="${escapeText(item.id)}">移出活动</button>
+        </div>
+      `).join("")}
+    </div>
+  `;
+  activityParticipants.querySelectorAll("[data-activity-remove-class]").forEach((button) => {
+    button.addEventListener("click", () => {
+      removeActivityParticipant(button.dataset.activityRemoveClass).catch((error) => setClassMessage(error.message, true));
+    });
+  });
+}
+
 function renderActivityAdminForm() {
   if (!activityAdminPanel) return;
   activityAdminPanel.classList.toggle("is-hidden", !canManageCompletionActivity);
@@ -426,6 +510,8 @@ function renderActivityAdminForm() {
   }
   const selectedRule = normalizeActivityRule(selected || {});
   if (activityRuleTypeInput) activityRuleTypeInput.value = selectedRule.type;
+  if (activityWeekCountInput) activityWeekCountInput.value = selectedRule.week_count || DEFAULT_WEEK_COUNT;
+  if (activityDayCountInput) activityDayCountInput.value = selectedRule.days_per_week || DEFAULT_DAY_COUNT;
   if (activityTargetPointsInput) activityTargetPointsInput.value = selectedRule.type === ACTIVITY_RULE_DAILY_POINTS ? selectedRule.target_points : ACTIVITY_DEFAULT_TARGET_POINTS;
   if (activityPointRulesInput) activityPointRulesInput.value = activityPointRulesToText(selectedRule.point_rules);
   syncActivityRuleFields();
@@ -446,6 +532,7 @@ function renderActivityAdminForm() {
     activityEndButton.disabled = !completionActivity;
   }
   renderActivityVisualSlots(selected);
+  renderActivityParticipants();
 
   if (!activityArchive) return;
   if (!completionActivities.length) {
@@ -502,6 +589,7 @@ function renderCompletionActivity() {
     if (activityTitle) activityTitle.textContent = completionActivity.title || "盲盒种子成长计划";
     if (activityDescription) activityDescription.textContent = completionActivity.description || "";
   }
+  updateWeekSelectOptions();
   renderActivityClassOptions();
   renderActivityAdminForm();
 }
@@ -563,6 +651,22 @@ async function endCompletionActivity(activityId = completionActivity?.id) {
   editingActivityId = "";
   await loadClasses();
   setClassMessage("完课活动已结束并存档，组员端已隐藏。");
+}
+
+async function removeActivityParticipant(classId) {
+  if (!completionActivity?.id || !classId) return;
+  const participant = (completionActivity.participant_classes || []).find((item) => item.id === classId);
+  const name = participant?.name || "该班级";
+  const confirmed = window.confirm(`确认将「${name}」移出当前完课活动吗？班级和学员数据不会删除。`);
+  if (!confirmed) return;
+  const data = await apiRequest(`/api/classes/activities/${completionActivity.id}/participants/${classId}`, {
+    method: "DELETE",
+  });
+  updateActivityState(data);
+  await loadClasses();
+  renderCompletionActivity();
+  renderClassList();
+  setClassMessage(`已将「${name}」移出当前完课活动。`);
 }
 
 async function copyCompletionActivity(activityId) {
@@ -634,11 +738,23 @@ function reminderSuggestion(stars) {
 }
 
 function weekLabel(week) {
-  return ["", "第一周", "第二周", "第三周", "第四周"][Number(week)] || `第${week}周`;
+  return ["", "第一周", "第二周", "第三周", "第四周", "第五周", "第六周", "第七周", "第八周"][Number(week)] || `第${week}周`;
 }
 
 function selectedImageWeek() {
   return classImageWeekSelect?.value || classWeekSelect?.value || "1";
+}
+
+function updateWeekSelectOptions() {
+  const keys = activeWeekKeys();
+  [classWeekSelect, classImageWeekSelect].forEach((select) => {
+    if (!select) return;
+    const currentValue = select.value;
+    select.innerHTML = keys
+      .map((week) => `<option value="${week}">${weekLabel(week)}</option>`)
+      .join("");
+    select.value = keys.includes(currentValue) ? currentValue : keys[0];
+  });
 }
 
 function localDateKey(date = new Date()) {
@@ -743,9 +859,9 @@ function applyClassTitleWeekNumber(force = false) {
 }
 
 function normalizeWeeks(weeks = {}) {
-  return WEEK_KEYS.reduce((output, week) => {
+  return activeWeekKeys().reduce((output, week) => {
     const values = Array.isArray(weeks[week]) ? weeks[week] : [];
-    output[week] = Array.from({ length: DAY_COUNT }, (_, index) => values[index] ?? null);
+    output[week] = Array.from({ length: activeDayCount() }, (_, index) => values[index] ?? null);
     return output;
   }, {});
 }
@@ -786,12 +902,12 @@ function renderHabitCell(category) {
 }
 
 function weekCompleted(values = []) {
-  return values.filter((rate) => Number(rate) >= 100).length >= ACTIVITY_WEEK_GOAL;
+  return values.filter((rate) => Number(rate) >= 100).length >= activeDayCount();
 }
 
 function studentWeeklyFullProgress(student) {
   const weeks = normalizeWeeks(student.weeks);
-  return WEEK_KEYS.reduce((count, week) => count + (weekCompleted(weeks[week]) ? 1 : 0), 0);
+  return activeWeekKeys().reduce((count, week) => count + (weekCompleted(weeks[week]) ? 1 : 0), 0);
 }
 
 function studentWaterCount(student) {
@@ -814,18 +930,19 @@ function studentActivityProgress(student, activity = completionActivity) {
   const rule = normalizeActivityRule(activity || {});
   if (rule.type !== ACTIVITY_RULE_DAILY_POINTS) {
     const value = studentWeeklyFullProgress(student);
+    const max = Number(rule.target_points || rule.week_count) || DEFAULT_WEEK_COUNT;
     return {
       value,
-      max: ACTIVITY_MAX_PROGRESS,
+      max,
       unit: "次",
-      label: `${value}/${ACTIVITY_MAX_PROGRESS}`,
-      detail: `${value}/${ACTIVITY_MAX_PROGRESS} 次`,
-      ratio: value / ACTIVITY_MAX_PROGRESS,
-      isComplete: value >= ACTIVITY_MAX_PROGRESS,
+      label: `${value}/${max}`,
+      detail: `${value}/${max} 次`,
+      ratio: max ? value / max : 0,
+      isComplete: value >= max,
     };
   }
   const weeks = normalizeWeeks(student.weeks);
-  const value = WEEK_KEYS.reduce((total, week) => (
+  const value = activeWeekKeys().reduce((total, week) => (
     total + weeks[week].reduce((weekTotal, rate) => weekTotal + activityPointForRate(rate, rule.point_rules), 0)
   ), 0);
   const max = Number(rule.target_points) || ACTIVITY_DEFAULT_TARGET_POINTS;
@@ -1444,11 +1561,12 @@ function generateCompletionImage() {
 
   const nameWidth = 190;
   const dayWidth = 190;
+  const dayCount = activeDayCount();
   const titleHeight = 70;
   const dayHeaderHeight = 52;
   const subHeaderHeight = 78;
   const rowHeight = 46;
-  const width = nameWidth + dayWidth * DAY_COUNT;
+  const width = nameWidth + dayWidth * dayCount;
   const height = titleHeight + dayHeaderHeight + subHeaderHeight + rowHeight * students.length;
   const scale = 2;
   const canvas = document.createElement("canvas");
@@ -1474,7 +1592,7 @@ function generateCompletionImage() {
     font: "900 28px Arial, sans-serif",
   });
 
-  for (let index = 0; index < DAY_COUNT; index += 1) {
+  for (let index = 0; index < dayCount; index += 1) {
     const x = nameWidth + dayWidth * index;
     drawCanvasCell(ctx, x, titleHeight, dayWidth, dayHeaderHeight, {
       fill: "#f6cea4",
@@ -1502,7 +1620,7 @@ function generateCompletionImage() {
       font: "700 22px Arial, sans-serif",
     });
 
-    for (let dayIndex = 0; dayIndex < DAY_COUNT; dayIndex += 1) {
+    for (let dayIndex = 0; dayIndex < dayCount; dayIndex += 1) {
       const rate = weekValues[dayIndex];
       drawCanvasCell(ctx, nameWidth + dayWidth * dayIndex, y, dayWidth, rowHeight, {
         fill: imageCellColor(rate),
@@ -1848,7 +1966,7 @@ function reminderStudentStats(student = {}) {
   const uploaded = [];
   const incomplete = [];
 
-  WEEK_KEYS.forEach((week) => {
+  activeWeekKeys().forEach((week) => {
     weeks[week].forEach((rate, dayIndex) => {
       if (!hasReminderRate(rate)) return;
       const item = {
@@ -2158,11 +2276,13 @@ function renderReminderStudentTable(rows = [], options = {}) {
     `;
   }
 
-  const weekHeaders = WEEK_KEYS
-    .map((week) => `<th class="reminder-week-head" colspan="${DAY_COUNT}">${weekLabel(week)}</th>`)
+  const weekKeys = activeWeekKeys();
+  const dayCount = activeDayCount();
+  const weekHeaders = weekKeys
+    .map((week) => `<th class="reminder-week-head" colspan="${dayCount}">${weekLabel(week)}</th>`)
     .join("");
-  const dayHeaders = WEEK_KEYS
-    .flatMap((week) => Array.from({ length: DAY_COUNT }, (_, index) => (
+  const dayHeaders = weekKeys
+    .flatMap((week) => Array.from({ length: dayCount }, (_, index) => (
       `<th class="${index === 0 ? "week-group-start" : ""}">D${index + 1}</th>`
     )))
     .join("");
@@ -2171,7 +2291,7 @@ function renderReminderStudentTable(rows = [], options = {}) {
       const { student, stats } = row;
       const canRecordPhoneCall = activeReminderClass?.task_label !== "回收" && !activeReminderClass?.action_state?.completed;
       const showActivityProgress = Boolean(options.showActivityFilter);
-      const dayCells = WEEK_KEYS
+      const dayCells = weekKeys
         .flatMap((week) => stats.weeks[week].map((rate, dayIndex) => (
           `<td class="${dayIndex === 0 ? "week-group-start" : ""}">${renderReminderDayCell(rate)}</td>`
         )))
@@ -2191,7 +2311,7 @@ function renderReminderStudentTable(rows = [], options = {}) {
       `;
     })
     .join("");
-  const columnCount = 4 + (options.showActivityFilter ? 1 : 0) + (WEEK_KEYS.length * DAY_COUNT);
+  const columnCount = 4 + (options.showActivityFilter ? 1 : 0) + (weekKeys.length * dayCount);
   const spacerRow = `<tr class="reminder-scroll-spacer" aria-hidden="true"><td colspan="${columnCount}"></td></tr>`;
 
   return `
@@ -2481,11 +2601,13 @@ function renderReminderSnapshotTable(students = [], currentRows = []) {
   if (!students.length) {
     return `<div class="reminder-arrangement-empty">暂无需要回收的学员。</div>`;
   }
-  const weekHeaders = WEEK_KEYS
-    .map((week) => `<th class="reminder-week-head" colspan="${DAY_COUNT}">${weekLabel(week)}</th>`)
+  const weekKeys = activeWeekKeys();
+  const dayCount = activeDayCount();
+  const weekHeaders = weekKeys
+    .map((week) => `<th class="reminder-week-head" colspan="${dayCount}">${weekLabel(week)}</th>`)
     .join("");
-  const dayHeaders = WEEK_KEYS
-    .flatMap((week) => Array.from({ length: DAY_COUNT }, (_, index) => (
+  const dayHeaders = weekKeys
+    .flatMap((week) => Array.from({ length: dayCount }, (_, index) => (
       `<th class="${index === 0 ? "week-group-start" : ""}">D${index + 1}</th>`
     )))
     .join("");
@@ -2493,7 +2615,7 @@ function renderReminderSnapshotTable(students = [], currentRows = []) {
     const currentRow = findReminderCurrentRow(student, currentRows);
     const weeks = normalizeWeeks(currentRow?.stats?.weeks || {});
     const result = reminderRecoveryResult(student, currentRows);
-    const dayCells = WEEK_KEYS
+    const dayCells = weekKeys
       .flatMap((week) => weeks[week].map((rate, dayIndex) => (
         `<td class="${dayIndex === 0 ? "week-group-start" : ""}">${renderReminderSnapshotDayCell(rate)}</td>`
       )))
@@ -3124,27 +3246,33 @@ function renderActivityProgressCell(student) {
 }
 
 function syncActivityProgressColumn() {
-  const shouldShow = Boolean(activeClass?.completion_activity && completionActivity);
-  const headerRow = document.querySelector(".student-table .week-header-row");
-  const dayHeaderRow = document.querySelector(".student-table .day-header-row");
-  if (!headerRow || !dayHeaderRow) return;
-
-  headerRow.querySelector("[data-activity-progress-head]")?.remove();
-  dayHeaderRow.querySelector("[data-activity-progress-subhead]")?.remove();
-  if (!shouldShow) return;
-
-  const head = document.createElement("th");
-  head.setAttribute("rowspan", "2");
-  head.setAttribute("data-activity-progress-head", "true");
-  head.textContent = "活动进度";
-  const weekStart = headerRow.querySelector(".week-group-start");
-  headerRow.insertBefore(head, weekStart);
-
-  const subHead = document.createElement("th");
-  subHead.setAttribute("data-activity-progress-subhead", "true");
-  subHead.className = "activity-progress-subhead";
-  subHead.hidden = true;
-  dayHeaderRow.insertBefore(subHead, dayHeaderRow.querySelector(".week-group-start"));
+  const tableHead = document.querySelector(".student-table thead");
+  if (!tableHead) return;
+  const shouldShowActivity = Boolean(activeClass?.completion_activity && completionActivity);
+  const weekKeys = activeWeekKeys();
+  const dayCount = activeDayCount();
+  const weekHeaders = weekKeys
+    .map((week) => `<th class="week-group-start" colspan="${dayCount}">${weekLabel(week)}</th>`)
+    .join("");
+  const dayHeaders = weekKeys
+    .flatMap((week) => Array.from({ length: dayCount }, (_, index) => (
+      `<th class="${index === 0 ? "week-group-start" : ""}">Day${index + 1}</th>`
+    )))
+    .join("");
+  tableHead.innerHTML = `
+    <tr class="week-header-row">
+      <th rowspan="2" class="sticky-col">学员姓名</th>
+      <th rowspan="2" class="student-account-col">学员账号</th>
+      <th rowspan="2">本月整体完成度</th>
+      <th rowspan="2">学员分类</th>
+      ${shouldShowActivity ? '<th rowspan="2" data-activity-progress-head="true">活动进度</th>' : ""}
+      ${weekHeaders}
+    </tr>
+    <tr class="day-header-row">
+      ${shouldShowActivity ? '<th class="activity-progress-subhead" data-activity-progress-subhead="true" hidden></th>' : ""}
+      ${dayHeaders}
+    </tr>
+  `;
 }
 
 async function joinCompletionActivity(classId) {
@@ -3187,14 +3315,16 @@ function renderStudents() {
   studentStatus.textContent = selectedCategory
     ? `${visibleStudents.length} / ${students.length} 名学员${month}`
     : `${students.length} 名学员${month}`;
-  const columnCount = 4 + (activeClass?.completion_activity && completionActivity ? 1 : 0) + (WEEK_KEYS.length * DAY_COUNT);
+  const weekKeys = activeWeekKeys();
+  const dayCount = activeDayCount();
+  const columnCount = 4 + (activeClass?.completion_activity && completionActivity ? 1 : 0) + (weekKeys.length * dayCount);
   const spacerRow = visibleStudents.length
     ? `<tr class="student-scroll-spacer" aria-hidden="true"><td colspan="${columnCount}"></td></tr>`
     : "";
   studentRows.innerHTML = visibleStudents
     .map((student) => {
       const weeks = normalizeWeeks(student.weeks);
-      const dayCells = WEEK_KEYS
+      const dayCells = weekKeys
         .flatMap((week) => weeks[week].map((rate, dayIndex) => (
           `<td class="${dayIndex === 0 ? "week-group-start" : ""}">${renderDayCell(rate)}</td>`
         )))
@@ -3466,6 +3596,9 @@ function initCompletion() {
   });
 
   activityRuleTypeInput?.addEventListener("change", syncActivityRuleFields);
+  [activityWeekCountInput, activityDayCountInput].forEach((input) => {
+    input?.addEventListener("change", updateWeekSelectOptions);
+  });
   activityStageLabelsInput?.addEventListener("input", () => renderActivityVisualSlots());
   activityResultLabelsInput?.addEventListener("input", () => renderActivityVisualSlots());
 

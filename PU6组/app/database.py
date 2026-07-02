@@ -389,6 +389,33 @@ def next_month_start_date(month_key):
     return f"{next_month_key(month_key)}-01"
 
 
+def next_day_key(date_text):
+    day = datetime.strptime(str(date_text), "%Y-%m-%d")
+    return (day + timedelta(days=1)).strftime("%Y-%m-%d")
+
+
+def period_start_for(report_date):
+    store = load_monthly_archives()
+    start_date = str(store.get("current_period", {}).get("start_date") or "").strip()
+    if start_date and start_date <= report_date:
+        return start_date
+    return f"{str(report_date)[:7]}-01"
+
+
+def date_in_period(date_text, report_date):
+    return period_start_for(report_date) <= str(date_text) <= report_date
+
+
+def period_week_index(date_text, report_date):
+    start_date = period_start_for(report_date)
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        day = datetime.strptime(str(date_text), "%Y-%m-%d")
+    except ValueError:
+        return month_week_index(date_text)
+    return max(0, min(3, (day - start).days // 7))
+
+
 def current_user_teacher_id():
     user = getattr(g, "user", None)
     if not user:
@@ -1409,7 +1436,7 @@ def build_metric_summary(month_key, report_date, completion_teachers, metric_key
 
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
-        if not date_text.startswith(f"{month_key}-") or date_text > report_date:
+        if not date_in_period(date_text, report_date):
             continue
         saved_rows = report_rows_by_teacher(report)
         for teacher_id, output in rows.items():
@@ -1448,9 +1475,9 @@ def build_renewal_summary(month_key, report_date, completion_teachers):
 
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
-        if not date_text.startswith(f"{month_key}-") or date_text > report_date:
+        if not date_in_period(date_text, report_date):
             continue
-        week_index = month_week_index(date_text)
+        week_index = period_week_index(date_text, report_date)
         saved_rows = report_rows_by_teacher(report)
         for teacher_id, output in rows.items():
             source = saved_rows.get(teacher_id)
@@ -1672,7 +1699,7 @@ def build_referral_summary(month_key, report_date, completion_teachers):
 
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
-        if not date_text.startswith(f"{month_key}-") or date_text > report_date:
+        if not date_in_period(date_text, report_date):
             continue
         saved_rows = report_rows_by_teacher(report)
         for teacher_id, output in rows.items():
@@ -1741,9 +1768,9 @@ def build_gmv_section(month_key, report_date, completion_teachers, section_key):
 
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
-        if not date_text.startswith(f"{month_key}-") or date_text > report_date:
+        if not date_in_period(date_text, report_date):
             continue
-        week_index = month_week_index(date_text)
+        week_index = period_week_index(date_text, report_date)
         saved_rows = report_rows_by_teacher(report)
         for teacher_id, output in rows.items():
             source = saved_rows.get(teacher_id)
@@ -1829,7 +1856,7 @@ def monthly_daily_reports(month_key, report_date):
     reports = {}
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
-        if date_text.startswith(f"{month_key}-") and date_text <= report_date:
+        if date_in_period(date_text, report_date):
             reports[date_text] = report
     return reports
 
@@ -1843,15 +1870,21 @@ def monthly_archive_settings(month_key):
 
 
 def build_monthly_archive(month_key, report_date):
+    period_start = period_start_for(report_date)
+    next_date = next_day_key(report_date)
     completion = build_completion_summary(month_key, report_date)
     completion_teachers = completion["teachers"]
     archive = {
         "month": month_key,
         "date": report_date,
+        "period_key": f"{period_start}_{report_date}",
+        "period_start": period_start,
+        "period_end": report_date,
+        "period_label": f"{period_start} 至 {report_date}",
         "archived_at": datetime.now().isoformat(timespec="seconds"),
         "archived_by": g.user.get("username", ""),
-        "next_month": next_month_key(month_key),
-        "next_date": next_month_start_date(month_key),
+        "next_month": next_date[:7],
+        "next_date": next_date,
         "daily_reports": monthly_daily_reports(month_key, report_date),
         "database": {
             "completion": completion,
@@ -1935,7 +1968,14 @@ def reminder_student_snapshot(student):
     uploaded_days = student.get("uploaded_days") if isinstance(student.get("uploaded_days"), list) else []
     phone_call = student.get("phone_call") if isinstance(student.get("phone_call"), dict) else {}
     normalized_weeks = {}
-    for week in range(1, 5):
+    week_count = 4
+    for key in weeks:
+        try:
+            week_count = max(week_count, int(key))
+        except (TypeError, ValueError):
+            continue
+    week_count = max(1, min(8, week_count))
+    for week in range(1, week_count + 1):
         values = weeks.get(str(week)) if isinstance(weeks.get(str(week)), list) else []
         normalized_weeks[str(week)] = [
             parse_completion(values[index]) if index < len(values) else None
@@ -3395,15 +3435,22 @@ def create_monthly_archive():
         return jsonify({"error": str(error)}), 400
 
     if not report_date.startswith(f"{month_key}-"):
-        report_date = month_end_date(month_key)
+        month_key = report_date[:7]
 
     archive = build_monthly_archive(month_key, report_date)
     with MONTHLY_ARCHIVES_LOCK:
         store = load_monthly_archives()
-        previous_archive = store.get("archives", {}).get(month_key)
+        archive_key = archive.get("period_key") or month_key
+        previous_archive = store.get("archives", {}).get(archive_key)
         if previous_archive:
             store.setdefault("history", []).append(previous_archive)
-        store.setdefault("archives", {})[month_key] = archive
+        store.setdefault("archives", {})[archive_key] = archive
+        store["current_period"] = {
+            "start_date": archive["next_date"],
+            "opened_at": archive["archived_at"],
+            "opened_by": archive["archived_by"],
+            "previous_period_key": archive_key,
+        }
         store["updated_at"] = archive["archived_at"]
         save_monthly_archives(store)
 
@@ -3413,6 +3460,9 @@ def create_monthly_archive():
             "archive": {
                 "month": archive["month"],
                 "date": archive["date"],
+                "period_start": archive["period_start"],
+                "period_end": archive["period_end"],
+                "period_label": archive["period_label"],
                 "archived_at": archive["archived_at"],
                 "archived_by": archive["archived_by"],
                 "daily_report_count": archive["daily_report_count"],
@@ -3420,7 +3470,7 @@ def create_monthly_archive():
             },
             "next_month": archive["next_month"],
             "next_date": archive["next_date"],
-            "message": f"{archive['month']} 已完成存档，已为下个月重新开始统计。",
+            "message": f"{archive['period_label']} 已完成存档，已从 {archive['next_date']} 开始新周期。",
         }
     )
 
@@ -3444,6 +3494,7 @@ def database_summary():
         {
             "month": month_key,
             "date": report_date,
+            "period_start": period_start_for(report_date),
             "completion": completion,
             "learning": build_learning_summary(month_key, report_date, completion),
             "renewal": build_renewal_summary(month_key, report_date, completion_teachers),
