@@ -518,6 +518,11 @@ const talkHeaderActions = document.querySelector("[data-talk-actions]");
 const talkTypeField = document.querySelector(".talk-type-field");
 let learningCallGuide = document.querySelector("[data-learning-call-guide]");
 const canManageTalk = talkTool?.dataset.canManageTalk === "true";
+const talkMaterialForm = document.querySelector("#tl-materialForm");
+const talkMaterialList = document.querySelector("#tl-materialList");
+const talkMaterialStatus = document.querySelector("#tl-materialStatus");
+const talkMaterialSearch = document.querySelector("#tl-materialSearch");
+let talkMaterials = [];
 
 function currentCategoryTracks() {
   return talkState.tracks
@@ -1181,6 +1186,123 @@ async function copyText(text, button, resetLabel = "复制话术") {
   }, 1200);
 }
 
+function setTalkMaterialStatus(message, isError = false) {
+  if (!talkMaterialStatus) return;
+  talkMaterialStatus.textContent = message || "";
+  talkMaterialStatus.classList.toggle("is-error", isError);
+}
+
+function renderTalkMaterials() {
+  if (!talkMaterialList) return;
+  const keyword = String(talkMaterialSearch?.value || "").trim().toLowerCase();
+  const visibleMaterials = keyword
+    ? talkMaterials.filter((material) => [
+      material.title,
+      material.keywords,
+      material.original_filename,
+    ].join(" ").toLowerCase().includes(keyword))
+    : talkMaterials;
+
+  if (talkMaterials.length) {
+    setTalkMaterialStatus(keyword ? `匹配到 ${visibleMaterials.length} / ${talkMaterials.length} 个素材` : `${talkMaterials.length} 个素材`);
+  }
+
+  if (!talkMaterials.length) {
+    talkMaterialList.innerHTML = `<div class="empty-state compact-empty">暂无素材，Joanna上传后老师即可使用。</div>`;
+    return;
+  }
+  if (!visibleMaterials.length) {
+    talkMaterialList.innerHTML = `<div class="empty-state compact-empty">没有匹配到素材，换个关键词试试。</div>`;
+    return;
+  }
+
+  talkMaterialList.innerHTML = visibleMaterials
+    .map((material) => `
+      <article class="talk-material-card">
+        <a class="talk-material-image" href="${escapeHtml(material.url)}" target="_blank" rel="noopener">
+          <img src="${escapeHtml(material.url)}" alt="${escapeHtml(material.title || "素材")}">
+        </a>
+        <div class="talk-material-body">
+          <div class="talk-material-head">
+            <strong>${escapeHtml(material.title || "素材")}</strong>
+            ${material.can_delete ? `<button class="talk-material-delete" type="button" data-delete-material="${escapeHtml(material.id)}" title="删除素材" aria-label="删除素材">−</button>` : ""}
+          </div>
+          ${material.keywords ? `<span>${escapeHtml(material.keywords)}</span>` : ""}
+          <div class="talk-material-actions">
+            <a class="ghost-button compact-button" href="${escapeHtml(material.url)}" target="_blank" rel="noopener">打开原图</a>
+            <a class="primary-button compact-button" href="${escapeHtml(material.url)}" download>下载使用</a>
+          </div>
+        </div>
+      </article>
+    `)
+    .join("");
+
+  talkMaterialList.querySelectorAll("[data-delete-material]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!window.confirm("确认删除这个素材吗？")) return;
+      button.disabled = true;
+      try {
+        const response = await fetch(`/api/talk-library/materials/${encodeURIComponent(button.dataset.deleteMaterial)}`, {
+          method: "DELETE",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "删除失败，请稍后重试。");
+        await loadTalkMaterials();
+      } catch (error) {
+        setTalkMaterialStatus(error.message, true);
+        button.disabled = false;
+      }
+    });
+  });
+}
+
+async function loadTalkMaterials() {
+  if (!talkMaterialList) return;
+  setTalkMaterialStatus("正在读取素材...");
+  try {
+    const response = await fetch("/api/talk-library/materials");
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "素材读取失败，请刷新重试。");
+    talkMaterials = payload.materials || [];
+    setTalkMaterialStatus(talkMaterials.length ? `${talkMaterials.length} 个素材` : "按关键词搜索家长好评、截图素材");
+    renderTalkMaterials();
+  } catch (error) {
+    talkMaterials = [];
+    renderTalkMaterials();
+    setTalkMaterialStatus(error.message, true);
+  }
+}
+
+async function uploadTalkMaterial(event) {
+  event.preventDefault();
+  if (!talkMaterialForm || !canManageTalk) return;
+  const fileInput = tl("materialFile");
+  if (!fileInput?.files?.length) {
+    setTalkMaterialStatus("请先选择一张素材图片。", true);
+    return;
+  }
+
+  const formData = new FormData(talkMaterialForm);
+  setTalkMaterialStatus("正在上传素材...");
+  const submitButton = talkMaterialForm.querySelector("button[type='submit']");
+  if (submitButton) submitButton.disabled = true;
+  try {
+    const response = await fetch("/api/talk-library/materials", {
+      method: "POST",
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "上传失败，请稍后重试。");
+    talkMaterialForm.reset();
+    await loadTalkMaterials();
+    setTalkMaterialStatus("素材已上传。");
+  } catch (error) {
+    setTalkMaterialStatus(error.message, true);
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
+}
+
 function renderResults() {
   if (isLearningCategory()) {
     renderLearningCallGuide();
@@ -1292,6 +1414,7 @@ function initTalkLibrary() {
     });
 
     tl("addTrack")?.addEventListener("click", addTrack);
+    talkMaterialForm?.addEventListener("submit", uploadTalkMaterial);
 
     tl("fileInput")?.addEventListener("change", async (event) => {
       const file = event.target.files[0];
@@ -1321,6 +1444,8 @@ function initTalkLibrary() {
     });
   }
 
+  talkMaterialSearch?.addEventListener("input", renderTalkMaterials);
+
   talkCategoryButtons.forEach((button) => {
     button.addEventListener("click", () => {
       showTalkDetail(button.dataset.talkCategory);
@@ -1332,6 +1457,7 @@ function initTalkLibrary() {
 
   setTalkCategory(selectedTalkCategory);
   showTalkHome();
+  loadTalkMaterials();
   loadLearningCallOverrides();
 }
 

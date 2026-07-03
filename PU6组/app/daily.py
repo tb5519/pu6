@@ -1,4 +1,6 @@
 import json
+import re
+import uuid
 from datetime import datetime, timedelta
 from threading import Lock
 
@@ -178,6 +180,10 @@ def can_manage_daily_report():
     return bool(g.user and g.user.get("role") in DAILY_ADMIN_ROLES)
 
 
+def daily_teacher_lookup():
+    return {teacher["teacher_id"]: teacher["teacher_name"] for teacher in teacher_defaults()}
+
+
 def blank_metrics():
     return {field["key"]: 0 for field in REPORT_FIELDS}
 
@@ -279,6 +285,105 @@ def build_daily_reminder(store, report_date):
         "missing_teachers": missing_teachers if can_manage else [],
         "show_reminder": show_reminder,
     }
+
+
+def normalize_todo_items(report):
+    items = report.get("todos") if isinstance(report, dict) else []
+    if not isinstance(items, list):
+        return []
+    output = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        todo_id = str(item.get("id") or "").strip()
+        text = str(item.get("text") or "").strip()
+        if not todo_id or not text:
+            continue
+        completed_by = item.get("completed_by") if isinstance(item.get("completed_by"), dict) else {}
+        output.append({
+            "id": todo_id,
+            "text": text[:120],
+            "created_by": str(item.get("created_by") or "").strip(),
+            "created_at": str(item.get("created_at") or "").strip(),
+            "completed_by": {
+                str(key or "").strip().lower(): str(value or "")
+                for key, value in completed_by.items()
+                if str(key or "").strip()
+            },
+        })
+    return output
+
+
+def parse_todo_texts(value):
+    if isinstance(value, list):
+        lines = [str(item or "") for item in value]
+    else:
+        lines = str(value or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+    output = []
+    seen = set()
+    for raw_line in lines:
+        text = re.sub(r"^\s*(?:[-*•]+|[（(]?\d+[）).、,，:：-]+)\s*", "", raw_line).strip()
+        text = re.sub(r"\s+", " ", text)
+        if not text:
+            continue
+        text = text[:120]
+        if text in seen:
+            continue
+        seen.add(text)
+        output.append(text)
+        if len(output) >= 50:
+            break
+    return output
+
+
+def serialize_todos(report):
+    items = normalize_todo_items(report)
+    teacher_lookup = daily_teacher_lookup()
+    teacher_ids = list(teacher_lookup.keys())
+    current_id = current_teacher_id()
+    can_manage = can_manage_daily_report()
+    can_toggle = bool(current_id and current_id in teacher_lookup)
+    serialized = []
+
+    for item in items:
+        completed_by = item["completed_by"]
+        completed_ids = [teacher_id for teacher_id in teacher_ids if teacher_id in completed_by]
+        pending_ids = [teacher_id for teacher_id in teacher_ids if teacher_id not in completed_by]
+        output = {
+            "id": item["id"],
+            "text": item["text"],
+            "created_by": item["created_by"],
+            "created_at": item["created_at"],
+            "completed": bool(current_id and current_id in completed_by),
+            "can_toggle": can_toggle,
+            "can_delete": can_manage,
+            "completed_count": len(completed_ids),
+            "teacher_count": len(teacher_ids),
+        }
+        if can_manage:
+            output["completed_teachers"] = [
+                {"teacher_id": teacher_id, "teacher_name": teacher_lookup.get(teacher_id, teacher_id)}
+                for teacher_id in completed_ids
+            ]
+            output["pending_teachers"] = [
+                {"teacher_id": teacher_id, "teacher_name": teacher_lookup.get(teacher_id, teacher_id)}
+                for teacher_id in pending_ids
+            ]
+        serialized.append(output)
+    return {
+        "items": serialized,
+        "can_manage": can_manage,
+        "can_toggle": can_toggle,
+    }
+
+
+def find_todo_item(report, todo_id):
+    todos = report.setdefault("todos", normalize_todo_items(report))
+    for item in todos:
+        if str(item.get("id") or "") == str(todo_id or ""):
+            return item
+    return None
 
 
 def calculate_month_totals(store, report_date, rows):
@@ -444,6 +549,7 @@ def get_daily_report():
             "rows": rows,
             "teachers": teacher_options(),
             "weekly_base": calculate_weekly_base_totals(store, report_date),
+            "todos": serialize_todos(saved_report),
             "updated_at": saved_report.get("updated_at", ""),
             "reminder": build_daily_reminder(store, report_date),
         }
@@ -478,9 +584,12 @@ def save_daily_report():
             "rows": rows_for_storage(rows),
             "updated_at": submitted_at,
             "submitted_at_by_teacher": submitted_map,
+            "todos": normalize_todo_items(existing_report),
+            "todos_updated_at": existing_report.get("todos_updated_at", ""),
         }
         save_daily_store(store)
         rows = build_report_rows(report_date, store=store)
+        saved_report = store["reports"][report_date]
         response = {
             "date": report_date,
             "period_start": period_start_for(report_date),
@@ -488,7 +597,97 @@ def save_daily_report():
             "rows": rows,
             "teachers": teacher_options(),
             "weekly_base": calculate_weekly_base_totals(store, report_date),
-            "updated_at": store["reports"][report_date]["updated_at"],
+            "todos": serialize_todos(saved_report),
+            "updated_at": saved_report["updated_at"],
             "reminder": build_daily_reminder(store, report_date),
         }
     return jsonify(response)
+
+
+@daily_bp.post("/todos")
+@login_required
+def create_daily_todo():
+    if not can_manage_daily_report():
+        return jsonify({"error": "只有管理员可以新增今日待办事项。"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        report_date = normalize_report_date(payload.get("date"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    todo_texts = parse_todo_texts(payload.get("text"))
+    if not todo_texts:
+        return jsonify({"error": "请填写待办事项内容。"}), 400
+
+    with DAILY_SAVE_LOCK:
+        store = load_daily_store()
+        report = store.setdefault("reports", {}).setdefault(report_date, {"date": report_date})
+        todos = normalize_todo_items(report)
+        created_at = now_iso()
+        for text in todo_texts:
+            todos.append({
+                "id": uuid.uuid4().hex,
+                "text": text,
+                "created_by": str(g.user.get("username") or ""),
+                "created_at": created_at,
+                "completed_by": {},
+            })
+        report["todos"] = todos
+        report["todos_updated_at"] = now_iso()
+        save_daily_store(store)
+        return jsonify({"date": report_date, "todos": serialize_todos(report), "added_count": len(todo_texts)})
+
+
+@daily_bp.patch("/todos/<todo_id>")
+@login_required
+def update_daily_todo(todo_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        report_date = normalize_report_date(payload.get("date"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    teacher_id = current_teacher_id()
+    if teacher_id not in daily_teacher_lookup():
+        return jsonify({"error": "当前账号没有可勾选的待办事项。"}), 403
+
+    with DAILY_SAVE_LOCK:
+        store = load_daily_store()
+        report = store.setdefault("reports", {}).setdefault(report_date, {"date": report_date})
+        todo = find_todo_item(report, todo_id)
+        if todo is None:
+            return jsonify({"error": "待办事项不存在。"}), 404
+        completed_by = todo.setdefault("completed_by", {})
+        if payload.get("completed"):
+            completed_by[teacher_id] = now_iso()
+        else:
+            completed_by.pop(teacher_id, None)
+        report["todos"] = normalize_todo_items(report)
+        report["todos_updated_at"] = now_iso()
+        save_daily_store(store)
+        return jsonify({"date": report_date, "todos": serialize_todos(report)})
+
+
+@daily_bp.delete("/todos/<todo_id>")
+@login_required
+def delete_daily_todo(todo_id):
+    if not can_manage_daily_report():
+        return jsonify({"error": "只有管理员可以删除今日待办事项。"}), 403
+
+    try:
+        report_date = normalize_report_date(request.args.get("date"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    with DAILY_SAVE_LOCK:
+        store = load_daily_store()
+        report = store.setdefault("reports", {}).setdefault(report_date, {"date": report_date})
+        todos = normalize_todo_items(report)
+        next_todos = [item for item in todos if item.get("id") != todo_id]
+        if len(next_todos) == len(todos):
+            return jsonify({"error": "待办事项不存在。"}), 404
+        report["todos"] = next_todos
+        report["todos_updated_at"] = now_iso()
+        save_daily_store(store)
+        return jsonify({"date": report_date, "todos": serialize_todos(report)})

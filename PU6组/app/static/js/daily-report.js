@@ -1,12 +1,7 @@
 const dailyTodayButton = document.querySelector("#dr-todayButton");
 const dailySaveButton = document.querySelector("#dr-saveButton");
 const dailyMessage = document.querySelector("#dr-message");
-const dailyTodayDay = document.querySelector("#dr-todayDay");
-const dailyTodayText = document.querySelector("#dr-todayText");
-const dailyPrevMonth = document.querySelector("#dr-prevMonth");
-const dailyNextMonth = document.querySelector("#dr-nextMonth");
-const dailyMonthTitle = document.querySelector("#dr-monthTitle");
-const dailyCalendarGrid = document.querySelector("#dr-calendarGrid");
+const dailyDateInput = document.querySelector("#dr-dateInput");
 const dailySelectedDateTitle = document.querySelector("#dr-selectedDateTitle");
 const dailyReportStatus = document.querySelector("#dr-reportStatus");
 const dailyReportRows = document.querySelector("#dr-reportRows");
@@ -18,6 +13,11 @@ const dailySummaryReferralLeads = document.querySelector("#dr-summaryReferralLea
 const dailySummaryReferralConversions = document.querySelector("#dr-summaryReferralConversions");
 const dailySummaryRenewal = document.querySelector("#dr-summaryRenewal");
 const dailySummaryRefunds = document.querySelector("#dr-summaryRefunds");
+const dailyTodoDate = document.querySelector("#dr-todoDate");
+const dailyTodoProgress = document.querySelector("#dr-todoProgress");
+const dailyTodoForm = document.querySelector("#dr-todoForm");
+const dailyTodoInput = document.querySelector("#dr-todoInput");
+const dailyTodoList = document.querySelector("#dr-todoList");
 
 const DAILY_FIELD_LABELS = [
   { key: "weekly_comments", label: "点评", sub_label: "本周总点评量", has_total: false },
@@ -30,10 +30,11 @@ const DAILY_FIELD_LABELS = [
 
 const today = new Date();
 let dailySelectedDate = formatDate(today);
-let dailyCalendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 let dailyRows = [];
 let dailyFields = DAILY_FIELD_LABELS;
 let dailyWeeklyBase = {};
+let dailyTodos = [];
+let dailyCanManageTodos = false;
 let dailyDirtyRows = new Map();
 let dailyAutoSaveTimer = null;
 let dailyQueuedSave = null;
@@ -136,6 +137,55 @@ function renderDailyReminder(data) {
     ${canMarkCurrent ? '<button class="ghost-button compact-button" type="button" data-daily-mark-done>标记已填写</button>' : ""}
   `;
   dailyReminder.classList.remove("is-hidden");
+}
+
+function renderDailyTodos(data = {}) {
+  const todoData = data.todos || {};
+  dailyTodos = todoData.items || [];
+  dailyCanManageTodos = Boolean(todoData.can_manage);
+  if (dailyTodoDate) dailyTodoDate.textContent = formatChineseDate(data.date || dailySelectedDate);
+  if (dailyTodoForm) dailyTodoForm.classList.toggle("is-hidden", !dailyCanManageTodos);
+
+  const completedTotal = dailyTodos.reduce((total, item) => total + Number(item.completed_count || 0), 0);
+  const teacherTotal = dailyTodos.reduce((total, item) => total + Number(item.teacher_count || 0), 0);
+  if (dailyTodoProgress) dailyTodoProgress.textContent = `${completedTotal}/${teacherTotal}`;
+
+  if (!dailyTodoList) return;
+  if (!dailyTodos.length) {
+    dailyTodoList.innerHTML = `<div class="daily-todo-empty">今天还没有待办事项。</div>`;
+    return;
+  }
+
+  dailyTodoList.innerHTML = dailyTodos
+    .map((item) => {
+      const completedNames = (item.completed_teachers || []).map((teacher) => teacher.teacher_name).join("、");
+      const pendingNames = (item.pending_teachers || []).map((teacher) => teacher.teacher_name).join("、");
+      const progressDetail = dailyCanManageTodos ? `
+        <details class="daily-todo-progress-detail">
+          <summary>完成 ${Number(item.completed_count || 0)} / ${Number(item.teacher_count || 0)}</summary>
+          <p><strong>已完成：</strong>${escapeDailyText(completedNames || "暂无")}</p>
+          <p><strong>未完成：</strong>${escapeDailyText(pendingNames || "暂无")}</p>
+        </details>
+      ` : `<span class="daily-todo-progress-text">${Number(item.completed_count || 0)} / ${Number(item.teacher_count || 0)}</span>`;
+      return `
+        <article class="daily-todo-item ${item.completed ? "is-completed" : ""}">
+          <label>
+            <input
+              type="checkbox"
+              data-daily-todo-toggle="${escapeDailyText(item.id)}"
+              ${item.completed ? "checked" : ""}
+              ${item.can_toggle ? "" : "disabled"}
+            >
+            <span>${escapeDailyText(item.text)}</span>
+          </label>
+          ${item.can_delete ? `<button class="daily-todo-delete-button" type="button" data-daily-todo-delete="${escapeDailyText(item.id)}" title="删除" aria-label="删除">−</button>` : ""}
+          <div class="daily-todo-meta">
+            ${progressDetail}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 async function dailyApiRequest(url, options = {}) {
@@ -322,14 +372,18 @@ function renderDailyReport(data) {
   dailyRows = data.rows || [];
   dailyFields = data.fields || dailyFields;
   dailyWeeklyBase = data.weekly_base || {};
+  if (dailyDateInput && data.date) {
+    dailyDateInput.value = data.date;
+  }
   if (dailySelectedDateTitle) {
-    dailySelectedDateTitle.textContent = `${formatChineseDate(data.date)} 日报`;
+    dailySelectedDateTitle.textContent = "班主任日报";
   }
   if (dailyReportStatus) {
     dailyReportStatus.textContent = data.updated_at ? `已保存：${data.updated_at}` : "尚未保存";
   }
   renderDailyRows();
   updateDailySummary();
+  renderDailyTodos(data);
   renderDailyReminder(data);
 }
 
@@ -431,28 +485,103 @@ async function saveDailyReport(date = dailySelectedDate, rows = collectDailyRows
   }
 }
 
+async function createDailyTodo(text) {
+  const data = await dailyApiRequest("/api/daily-report/todos", {
+    method: "POST",
+    body: JSON.stringify({
+      date: dailySelectedDate,
+      text,
+    }),
+  });
+  renderDailyTodos(data);
+  return data;
+}
+
+async function updateDailyTodo(todoId, completed) {
+  const data = await dailyApiRequest(`/api/daily-report/todos/${encodeURIComponent(todoId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      date: dailySelectedDate,
+      completed,
+    }),
+  });
+  renderDailyTodos(data);
+}
+
+async function deleteDailyTodo(todoId) {
+  const confirmed = window.confirm("确认删除这条待办事项吗？老师已勾选的进度也会一起移除。");
+  if (!confirmed) return;
+  const data = await dailyApiRequest(`/api/daily-report/todos/${encodeURIComponent(todoId)}?date=${encodeURIComponent(dailySelectedDate)}`, {
+    method: "DELETE",
+  });
+  renderDailyTodos(data);
+}
+
 function initDailyReport() {
-  if (!dailyCalendarGrid) return;
-
-  renderTodayCard();
-  renderCalendar();
-
-  dailyPrevMonth?.addEventListener("click", () => {
-    dailyCalendarMonth = new Date(dailyCalendarMonth.getFullYear(), dailyCalendarMonth.getMonth() - 1, 1);
-    renderCalendar();
-  });
-
-  dailyNextMonth?.addEventListener("click", () => {
-    dailyCalendarMonth = new Date(dailyCalendarMonth.getFullYear(), dailyCalendarMonth.getMonth() + 1, 1);
-    renderCalendar();
-  });
+  if (!dailyReportRows) return;
 
   dailyTodayButton?.addEventListener("click", async () => {
     await flushDailyAutoSave();
     dailySelectedDate = formatDate(today);
-    dailyCalendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    renderCalendar();
+    if (dailyDateInput) dailyDateInput.value = dailySelectedDate;
     await loadDailyReport();
+  });
+
+  dailyDateInput?.addEventListener("change", async () => {
+    if (!dailyDateInput.value) return;
+    await flushDailyAutoSave();
+    dailySelectedDate = dailyDateInput.value;
+    await loadDailyReport();
+  });
+
+  dailyTodoForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = dailyTodoInput?.value.trim() || "";
+    if (!text) {
+      dailyTodoInput?.focus();
+      return;
+    }
+    try {
+      const data = await createDailyTodo(text);
+      dailyTodoForm.reset();
+      setDailyMessage(`待办事项已添加 ${Number(data.added_count || 1)} 条。`);
+    } catch (error) {
+      setDailyMessage(error.message, true);
+    }
+  });
+
+  dailyTodoInput?.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      dailyTodoForm?.requestSubmit();
+    }
+  });
+
+  dailyTodoList?.addEventListener("change", async (event) => {
+    const checkbox = event.target.closest("[data-daily-todo-toggle]");
+    if (!checkbox) return;
+    checkbox.disabled = true;
+    try {
+      await updateDailyTodo(checkbox.dataset.dailyTodoToggle, checkbox.checked);
+      setDailyMessage(checkbox.checked ? "待办事项已标记完成。" : "待办事项已取消完成。");
+    } catch (error) {
+      setDailyMessage(error.message, true);
+      checkbox.checked = !checkbox.checked;
+      checkbox.disabled = false;
+    }
+  });
+
+  dailyTodoList?.addEventListener("click", async (event) => {
+    const deleteButton = event.target.closest("[data-daily-todo-delete]");
+    if (!deleteButton) return;
+    deleteButton.disabled = true;
+    try {
+      await deleteDailyTodo(deleteButton.dataset.dailyTodoDelete);
+      setDailyMessage("待办事项已删除。");
+    } catch (error) {
+      setDailyMessage(error.message, true);
+      deleteButton.disabled = false;
+    }
   });
 
   dailySaveButton?.addEventListener("click", async () => {
@@ -486,9 +615,7 @@ function initDailyReport() {
     try {
       await flushDailyAutoSave();
       dailySelectedDate = nextDate;
-      const parsedDate = parseDate(nextDate);
-      dailyCalendarMonth = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1);
-      renderCalendar();
+      if (dailyDateInput) dailyDateInput.value = nextDate;
       await loadDailyReport();
       setDailyMessage(`已切换到 ${formatChineseDate(nextDate)}，新月份累计从 0 开始。`);
     } catch (error) {

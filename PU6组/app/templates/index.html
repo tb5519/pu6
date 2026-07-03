@@ -4,11 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260702-activity-participants') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260703-talk-materials-home') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/talk-library.js', v='20260612-renewal-message-type') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/talk-library.js', v='20260703-talk-materials-home') }}" defer></script>
     <script src="{{ url_for('static', filename='js/completion.js', v='20260702-activity-participants') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260621-daily-reminder') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260702-daily-todo-small') }}" defer></script>
     <script src="{{ url_for('static', filename='js/database.js', v='20260630-renewal-rank-tooltip') }}" defer></script>
     <script src="{{ url_for('static', filename='js/renewal.js', v='20260628-renewal-leader-simple') }}" defer></script>
     {% if can_manage_accounts %}
@@ -83,27 +83,63 @@
               </div>
             </header>
 
-            <section class="talk-category-grid" aria-label="话术分类">
-              <button class="talk-category-card" type="button" data-talk-category="续费">
-                <span>续费</span>
-                <strong>续报沟通、课程衔接、权益说明</strong>
-                <em>进入专题</em>
-              </button>
-              <button class="talk-category-card" type="button" data-talk-category="转介绍">
-                <span>转介绍</span>
-                <strong>老带新邀约、家长推荐、报名转化沟通</strong>
-                <em>进入专题</em>
-              </button>
-              <button class="talk-category-card" type="button" data-talk-category="学情">
-                <span>学情</span>
-                <strong>学习反馈、阶段总结、家长沟通跟进</strong>
-                <em>进入专题</em>
-              </button>
-              <button class="talk-category-card" type="button" data-talk-category="挽单">
-                <span>挽单</span>
-                <strong>异议处理、流失挽回、信任修复</strong>
-                <em>进入专题</em>
-              </button>
+            <section class="talk-home-grid">
+              <section class="talk-category-grid" aria-label="话术分类">
+                <button class="talk-category-card" type="button" data-talk-category="续费">
+                  <span>续费</span>
+                  <strong>续报沟通、课程衔接、权益说明</strong>
+                  <em>进入专题</em>
+                </button>
+                <button class="talk-category-card" type="button" data-talk-category="转介绍">
+                  <span>转介绍</span>
+                  <strong>老带新邀约、家长推荐、报名转化沟通</strong>
+                  <em>进入专题</em>
+                </button>
+                <button class="talk-category-card" type="button" data-talk-category="学情">
+                  <span>学情</span>
+                  <strong>学习反馈、阶段总结、家长沟通跟进</strong>
+                  <em>进入专题</em>
+                </button>
+                <button class="talk-category-card" type="button" data-talk-category="挽单">
+                  <span>挽单</span>
+                  <strong>异议处理、流失挽回、信任修复</strong>
+                  <em>进入专题</em>
+                </button>
+              </section>
+
+              <section class="talk-material-panel talk-material-home" aria-label="话术素材库">
+                <div class="panel-title-row">
+                  <div>
+                    <h2>素材库</h2>
+                    <span id="tl-materialStatus" class="tool-status">按关键词搜索家长好评、截图素材</span>
+                  </div>
+                </div>
+
+                <label class="talk-material-search" for="tl-materialSearch">
+                  <span>关键词搜索</span>
+                  <input id="tl-materialSearch" type="search" placeholder="输入好评、进步、坚持等关键词">
+                </label>
+
+                {% if can_manage_talk_library %}
+                <form id="tl-materialForm" class="talk-material-form">
+                  <label for="tl-materialTitle">
+                    <span>素材名称</span>
+                    <input id="tl-materialTitle" name="title" type="text" maxlength="80" placeholder="例如：家长好评截图">
+                  </label>
+                  <label for="tl-materialKeywords">
+                    <span>关键词</span>
+                    <input id="tl-materialKeywords" name="keywords" type="text" maxlength="160" placeholder="好评, 进步, 坚持">
+                  </label>
+                  <label for="tl-materialFile">
+                    <span>上传图片</span>
+                    <input id="tl-materialFile" name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                  </label>
+                  <button class="primary-button compact-button" type="submit">上传素材</button>
+                </form>
+                {% endif %}
+
+                <div id="tl-materialList" class="talk-material-list"></div>
+              </section>
             </section>
           </section>
 
@@ -260,6 +296,7 @@
               {% endif %}
             </section>
             </div>
+
           </section>
         </section>
 
@@ -600,35 +637,32 @@
           <div id="dr-reminder" class="daily-reminder is-hidden"></div>
 
           <section class="daily-workspace">
-            <aside class="daily-calendar-panel" aria-label="日报日历">
-              <div class="daily-today-card">
-                <span>今日</span>
-                <strong id="dr-todayDay"></strong>
-                <small id="dr-todayText"></small>
+            <aside class="daily-todo-panel" aria-label="今日待办事项">
+              <div class="daily-todo-head">
+                <div>
+                  <span class="module-eyebrow">待办</span>
+                  <h2>今日待办事项</h2>
+                  <small id="dr-todoDate"></small>
+                </div>
+                <strong id="dr-todoProgress">0/0</strong>
               </div>
-
-              <div class="calendar-toolbar">
-                <button id="dr-prevMonth" type="button" aria-label="上个月">‹</button>
-                <h2 id="dr-monthTitle"></h2>
-                <button id="dr-nextMonth" type="button" aria-label="下个月">›</button>
-              </div>
-
-              <div class="calendar-weekdays" aria-hidden="true">
-                <span>一</span>
-                <span>二</span>
-                <span>三</span>
-                <span>四</span>
-                <span>五</span>
-                <span>六</span>
-                <span>日</span>
-              </div>
-              <div id="dr-calendarGrid" class="daily-calendar-grid"></div>
+              <form id="dr-todoForm" class="daily-todo-form is-hidden">
+                <textarea id="dr-todoInput" maxlength="3000" rows="4" placeholder="批量新增：一行一条，可写 1. 事项内容"></textarea>
+                <button class="primary-button compact-button" type="submit">批量添加</button>
+              </form>
+              <div id="dr-todoList" class="daily-todo-list"></div>
             </aside>
 
             <section class="daily-report-panel">
               <div class="panel-title-row daily-report-title">
                 <div>
-                  <h2 id="dr-selectedDateTitle">今日日报</h2>
+                  <div class="daily-date-title">
+                    <h2 id="dr-selectedDateTitle">班主任日报</h2>
+                    <label class="daily-date-picker">
+                      <span>日期</span>
+                      <input id="dr-dateInput" type="date">
+                    </label>
+                  </div>
                   <span id="dr-reportStatus" class="tool-status"></span>
                 </div>
                 <div class="daily-summary" aria-label="日报汇总">

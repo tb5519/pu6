@@ -18,7 +18,7 @@ INSTANCE_JSON_DEFAULTS = {
     "DATABASE_SETTINGS_FILE": {"learning": {"classes": {}, "teachers": {}}, "gmv": {}},
     "MONTHLY_ARCHIVES_FILE": {"archives": {}, "current_period": {}},
     "RENEWAL_PROJECTS_FILE": {"projects": [], "blocker_options": []},
-    "TALK_LIBRARY_FILE": {"learning_calls": {}},
+    "TALK_LIBRARY_FILE": {"learning_calls": {}, "materials": []},
     "VIDEOS_FILE": {"records": []},
 }
 
@@ -60,6 +60,7 @@ def create_app():
         MONTHLY_ARCHIVES_FILE=Path(app.instance_path) / "monthly_archives.json",
         RENEWAL_PROJECTS_FILE=Path(app.instance_path) / "renewal_projects.json",
         TALK_LIBRARY_FILE=Path(app.instance_path) / "talk_library.json",
+        TALK_MATERIAL_DIR=Path(app.instance_path) / "talk_materials",
         VIDEOS_FILE=Path(app.instance_path) / "videos.json",
         VIDEO_DOWNLOAD_DIR=Path(app.instance_path) / "video_downloads",
         PERMANENT_SESSION_LIFETIME=timedelta(days=7),

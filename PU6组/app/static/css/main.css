@@ -1586,6 +1586,13 @@ input {
   margin-bottom: 18px;
 }
 
+.talk-home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
+  gap: 16px;
+  align-items: start;
+}
+
 .talk-category-home .talk-category-grid {
   margin-bottom: 0;
 }
@@ -1766,6 +1773,10 @@ input {
 
 .tool-status strong {
   color: #6b38ef;
+}
+
+.tool-status.is-error {
+  color: #b42318;
 }
 
 .talk-library-list {
@@ -2073,6 +2084,167 @@ input {
   color: #342c55;
   line-height: 1.75;
   white-space: pre-wrap;
+}
+
+.talk-material-panel {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(225, 215, 246, 0.9);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 36px rgba(67, 45, 133, 0.08);
+}
+
+.talk-material-home {
+  margin-top: 0;
+  max-height: 620px;
+  overflow: hidden;
+}
+
+.talk-material-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+}
+
+.talk-material-search,
+.talk-material-form label {
+  display: grid;
+  gap: 6px;
+  color: #625b80;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.talk-material-search {
+  margin-top: 12px;
+}
+
+.talk-material-search input,
+.talk-material-form input {
+  min-width: 0;
+  height: 38px;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #191143;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  outline: 0;
+}
+
+.talk-material-form input[type="file"] {
+  padding: 8px 10px;
+}
+
+.talk-material-search input:focus,
+.talk-material-form input:focus {
+  border-color: #7f4af3;
+  box-shadow: 0 0 0 4px rgba(127, 74, 243, 0.12);
+}
+
+.talk-material-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.talk-material-card {
+  overflow: hidden;
+  border: 1px solid #ece5f8;
+  border-radius: 8px;
+  background: #fbf9ff;
+}
+
+.talk-material-image {
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #f2edf9;
+}
+
+.talk-material-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.talk-material-body {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+}
+
+.talk-material-head {
+  position: relative;
+  min-height: 22px;
+  padding-right: 24px;
+}
+
+.talk-material-head strong {
+  display: block;
+  color: #191143;
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.35;
+}
+
+.talk-material-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #eadff6;
+  border-radius: 999px;
+  color: #7d7196;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.talk-material-delete:hover {
+  border-color: #f3b7a9;
+  color: #b42318;
+  background: #fff8f6;
+}
+
+.talk-material-body span,
+.talk-material-body p {
+  margin: 0;
+  color: #625b80;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.talk-material-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.talk-material-actions .compact-button {
+  min-width: 76px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  text-decoration: none;
 }
 
 .result-actions {
@@ -4007,21 +4179,237 @@ input {
 
 .daily-workspace {
   display: grid;
-  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
 }
 
+.daily-module .module-head {
+  margin-bottom: 12px;
+  padding: 16px 18px;
+}
+
+.daily-module .module-eyebrow {
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.daily-module .module-head h1 {
+  margin: 8px 0 4px;
+  font-size: 26px;
+}
+
+.daily-module .module-head p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.daily-module .module-actions button {
+  min-height: 34px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.daily-todo-panel,
 .daily-calendar-panel,
 .daily-report-panel {
   border: 1px solid rgba(225, 215, 246, 0.9);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 42px rgba(67, 45, 133, 0.1);
+  box-shadow: 0 12px 28px rgba(67, 45, 133, 0.08);
 }
 
+.daily-todo-panel,
 .daily-calendar-panel {
-  padding: 18px;
+  padding: 12px;
+}
+
+.daily-todo-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.daily-todo-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.daily-todo-head h2 {
+  margin: 3px 0 3px;
+  color: #191143;
+  font-size: 16px;
+}
+
+.daily-todo-head small {
+  color: #746a92;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.daily-todo-head > strong {
+  min-width: 52px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #116453;
+  background: #e1f5ef;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.daily-todo-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.daily-todo-form textarea {
+  min-width: 0;
+  min-height: 62px;
+  height: 66px;
+  resize: vertical;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: #191143;
+  background: #fff;
+  font: inherit;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1.45;
+  outline: 0;
+}
+
+.daily-todo-form textarea:focus {
+  border-color: #7f4af3;
+  box-shadow: 0 0 0 4px rgba(127, 74, 243, 0.12);
+}
+
+.daily-todo-form button {
+  justify-self: end;
+  min-width: 88px;
+  min-height: 32px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.daily-todo-list {
+  display: grid;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.daily-todo-empty {
+  padding: 12px 10px;
+  border: 1px dashed #d8cdf4;
+  border-radius: 8px;
+  color: #746a92;
+  background: #fbf9ff;
+  font-size: 12px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.daily-todo-item {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 9px 30px 9px 9px;
+  border: 1px solid #ece5f8;
+  border-radius: 8px;
+  background: #fbf9ff;
+}
+
+.daily-todo-delete-button {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #eadff6;
+  border-radius: 999px;
+  color: #7d7196;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.daily-todo-delete-button:hover {
+  border-color: #f3b7a9;
+  color: #b42318;
+  background: #fff8f6;
+}
+
+.daily-todo-item.is-completed {
+  border-color: #cfeee5;
+  background: #f3fbf9;
+}
+
+.daily-todo-item label {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+  color: #191143;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.daily-todo-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: #6f3ff1;
+}
+
+.daily-todo-item.is-completed label span {
+  color: #116453;
+}
+
+.daily-todo-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-left: 23px;
+}
+
+.daily-todo-progress-text,
+.daily-todo-progress-detail summary {
+  color: #746a92;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.daily-todo-progress-detail {
+  min-width: 0;
+}
+
+.daily-todo-progress-detail p {
+  margin: 6px 0 0;
+  color: #51476f;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .daily-today-card {
@@ -4129,7 +4517,7 @@ input {
 
 .daily-report-panel {
   min-width: 0;
-  padding: 18px;
+  padding: 12px;
 }
 
 .daily-report-title {
@@ -4139,27 +4527,59 @@ input {
 .daily-report-title h2 {
   margin: 0;
   color: #191143;
-  font-size: 20px;
+  font-size: 18px;
+}
+
+.daily-date-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.daily-date-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  background: #fff;
+  color: #625b80;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.daily-date-picker input {
+  width: 124px;
+  border: 0;
+  color: #191143;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  outline: 0;
 }
 
 .daily-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
 }
 
 .daily-summary span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 11px;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 8px;
   border: 1px solid #d9f1eb;
   border-radius: 999px;
   background: #f0fbf8;
   color: #26665f;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
 }
 
@@ -4168,8 +4588,8 @@ input {
 }
 
 .daily-table-wrap {
-  margin-top: 14px;
-  max-height: min(64vh, 720px);
+  margin-top: 10px;
+  max-height: min(70vh, 760px);
   overflow: auto;
   border: 1px solid #ece5f8;
   border-radius: 8px;
@@ -4177,14 +4597,14 @@ input {
 
 .daily-table {
   width: 100%;
-  min-width: 1680px;
+  min-width: 1380px;
   border-collapse: separate;
   border-spacing: 0;
 }
 
 .daily-table th,
 .daily-table td {
-  padding: 10px;
+  padding: 7px 8px;
   border-bottom: 1px solid #ece5f8;
   border-left: 1px solid rgba(236, 229, 248, 0.6);
   text-align: center;
@@ -4196,7 +4616,7 @@ input {
   z-index: 5;
   color: #4b3f78;
   background: #f7f2ff;
-  font-size: 13px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -4205,7 +4625,7 @@ input {
 }
 
 .daily-table .daily-sub-header th {
-  top: 39px;
+  top: 34px;
 }
 
 .daily-table th[rowspan] {
@@ -4248,14 +4668,14 @@ input {
 }
 
 .daily-input-cell {
-  border-left-width: 8px !important;
+  border-left-width: 6px !important;
 }
 
 .daily-table .sticky-daily-col {
   position: sticky;
   left: 0;
   z-index: 3;
-  min-width: 132px;
+  min-width: 112px;
   text-align: left;
   box-shadow: 10px 0 16px rgba(72, 45, 130, 0.06);
 }
@@ -4265,25 +4685,25 @@ input {
 }
 
 .daily-table .daily-student-col {
-  left: 132px;
-  min-width: 126px;
+  left: 112px;
+  min-width: 96px;
 }
 
 .daily-teacher-cell {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   color: #191143;
   font-weight: 900;
 }
 
 .daily-teacher-cell em {
   justify-self: start;
-  min-height: 22px;
+  min-height: 18px;
   display: inline-flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 6px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 900;
 }
@@ -4314,9 +4734,9 @@ input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 58px;
-  height: 34px;
-  padding: 0 10px;
+  min-width: 46px;
+  height: 28px;
+  padding: 0 8px;
   border-radius: 8px;
   color: #20184c;
   background: #f1ecfb;
@@ -4330,13 +4750,14 @@ input {
 
 .daily-number-input {
   width: 100%;
-  height: 38px;
+  height: 30px;
   border: 1px solid #d9d1ed;
   border-radius: 8px;
-  padding: 0 10px;
+  padding: 0 8px;
   color: #191143;
   background: #fff;
   font-weight: 900;
+  font-size: 13px;
   text-align: center;
   outline: 0;
 }
@@ -7317,7 +7738,9 @@ input {
 
   .learning-call-tabs,
   .learning-call-sections,
-  .learning-editor-grid {
+  .learning-editor-grid,
+  .talk-home-grid,
+  .talk-material-form {
     grid-template-columns: 1fr;
   }
 
