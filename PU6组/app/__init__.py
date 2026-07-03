@@ -19,6 +19,7 @@ INSTANCE_JSON_DEFAULTS = {
     "MONTHLY_ARCHIVES_FILE": {"archives": {}, "current_period": {}},
     "RENEWAL_PROJECTS_FILE": {"projects": [], "blocker_options": []},
     "TALK_LIBRARY_FILE": {"learning_calls": {}, "materials": []},
+    "WORK_NAVIGATION_FILE": {"links": []},
     "VIDEOS_FILE": {"records": []},
 }
 
@@ -61,6 +62,7 @@ def create_app():
         RENEWAL_PROJECTS_FILE=Path(app.instance_path) / "renewal_projects.json",
         TALK_LIBRARY_FILE=Path(app.instance_path) / "talk_library.json",
         TALK_MATERIAL_DIR=Path(app.instance_path) / "talk_materials",
+        WORK_NAVIGATION_FILE=Path(app.instance_path) / "work_navigation.json",
         VIDEOS_FILE=Path(app.instance_path) / "videos.json",
         VIDEO_DOWNLOAD_DIR=Path(app.instance_path) / "video_downloads",
         PERMANENT_SESSION_LIFETIME=timedelta(days=7),
@@ -76,6 +78,7 @@ def create_app():
     from app.routes import main_bp
     from app.talk_library import talk_library_bp
     from app.videos import videos_bp
+    from app.work_navigation import work_navigation_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(classes_bp)
@@ -84,6 +87,7 @@ def create_app():
     app.register_blueprint(renewal_bp)
     app.register_blueprint(talk_library_bp)
     app.register_blueprint(videos_bp)
+    app.register_blueprint(work_navigation_bp)
     app.register_blueprint(main_bp)
     register_cli_commands(app)
     return app

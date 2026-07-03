@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260703-talk-materials-home') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260703-work-nav-compact') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260703-work-nav-compact') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260703-talk-materials-home') }}" defer></script>
     <script src="{{ url_for('static', filename='js/completion.js', v='20260702-activity-participants') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260702-daily-todo-small') }}" defer></script>
@@ -39,7 +40,11 @@
           <span class="sidebar-toggle-text">收起菜单</span>
         </button>
         <nav class="side-menu">
-          <button class="side-menu-item is-active" type="button" data-module="完课">
+          <button class="side-menu-item is-active" type="button" data-module="工作导航">
+            <span class="menu-icon nav-icon" aria-hidden="true"></span>
+            <span>工作导航</span>
+          </button>
+          <button class="side-menu-item" type="button" data-module="完课">
             <span class="menu-icon cap-icon" aria-hidden="true"></span>
             <span>完课</span>
           </button>
@@ -73,6 +78,72 @@
       </aside>
 
       <main class="workbench-main">
+        <section class="module-panel work-nav-module is-active" data-module-panel="工作导航">
+          <header class="module-head">
+            <div>
+              <span class="module-eyebrow">工作导航</span>
+              <h1>工作链接导航</h1>
+              <p>集中整理常用工作链接，输入关键词即可快速定位并打开对应页面。</p>
+            </div>
+          </header>
+
+          <section class="work-nav-layout">
+            <section class="work-nav-search-panel">
+              <div class="panel-title-row">
+                <div>
+                  <h2>快速搜索</h2>
+                  <span id="wn-status" class="tool-status">正在读取工作链接...</span>
+                </div>
+              </div>
+              <label class="work-nav-search" for="wn-searchInput">
+                <span>搜索名称、关键词或说明</span>
+                <input id="wn-searchInput" type="search" placeholder="例如：飞书表格、续费、完课数据">
+              </label>
+              <div id="wn-linkList" class="work-nav-list"></div>
+            </section>
+
+            {% if can_manage_accounts %}
+            <aside class="work-nav-admin-panel" aria-label="工作导航管理">
+              <section class="tool-panel">
+                <div class="panel-title-row">
+                  <div>
+                    <h2 id="wn-formTitle">新增工作链接</h2>
+                    <span id="wn-formStatus" class="tool-status">可设置是否开放给组员</span>
+                  </div>
+                </div>
+                <form id="wn-linkForm" class="work-nav-form">
+                  <input id="wn-linkId" type="hidden">
+                  <label for="wn-titleInput">
+                    <span>链接名称</span>
+                    <input id="wn-titleInput" type="text" maxlength="80" placeholder="例如：续费跟进表">
+                  </label>
+                  <label for="wn-urlInput">
+                    <span>工作链接</span>
+                    <input id="wn-urlInput" type="url" placeholder="https://...">
+                  </label>
+                  <label for="wn-keywordsInput">
+                    <span>关键词</span>
+                    <input id="wn-keywordsInput" type="text" maxlength="160" placeholder="续费, 飞书, 数据">
+                  </label>
+                  <label for="wn-descriptionInput">
+                    <span>说明</span>
+                    <textarea id="wn-descriptionInput" maxlength="240" placeholder="这个链接主要用于什么场景"></textarea>
+                  </label>
+                  <label class="work-nav-open-toggle" for="wn-openInput">
+                    <input id="wn-openInput" type="checkbox" checked>
+                    <span>开放给组员</span>
+                  </label>
+                  <div class="work-nav-form-actions">
+                    <button id="wn-cancelEdit" class="ghost-button compact-button is-hidden" type="button">取消编辑</button>
+                    <button class="primary-button compact-button" type="submit">保存链接</button>
+                  </div>
+                </form>
+              </section>
+            </aside>
+            {% endif %}
+          </section>
+        </section>
+
         <section class="module-panel talk-module" data-module-panel="话术库">
           <section class="talk-category-home" data-talk-home>
             <header class="module-head">
@@ -300,7 +371,7 @@
           </section>
         </section>
 
-        <section class="module-panel completion-module is-active" data-module-panel="完课">
+        <section class="module-panel completion-module" data-module-panel="完课">
           <div class="completion-subnav" role="tablist" aria-label="完课板块">
             <button class="is-active" type="button" data-completion-section="classes" role="tab" aria-selected="true">我的班级</button>
             <button type="button" data-completion-section="reminder" role="tab" aria-selected="false">催课</button>

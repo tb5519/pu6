@@ -1136,6 +1136,29 @@ input {
   color: #fff;
 }
 
+.nav-icon::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 8px;
+  height: 26px;
+  border: 4px solid currentColor;
+  border-radius: 8px;
+}
+
+.nav-icon::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 15px;
+  width: 14px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 7px currentColor, 14px 14px 0 -1px #ffc65b;
+}
+
 .chat-icon::before {
   content: "";
   position: absolute;
@@ -2334,6 +2357,191 @@ input {
   color: #713df0;
   background: #f0e8ff;
   font-size: 22px;
+}
+
+.work-nav-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 14px;
+  align-items: start;
+}
+
+.work-nav-search-panel,
+.work-nav-admin-panel .tool-panel {
+  border: 1px solid rgba(225, 215, 246, 0.9);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 42px rgba(67, 45, 133, 0.1);
+}
+
+.work-nav-search-panel {
+  min-width: 0;
+  padding: 14px;
+}
+
+.work-nav-search-panel h2,
+.work-nav-admin-panel h2 {
+  margin: 0;
+  color: #191143;
+  font-size: 18px;
+}
+
+.work-nav-search,
+.work-nav-form label {
+  display: grid;
+  gap: 6px;
+  color: #625b80;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.work-nav-search {
+  margin-top: 10px;
+}
+
+.work-nav-search input,
+.work-nav-form input,
+.work-nav-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  color: #191143;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  outline: 0;
+}
+
+.work-nav-search input,
+.work-nav-form input {
+  height: 36px;
+  padding: 0 11px;
+}
+
+.work-nav-form textarea {
+  min-height: 72px;
+  padding: 10px 11px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.work-nav-search input:focus,
+.work-nav-form input:focus,
+.work-nav-form textarea:focus {
+  border-color: #7f4af3;
+  box-shadow: 0 0 0 4px rgba(127, 74, 243, 0.12);
+}
+
+.work-nav-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.work-nav-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid #ece5f8;
+  border-radius: 8px;
+  background: #fbf9ff;
+}
+
+.work-nav-name {
+  overflow: hidden;
+  color: #191143;
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.3;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-nav-name:hover,
+.work-nav-name:focus-visible {
+  color: #6b38ef;
+  outline: 0;
+}
+
+.work-nav-badge {
+  flex: 0 0 auto;
+  min-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.work-nav-badge.is-open {
+  color: #116453;
+  background: #dff4ed;
+}
+
+.work-nav-badge.is-private {
+  color: #9f1c1c;
+  background: #fff0f0;
+}
+
+.work-nav-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.work-nav-actions .compact-button {
+  min-width: 42px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.danger-button {
+  color: #b42318;
+  border-color: #f3b7a9;
+  background: #fff8f6;
+}
+
+.work-nav-admin-panel .tool-panel {
+  padding: 14px;
+}
+
+.work-nav-form {
+  display: grid;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.work-nav-open-toggle {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  color: #191143;
+  font-size: 13px;
+}
+
+.work-nav-open-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: #6f3ff1;
+}
+
+.work-nav-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .completion-subnav {
@@ -7761,6 +7969,7 @@ input {
   .database-topic-grid,
   .database-ranking-grid,
   .database-metric-grid,
+  .work-nav-layout,
   .renewal-stage-board,
   .renewal-detail-summary,
   .database-learning-editor-grid,
