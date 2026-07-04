@@ -48,8 +48,56 @@ def renewal_file():
     return current_app.config["RENEWAL_PROJECTS_FILE"]
 
 
+def monthly_archives_file():
+    return current_app.config["MONTHLY_ARCHIVES_FILE"]
+
+
 def now_iso():
     return datetime.now().isoformat(timespec="seconds")
+
+
+def today_key():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def load_monthly_archive_store():
+    path = monthly_archives_file()
+    if not path.exists():
+        return {}
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def current_period_start_key(reference_date=None):
+    report_date = str(reference_date or today_key())[:10]
+    store = load_monthly_archive_store()
+    start_date = str(store.get("current_period", {}).get("start_date") or "").strip()
+    if start_date and start_date <= report_date:
+        return start_date
+    return f"{report_date[:7]}-01"
+
+
+def current_period_key():
+    return current_period_start_key()
+
+
+def current_period_label():
+    return f"{current_period_start_key()}起"
+
+
+def previous_month_key(month_key):
+    year, month = [int(part) for part in str(month_key).split("-")]
+    if month == 1:
+        return f"{year - 1}-12"
+    return f"{year}-{month - 1:02d}"
+
+
+def renewal_completion_month_key():
+    return previous_month_key(current_month_key())
 
 
 def current_owner():
@@ -311,6 +359,78 @@ def normalize_locked_student_count(value, fallback=0):
     except (TypeError, ValueError):
         count = int(fallback or 0)
     return max(0, min(count, 9999))
+
+
+def normalize_target_count(value):
+    if value in (None, ""):
+        return None
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0, min(count, 9999))
+
+
+def project_target_settings(project):
+    settings = project.get("monthly_targets")
+    if isinstance(settings, dict):
+        return settings
+    project["monthly_targets"] = {}
+    return project["monthly_targets"]
+
+
+def project_month_target(project, month_key=None):
+    month = month_key or current_period_key()
+    settings = project.get("monthly_targets")
+    if isinstance(settings, dict):
+        month_settings = settings.get(month)
+        if isinstance(month_settings, dict):
+            return normalize_target_count(month_settings.get("target_count"))
+        legacy_month = current_month_key()
+        legacy_settings = settings.get(legacy_month)
+        if month.endswith("-01") and isinstance(legacy_settings, dict):
+            return normalize_target_count(legacy_settings.get("target_count"))
+    return normalize_target_count(project.get("target_count"))
+
+
+def enrollment_date_key(record):
+    if not isinstance(record, dict) or not record.get("enrolled"):
+        return ""
+    enrolled_at = str(record.get("enrolled_at") or "").strip()
+    if len(enrolled_at) >= 10:
+        return enrolled_at[:10]
+    return ""
+
+
+def month_enrolled_student_ids(project, source_class=None, month_key=None):
+    start_key = month_key or current_period_start_key()
+    end_key = today_key()
+    ids = {
+        str(student_id)
+        for student_id, record in (project.get("student_followups") or {}).items()
+        for enrolled_date in [enrollment_date_key(record)]
+        if enrolled_date and start_key <= enrolled_date <= end_key
+    }
+    if source_class:
+        valid_ids = {str(student.get("id")) for student in source_class.get("students", []) if student.get("id")}
+        ids = ids & valid_ids
+    return ids
+
+
+def set_project_month_target(project, value, month_key=None):
+    month = month_key or current_period_key()
+    target_count = normalize_target_count(value)
+    settings = project_target_settings(project)
+    if target_count is None:
+        settings.pop(month, None)
+    else:
+        settings[month] = {
+            "target_count": target_count,
+            "updated_at": now_iso(),
+            "updated_by": current_owner(),
+        }
+    project.pop("target_count", None)
+    return target_count
 
 
 def ensure_project_student_count_lock(project, source_class):
@@ -986,6 +1106,55 @@ def leader_plan_counts(project, source_class=None):
     }
 
 
+def date_matches_today(value, today=None):
+    text = str(value or "").strip()
+    if not text:
+        return False
+    return text[:10] == (today or today_key())
+
+
+def followup_record_touched_today(record, today=None):
+    today = today or today_key()
+    if not isinstance(record, dict):
+        return False
+    if date_matches_today(record.get("followed_at"), today):
+        return True
+    weekly_followups = record.get("weekly_followups")
+    if isinstance(weekly_followups, dict):
+        for week_records in weekly_followups.values():
+            if not isinstance(week_records, list):
+                continue
+            for item in week_records:
+                if not isinstance(item, dict):
+                    continue
+                if date_matches_today(item.get("date"), today) or date_matches_today(item.get("created_at") or item.get("createdAt"), today):
+                    return True
+    general_followups = record.get("general_followups")
+    if isinstance(general_followups, list):
+        for item in general_followups:
+            if not isinstance(item, dict):
+                continue
+            if date_matches_today(item.get("date"), today) or date_matches_today(item.get("created_at") or item.get("createdAt"), today):
+                return True
+    for item in normalize_note_entries(record):
+        if date_matches_today(item.get("created_at"), today) or date_matches_today(item.get("updated_at"), today):
+            return True
+    return False
+
+
+def project_today_followup_count(project, source_class=None):
+    valid_ids = None
+    if source_class:
+        valid_ids = {str(student.get("id")) for student in source_class.get("students", []) if student.get("id")}
+    total = 0
+    for student_id, record in (project.get("student_followups") or {}).items():
+        if valid_ids is not None and str(student_id) not in valid_ids:
+            continue
+        if followup_record_touched_today(record):
+            total += 1
+    return total
+
+
 def serialize_project(project, classes_by_id):
     source_class = classes_by_id.get(project.get("class_id"))
     source_count = source_class_student_count(source_class)
@@ -1025,8 +1194,16 @@ def serialize_project(project, classes_by_id):
         })
     student_count = int(output.get("student_count") or 0)
     enrolled_count = len(enrolled_student_ids(project, source_class))
+    month_enrolled_count = len(month_enrolled_student_ids(project, source_class))
+    target_count = project_month_target(project)
     output["enrolled_count"] = enrolled_count
+    output["month_enrolled_count"] = month_enrolled_count
     output["renewal_rate"] = round(enrolled_count / student_count * 100, 2) if student_count else None
+    output["target_count"] = target_count
+    output["target_gap"] = max(0, target_count - month_enrolled_count) if target_count is not None else None
+    output["target_progress_rate"] = round(month_enrolled_count / target_count * 100, 2) if target_count else None
+    output["target_month"] = current_period_label()
+    output["today_followup_count"] = project_today_followup_count(project, source_class)
     output.update(leader_plan_counts(project, source_class))
     return output
 
@@ -1034,7 +1211,9 @@ def serialize_project(project, classes_by_id):
 def serialize_project_detail(project, classes_by_id):
     output = serialize_project(project, classes_by_id)
     source_class = classes_by_id.get(project.get("class_id"))
-    month_key = current_month_key()
+    month_key = renewal_completion_month_key()
+    output["completion_month"] = month_key
+    output["completion_label"] = f"{int(month_key[5:7])}月完课"
     include_weekly_in_general = output.get("stage") in RENEWAL_SINGLE_FOLLOWUP_STAGES
     output["students"] = []
     if source_class:
@@ -1082,11 +1261,28 @@ def visible_projects(store):
 
 def project_summary(projects):
     counts = {stage: 0 for stage in RENEWAL_STAGES}
+    target_projects = 0
+    target_total = 0
+    month_enrolled_total = 0
+    enrolled_total = 0
     for project in projects:
         counts[normalize_stage(project.get("stage"))] += 1
+        month_enrolled_total += int(project.get("month_enrolled_count") or 0)
+        enrolled_total += int(project.get("enrolled_count") or 0)
+        target_count = normalize_target_count(project.get("target_count"))
+        if target_count is not None:
+            target_projects += 1
+            target_total += target_count
     return {
         "total": len(projects),
         "stage_counts": counts,
+        "target_projects": target_projects,
+        "target_count": target_total,
+        "month_enrolled_count": month_enrolled_total,
+        "enrolled_count": enrolled_total,
+        "target_gap": max(0, target_total - month_enrolled_total) if target_projects else None,
+        "target_progress_rate": round(month_enrolled_total / target_total * 100, 2) if target_total else None,
+        "target_month": current_period_label(),
     }
 
 
@@ -1107,6 +1303,8 @@ def teacher_overview(projects, classes_by_id):
             "enrolled_count": 0,
             "pending_leader_plan_count": 0,
             "stage_counts": {stage: 0 for stage in RENEWAL_STAGES},
+            "today_followup_count": 0,
+            "projects": [],
         })
         entry["class_count"] += 1
     for project in projects:
@@ -1122,13 +1320,26 @@ def teacher_overview(projects, classes_by_id):
             "enrolled_count": 0,
             "pending_leader_plan_count": 0,
             "stage_counts": {stage: 0 for stage in RENEWAL_STAGES},
+            "today_followup_count": 0,
+            "projects": [],
         })
         entry["teacher_name"] = project.get("teacher_name") or entry["teacher_name"]
         entry["project_count"] += 1
         entry["student_count"] += int(project.get("student_count") or 0)
         entry["enrolled_count"] += int(project.get("enrolled_count") or 0)
+        entry["target_count"] = int(entry.get("target_count") or 0) + int(project.get("target_count") or 0)
         entry["pending_leader_plan_count"] += int(project.get("pending_leader_plan_count") or 0)
+        entry["today_followup_count"] += int(project.get("today_followup_count") or 0)
         entry["stage_counts"][normalize_stage(project.get("stage"))] += 1
+        entry["projects"].append({
+            "id": project.get("id", ""),
+            "class_name": project.get("class_name", ""),
+            "class_note": project.get("class_note", ""),
+            "stage": normalize_stage(project.get("stage")),
+            "today_followup_count": int(project.get("today_followup_count") or 0),
+        })
+    for entry in teachers.values():
+        entry["projects"].sort(key=lambda item: (RENEWAL_STAGES.index(item["stage"]), item.get("class_name", "")))
     return sorted(
         teachers.values(),
         key=lambda item: (item.get("teacher_name", ""), item.get("teacher_id", "")),
@@ -1258,6 +1469,10 @@ def update_project(project_id):
         project["locked_student_count"] = normalize_locked_student_count(next_count)
     if "student_count_note" in payload:
         project["student_count_note"] = str(payload.get("student_count_note") or "").strip()[:300]
+    if "target_count" in payload:
+        if not can_manage_accounts():
+            return jsonify({"error": "只有管理员可以设置续费目标。"}), 403
+        set_project_month_target(project, payload.get("target_count"))
     project["updated_at"] = now_iso()
     save_store(store)
     return jsonify(build_payload())
@@ -1318,7 +1533,13 @@ def update_student_enrollment(project_id, student_id):
         record["status"] = normalize_followup_status(payload.get("followup_status"))
         had_update = True
     elif "enrolled" in payload:
-        record["enrolled"] = bool(payload.get("enrolled"))
+        next_enrolled = bool(payload.get("enrolled"))
+        was_enrolled = bool(record.get("enrolled"))
+        record["enrolled"] = next_enrolled
+        if next_enrolled and not was_enrolled:
+            record["enrolled_at"] = now_iso()
+        if not next_enrolled:
+            record.pop("enrolled_at", None)
         had_update = True
     elif "current_blocker" in payload:
         record["current_blocker"] = normalize_blocker(payload.get("current_blocker"))

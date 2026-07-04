@@ -3,6 +3,7 @@ const classDetailView = document.querySelector("[data-class-detail]");
 const completionSectionButtons = document.querySelectorAll("[data-completion-section]");
 const reminderSectionButton = document.querySelector('[data-completion-section="reminder"]');
 const completionSectionPanels = document.querySelectorAll("[data-completion-section-panel]");
+const classAddToggle = document.querySelector("#cc-addClassToggle");
 const classCreateForm = document.querySelector("[data-class-create-form]");
 const classBackButton = document.querySelector("[data-class-back]");
 const classList = document.querySelector("#cc-classList");
@@ -11,7 +12,7 @@ const teamClassOverview = document.querySelector("#cc-teamClassOverview");
 const activityNotice = document.querySelector("#cc-activityNotice");
 const activityEyebrow = document.querySelector("#cc-activityEyebrow");
 const activityTitle = document.querySelector("#cc-activityTitle");
-const activityDescription = document.querySelector("#cc-activityDescription");
+const activityVisualPreview = document.querySelector("#cc-activityVisualPreview");
 const activityJoinForm = document.querySelector("[data-activity-join-form]");
 const activityClassSelect = document.querySelector("#cc-activityClassSelect");
 const activityAdminPanel = document.querySelector("[data-activity-admin]");
@@ -115,6 +116,7 @@ let canManageCompletionActivity = false;
 let activeClass = null;
 let reminderPlanLoaded = false;
 let reminderPlanLoading = false;
+let canManageAllReminders = false;
 let activeReminderClass = null;
 let activeReminderArrangement = null;
 let reminderActionIndex = new Map();
@@ -493,6 +495,42 @@ function renderActivityParticipants() {
   });
 }
 
+function renderActivityNoticeVisuals(activity) {
+  if (!activityVisualPreview) return;
+  if (!activity) {
+    activityVisualPreview.innerHTML = "";
+    return;
+  }
+  const visuals = normalizeActivityVisuals(activity);
+  const stageItems = visuals.stage_labels.map((label, index) => ({
+    label,
+    asset: visuals.stage_images?.[String(index)],
+  }));
+  const fallbackItems = Object.values(visuals.result_images || {})
+    .slice(0, 6)
+    .map((asset, index) => ({
+      label: visuals.result_labels[index] || `结果${index + 1}`,
+      asset,
+    }));
+  const items = stageItems.some((item) => item.asset?.url) ? stageItems : (fallbackItems.length ? fallbackItems : stageItems);
+  activityVisualPreview.innerHTML = `
+    <div class="activity-notice-visual-row">
+      ${items.map((item, index) => `
+        ${index ? `<span class="activity-notice-arrow" aria-hidden="true">→</span>` : ""}
+        <figure class="activity-notice-visual-item ${item.asset?.url ? "has-image" : ""}">
+          <span class="activity-notice-image">
+            ${item.asset?.url
+              ? `<img src="${escapeText(item.asset.url)}" alt="${escapeText(item.label)}">`
+              : `<em>${index + 1}</em>`
+            }
+          </span>
+          <figcaption>${escapeText(item.label)}</figcaption>
+        </figure>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderActivityAdminForm() {
   if (!activityAdminPanel) return;
   activityAdminPanel.classList.toggle("is-hidden", !canManageCompletionActivity);
@@ -551,6 +589,7 @@ function renderActivityAdminForm() {
           ${item.status === "draft" ? `<button class="primary-button compact-button" type="button" data-activity-publish="${escapeText(item.id)}">发布</button>` : ""}
           ${item.status === "active" ? `<button class="danger-button compact-button" type="button" data-activity-end="${escapeText(item.id)}">结束</button>` : ""}
           <button class="ghost-button compact-button" type="button" data-activity-copy="${escapeText(item.id)}">复制</button>
+          ${item.status !== "active" ? `<button class="danger-button compact-button" type="button" data-activity-delete="${escapeText(item.id)}">删除</button>` : ""}
         </div>
       </article>
     `)
@@ -579,6 +618,11 @@ function renderActivityAdminForm() {
       endCompletionActivity(button.dataset.activityEnd).catch((error) => setClassMessage(error.message, true));
     });
   });
+  activityArchive.querySelectorAll("[data-activity-delete]").forEach((button) => {
+    button.addEventListener("click", () => {
+      deleteCompletionActivity(button.dataset.activityDelete).catch((error) => setClassMessage(error.message, true));
+    });
+  });
 }
 
 function renderCompletionActivity() {
@@ -587,7 +631,9 @@ function renderCompletionActivity() {
   if (completionActivity) {
     if (activityEyebrow) activityEyebrow.textContent = completionActivity.eyebrow || "完课活动";
     if (activityTitle) activityTitle.textContent = completionActivity.title || "盲盒种子成长计划";
-    if (activityDescription) activityDescription.textContent = completionActivity.description || "";
+    renderActivityNoticeVisuals(completionActivity);
+  } else {
+    renderActivityNoticeVisuals(null);
   }
   updateWeekSelectOptions();
   renderActivityClassOptions();
@@ -651,6 +697,25 @@ async function endCompletionActivity(activityId = completionActivity?.id) {
   editingActivityId = "";
   await loadClasses();
   setClassMessage("完课活动已结束并存档，组员端已隐藏。");
+}
+
+async function deleteCompletionActivity(activityId) {
+  if (!activityId) return;
+  const target = completionActivities.find((item) => item.id === activityId);
+  const name = target ? `${target.eyebrow || "完课活动"} · ${target.title || "未命名活动"}` : "这个活动";
+  if (!window.confirm(`确认删除「${name}」吗？删除后活动内容和已上传素材都会移除。`)) {
+    return;
+  }
+  const data = await apiRequest(`/api/classes/activities/${activityId}`, {
+    method: "DELETE",
+  });
+  updateActivityState(data);
+  if (editingActivityId === activityId) {
+    editingActivityId = "";
+  }
+  renderCompletionActivity();
+  renderClassList();
+  setClassMessage("活动已删除。");
 }
 
 async function removeActivityParticipant(classId) {
@@ -1940,7 +2005,7 @@ function showReminderDetail(item) {
     reminderDetailMeta.textContent = parts.join(" ｜ ") || "请先确认当前完课数据是否为最新。";
   }
   if (reminderConfirmCopy) {
-    reminderConfirmCopy.textContent = `当前读取到的完成度为 ${formatCompletion(item.completion_rate)}，上个月完课率为 ${formatCompletion(item.last_month_completion)}。如果这不是最新数据，请先上传最新完课数据。`;
+    reminderConfirmCopy.textContent = `当前完成度 ${formatCompletion(item.completion_rate)}，上月 ${formatCompletion(item.last_month_completion)}。`;
   }
   if (item.action_state?.completed) {
     renderReminderArrangement().catch((error) => setReminderDetailMessage(error.message, true));
@@ -2561,6 +2626,30 @@ function renderReminderPhoneCallRecord(student = {}) {
   return `<span class="reminder-call-record">无需去电</span>`;
 }
 
+function renderReminderSpotCheckStudents(students = []) {
+  const sample = (students || []).slice(0, 3);
+  if (!sample.length) return "";
+  return `
+    <div class="reminder-spot-check">
+      <div class="reminder-spot-check-head">
+        <strong>抽查名单</strong>
+        <span>优先抽异常断课/偶尔断课</span>
+      </div>
+      <div class="reminder-spot-check-list">
+        ${sample.map((student, index) => `
+          <article class="reminder-spot-check-card">
+            <em>${index + 1}</em>
+            <div>
+              <strong>${escapeText(student.name || "-")}</strong>
+              <span>${escapeText(student.category || "暂无数据")} · ${formatCompletion(student.monthly_completion)}</span>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderReminderActionRecords(records = []) {
   if (!records.length) return "";
   return `
@@ -2575,6 +2664,7 @@ function renderReminderActionRecords(records = []) {
             <strong>${escapeText(record.teacher_name || "-")} · ${escapeText(reminderDisplayClassName(record) || "-")}</strong>
             <span>${escapeText(record.origin_day_label || record.recovery_day_label || "-")} ${escapeText(record.task_label || "催课")} · ${Number(record.student_count || 0)} 名 · ${escapeText(reminderRecordTime(record))}</span>
           </div>
+          ${renderReminderSpotCheckStudents(record.spot_check_students || [])}
           <div class="reminder-table-wrap">
             <table class="reminder-priority-table reminder-saved-table">
               <thead>
@@ -2910,6 +3000,7 @@ async function renderReminderArrangement() {
   const rows = renderReminderStudentRows(students, { includeActivity: includeActivityFilter });
   const needReminderCount = rows.filter((row) => row.stats.incomplete.length > 0).length;
   const recoveryRecords = await loadReminderRecoveryRecords(activeReminderClass);
+  const actionRecords = canManageAllReminders ? await loadReminderActionRecords(activeReminderClass) : [];
   const taskLabel = activeReminderClass.task_label || "催课";
   const isRecoveryTask = taskLabel === "回收";
   const currentNeedRows = reminderRowsNeedingFollowUp(rows);
@@ -2939,6 +3030,7 @@ async function renderReminderArrangement() {
       </div>
     </section>
     ${renderReminderCompletionBar(rows, recoveryRecords)}
+    ${canManageAllReminders ? renderReminderActionRecords(actionRecords) : ""}
     ${isRecoveryTask ? renderReminderRecoveryRecords(recoveryRecords, rows) : ""}
     ${isRecoveryTask ? renderReminderRecoveryNewNeeds(rows, recoveryRecords) : renderReminderStudentTable(currentNeedRows, {
       title: "今日需催课学员",
@@ -2985,7 +3077,7 @@ function renderReminderError(message) {
 }
 
 function reminderGroupSummary(group) {
-  return `优先级 ${group.included_count || 0} 个，节奏共 ${group.schedule_count || 0} 个，补充 ${group.extra_count || 0} 个我的班级`;
+  return `可排序 ${group.included_count || 0} 个｜本周 ${group.schedule_count || 0} 个`;
 }
 
 function renderReminderPriorities(groups = []) {
@@ -2994,7 +3086,7 @@ function renderReminderPriorities(groups = []) {
   if (!visibleGroups.length) {
     reminderPriorityList.innerHTML = `
       <div class="empty-state compact-empty">
-        暂无可排序班级。未出现在完课数据表、或缺少上个月完课对比的班级不会参与排序。
+        暂无可排序班级。
       </div>
     `;
     return;
@@ -3057,6 +3149,12 @@ function reminderClassChips(items = [], emptyText = "无", context = {}) {
       : uploadState.is_fresh
         ? `今日已导入：${uploadState.updated_at || uploadState.updated_date || ""}`
         : `未导入今日数据${uploadState.updated_date ? `，上次导入：${uploadState.updated_date}` : ""}`;
+    const taskLabel = context.taskLabel || "催课";
+    const taskClass = taskLabel === "回收"
+      ? "is-recovery"
+      : taskLabel === "重点复催"
+        ? "is-focus"
+        : "is-remind";
     const completedTitle = actionState.completed_at
       ? `${actionState.label || "已完成"}：${actionState.completed_at}`
       : (actionState.label || "已完成");
@@ -3073,6 +3171,7 @@ function reminderClassChips(items = [], emptyText = "无", context = {}) {
         ${isCompleted ? `<span class="reminder-done-mark" title="${escapeText(completedTitle)}">✅</span>` : ""}
         <em>${item.rank ? `#${item.rank}` : (item.source === "my_class" ? "补" : "库")}</em>
         <span class="reminder-class-chip-name">${escapeText(reminderDisplayClassName(item))}</span>
+        <small class="reminder-task-tag ${taskClass}">${escapeText(taskLabel)}</small>
         ${showUploadMark ? `<small class="reminder-upload-mark ${uploadClass}" title="${escapeText(uploadTitle)}">${escapeText(uploadText)}</small>` : ""}
       </button>
     `;
@@ -3083,7 +3182,6 @@ function reminderTaskRow(label, items, emptyText, day = {}) {
   if (!items.length) return "";
   return `
     <div class="reminder-task-row">
-      <strong>${escapeText(label)}</strong>
       <div>${reminderClassChips(items, emptyText, { dayKey: day.key, dayLabel: day.label, taskLabel: label, recoverFrom: day.recover_from })}</div>
     </div>
   `;
@@ -3096,7 +3194,7 @@ function renderReminderSchedule(groups = []) {
   if (!visibleGroups.length) {
     reminderScheduleList.innerHTML = `
       <div class="empty-state compact-empty">
-        暂无可生成节奏的班级。请先在我的班级中添加班级，或确认数据库完课专区已有班级。
+        暂无本周催课班级。
       </div>
     `;
     return;
@@ -3106,7 +3204,7 @@ function renderReminderSchedule(groups = []) {
     <article class="reminder-teacher-block">
       <div class="reminder-teacher-head">
         <h3>${escapeText(group.teacher_name || "未分配")}</h3>
-        <span>数据库班级优先 ${group.database_count || 0} 个，补充我的班级 ${group.extra_count || 0} 个</span>
+        <span>本周 ${group.schedule_count || 0} 个班级</span>
       </div>
       <div class="reminder-week-grid">
         ${(group.schedule || []).map((day) => {
@@ -3137,9 +3235,30 @@ function renderReminderSchedule(groups = []) {
 function renderReminderPlan(data) {
   const summary = data?.summary || {};
   reminderTodayKey = data?.day_key || "";
+  canManageAllReminders = Boolean(data?.can_manage_all);
   updateReminderTabBadge(data);
   const shouldShowPriority = !data?.can_manage_all;
   reminderPriorityShell?.classList.toggle("is-hidden", !shouldShowPriority);
+  if (data?.waiting_for_monday_upload) {
+    const waitText = data.cycle_key
+      ? `等待本周一（${data.cycle_key}）完课数据。`
+      : "等待本周一完课数据。";
+    if (shouldShowPriority && reminderPriorityStatus) {
+      reminderPriorityStatus.textContent = waitText;
+    }
+    if (reminderScheduleStatus) {
+      reminderScheduleStatus.textContent = waitText;
+    }
+    if (shouldShowPriority && reminderPriorityList) {
+      reminderPriorityList.innerHTML = `<div class="empty-state compact-empty">${escapeText(waitText)}</div>`;
+    } else if (reminderPriorityList) {
+      reminderPriorityList.innerHTML = "";
+    }
+    if (reminderScheduleList) {
+      reminderScheduleList.innerHTML = `<div class="empty-state compact-empty">${escapeText(waitText)}</div>`;
+    }
+    return;
+  }
   const sourceDate = data?.plan_source_date
     ? `本周固定数据：${data.plan_source_date}`
     : (data?.snapshot_date ? `当前数据：${data.snapshot_date}` : "当前数据：暂无上传快照");
@@ -3545,6 +3664,15 @@ function initCompletion() {
     jumpToReminderUpload().catch((error) => setReminderDetailMessage(error.message, true));
   });
 
+  classAddToggle?.addEventListener("click", () => {
+    const isHidden = classCreateForm?.classList.toggle("is-hidden");
+    classAddToggle.setAttribute("aria-expanded", String(!isHidden));
+    classAddToggle.textContent = isHidden ? "+" : "-";
+    if (!isHidden) {
+      classNameInput?.focus();
+    }
+  });
+
   classCreateForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const name = classNameInput.value.trim();
@@ -3555,6 +3683,9 @@ function initCompletion() {
     try {
       await createClass(name);
       classCreateForm.reset();
+      classCreateForm.classList.add("is-hidden");
+      classAddToggle?.setAttribute("aria-expanded", "false");
+      if (classAddToggle) classAddToggle.textContent = "+";
     } catch (error) {
       setClassMessage(error.message, true);
     }

@@ -123,18 +123,15 @@ function renderDailyReminder(data) {
   if (!dailyReminder) return;
   dailyReminder.classList.add("is-hidden");
   dailyReminder.innerHTML = "";
+  dailyReminder.removeAttribute("title");
   if (!reminder?.is_today || !reminder.show_reminder) return;
 
-  const canMarkCurrent = reminder.current_user_can_submit && !reminder.current_user_submitted;
   const message = reminder.can_manage
-    ? `今日还有 ${reminder.missing_count || 0} 位老师未填写日报${dailyMissingTeacherText(reminder.missing_teachers) ? `：${dailyMissingTeacherText(reminder.missing_teachers)}` : ""}`
-    : "你今天还没有填写日报，填写后系统会自动保存。";
+    ? `日报提醒：今日还有 ${reminder.missing_count || 0} 位老师未填写日报。`
+    : "日报提醒：你今天还未填写日报。";
+  dailyReminder.title = message;
   dailyReminder.innerHTML = `
-    <div>
-      <strong>日报提醒</strong>
-      <span>${escapeDailyText(message)}</span>
-    </div>
-    ${canMarkCurrent ? '<button class="ghost-button compact-button" type="button" data-daily-mark-done>标记已填写</button>' : ""}
+    <span>${escapeDailyText(message)}</span>
   `;
   dailyReminder.classList.remove("is-hidden");
 }
@@ -156,17 +153,24 @@ function renderDailyTodos(data = {}) {
     return;
   }
 
-  dailyTodoList.innerHTML = dailyTodos
+  const displayTodos = dailyTodos
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const leftDone = left.item.completed ? 1 : 0;
+      const rightDone = right.item.completed ? 1 : 0;
+      return leftDone - rightDone || left.index - right.index;
+    })
+    .map(({ item }) => item);
+
+  dailyTodoList.innerHTML = displayTodos
     .map((item) => {
-      const completedNames = (item.completed_teachers || []).map((teacher) => teacher.teacher_name).join("、");
       const pendingNames = (item.pending_teachers || []).map((teacher) => teacher.teacher_name).join("、");
       const progressDetail = dailyCanManageTodos ? `
         <details class="daily-todo-progress-detail">
           <summary>完成 ${Number(item.completed_count || 0)} / ${Number(item.teacher_count || 0)}</summary>
-          <p><strong>已完成：</strong>${escapeDailyText(completedNames || "暂无")}</p>
           <p><strong>未完成：</strong>${escapeDailyText(pendingNames || "暂无")}</p>
         </details>
-      ` : `<span class="daily-todo-progress-text">${Number(item.completed_count || 0)} / ${Number(item.teacher_count || 0)}</span>`;
+      ` : "";
       return `
         <article class="daily-todo-item ${item.completed ? "is-completed" : ""}">
           <label>
@@ -179,9 +183,7 @@ function renderDailyTodos(data = {}) {
             <span>${escapeDailyText(item.text)}</span>
           </label>
           ${item.can_delete ? `<button class="daily-todo-delete-button" type="button" data-daily-todo-delete="${escapeDailyText(item.id)}" title="删除" aria-label="删除">−</button>` : ""}
-          <div class="daily-todo-meta">
-            ${progressDetail}
-          </div>
+          ${progressDetail ? `<div class="daily-todo-meta">${progressDetail}</div>` : ""}
         </article>
       `;
     })

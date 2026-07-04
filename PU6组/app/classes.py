@@ -713,6 +713,34 @@ def activity_image_extension(filename):
     return extension if extension in ACTIVITY_IMAGE_EXTENSIONS else ""
 
 
+def activity_asset_filenames(activity):
+    visuals = normalize_activity_visuals(activity.get("visuals"))
+    filenames = set()
+    for image_group in ("stage_images", "result_images"):
+        for asset in visuals.get(image_group, {}).values():
+            filename = secure_filename(str(asset.get("filename") or ""))
+            if filename:
+                filenames.add(filename)
+    return filenames
+
+
+def delete_unreferenced_activity_assets(activity, activity_store):
+    target_filenames = activity_asset_filenames(activity)
+    if not target_filenames:
+        return
+    referenced_filenames = set()
+    for item in activity_store.get("activities", []):
+        referenced_filenames.update(activity_asset_filenames(item))
+    asset_dir = completion_activity_asset_dir()
+    for filename in target_filenames - referenced_filenames:
+        path = asset_dir / filename
+        if path.exists() and path.is_file():
+            try:
+                path.unlink()
+            except OSError:
+                pass
+
+
 def current_owner():
     return g.user["username"]
 
@@ -1704,6 +1732,28 @@ def update_activity(activity_id):
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
     return jsonify(completion_activity_payload(activity_store))
+
+
+@classes_bp.delete("/activities/<activity_id>")
+@login_required
+def delete_activity(activity_id):
+    if not can_manage_accounts():
+        return jsonify({"error": "只有管理员可以删除完课活动。"}), 403
+
+    class_store = load_store()
+    activity_store = load_activity_store(class_store)
+    activity = find_completion_activity(activity_store, activity_id)
+    if activity is None:
+        return jsonify({"error": "活动不存在。"}), 404
+    if normalize_activity_status(activity.get("status")) == "active":
+        return jsonify({"error": "进行中的活动不能直接删除，请先结束活动。"}), 400
+
+    activity_store["activities"] = [
+        item for item in activity_store.get("activities", []) if item.get("id") != activity_id
+    ]
+    delete_unreferenced_activity_assets(activity, activity_store)
+    save_activity_store(activity_store)
+    return jsonify(completion_activity_payload(activity_store, class_store))
 
 
 @classes_bp.delete("/activities/<activity_id>/participants/<class_id>")

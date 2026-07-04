@@ -52,7 +52,7 @@ function resetWorkNavForm() {
   wn("openInput").checked = true;
   if (workNavFormTitle) workNavFormTitle.textContent = "新增工作链接";
   workNavCancelEdit?.classList.add("is-hidden");
-  setWorkNavFormStatus("可设置是否开放给组员");
+  setWorkNavFormStatus("可设置组员是否可见");
 }
 
 function fillWorkNavForm(link) {
@@ -66,6 +66,28 @@ function fillWorkNavForm(link) {
   if (workNavFormTitle) workNavFormTitle.textContent = "编辑工作链接";
   workNavCancelEdit?.classList.remove("is-hidden");
   setWorkNavFormStatus("修改后保存即可同步给可见范围内的老师");
+}
+
+async function copyWorkNavLink(url, title) {
+  if (!url) return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+    setWorkNavStatus(`已复制链接：${title || url}`);
+  } catch (error) {
+    setWorkNavStatus("复制失败，请手动复制链接。", true);
+  }
 }
 
 function renderWorkNavLinks() {
@@ -85,29 +107,64 @@ function renderWorkNavLinks() {
 
   workNavList.innerHTML = links
     .map((link) => `
-      <article class="work-nav-card" title="${escapeWorkNavText([link.title, link.keywords, link.description, link.url].filter(Boolean).join("\n"))}">
-        <a class="work-nav-name" href="${escapeWorkNavText(link.url)}" target="_blank" rel="noopener">
-          ${escapeWorkNavText(link.title)}
+      <article class="work-nav-card">
+        <a class="work-nav-main-link" href="${escapeWorkNavText(link.url)}" target="_blank" rel="noopener">
+          <span class="work-nav-name">
+            ${escapeWorkNavText(link.title)}
+          </span>
         </a>
-        ${link.is_open ? `<em class="work-nav-badge is-open">开放</em>` : `<em class="work-nav-badge is-private">私密</em>`}
-        <div class="work-nav-actions">
-          <a class="primary-button compact-button" href="${escapeWorkNavText(link.url)}" target="_blank" rel="noopener">打开</a>
-          ${link.can_manage ? `<button class="ghost-button compact-button" type="button" data-edit-work-link="${escapeWorkNavText(link.id)}">编辑</button>` : ""}
-          ${link.can_manage ? `<button class="ghost-button compact-button danger-button" type="button" data-delete-work-link="${escapeWorkNavText(link.id)}">删</button>` : ""}
+        <div class="work-nav-popover" aria-label="链接说明">
+          ${link.description ? `<p>${escapeWorkNavText(link.description)}</p>` : ""}
+          ${link.keywords ? `<p>关键词：${escapeWorkNavText(link.keywords)}</p>` : ""}
+          <button
+            class="work-nav-copy-url"
+            type="button"
+            data-copy-work-link="${escapeWorkNavText(link.url)}"
+            data-work-nav-title="${escapeWorkNavText(link.title)}"
+            title="点击复制链接"
+          >
+            ${escapeWorkNavText(link.url)}
+          </button>
         </div>
+        ${link.can_manage ? `<button class="work-nav-delete-button" type="button" data-delete-work-link="${escapeWorkNavText(link.id)}" title="删除" aria-label="删除工作链接">×</button>` : ""}
       </article>
     `)
     .join("");
 
-  workNavList.querySelectorAll("[data-edit-work-link]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const link = workNavLinks.find((item) => item.id === button.dataset.editWorkLink);
-      if (link) fillWorkNavForm(link);
+  workNavList.querySelectorAll(".work-nav-card").forEach((card) => {
+    let hideTimer = null;
+    const showInfo = () => {
+      window.clearTimeout(hideTimer);
+      card.classList.add("is-showing-info");
+    };
+    const hideInfo = () => {
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => {
+        card.classList.remove("is-showing-info");
+      }, 180);
+    };
+    card.addEventListener("mouseenter", showInfo);
+    card.addEventListener("mouseleave", hideInfo);
+    card.addEventListener("focusin", showInfo);
+    card.addEventListener("focusout", hideInfo);
+  });
+
+  workNavList.querySelectorAll("[data-copy-work-link]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      copyWorkNavLink(button.dataset.copyWorkLink || "", button.dataset.workNavTitle || "");
     });
   });
 
   workNavList.querySelectorAll("[data-delete-work-link]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    button.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       if (!window.confirm("确认删除这个工作链接吗？")) return;
       button.disabled = true;
       try {

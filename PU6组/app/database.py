@@ -36,6 +36,7 @@ LEARNING_TARGET_RATES = {0.26, 0.28, 0.3}
 DEFAULT_LEARNING_TARGET_RATE = 0.26
 COMPLETION_UPLOAD_TEACHER_ID = "wenyun_joanna"
 LEARNING_EXCLUDED_TEACHER_IDS = {"wenyun_joanna"}
+REMINDER_SPOT_CHECK_CATEGORIES = {"异常断课", "偶尔断课"}
 COMPLETION_UPLOAD_HEADER_SCAN_LIMIT = 20
 GMV_UNIT_PRICE = 2980
 GMV_SECTIONS = {
@@ -2017,6 +2018,60 @@ def reminder_student_snapshot(student):
     }
 
 
+def reminder_spot_check_student(student):
+    return {
+        "id": str(student.get("id") or ""),
+        "name": str(student.get("name") or "").strip(),
+        "account": str(student.get("account") or "").strip(),
+        "category": str(student.get("category") or "暂无数据").strip(),
+        "monthly_completion": parse_completion(student.get("monthly_completion")),
+        "prompt": str(student.get("prompt") or "").strip(),
+        "phone_call": student.get("phone_call") if isinstance(student.get("phone_call"), dict) else {},
+    }
+
+
+def build_reminder_spot_check_students(students, seed="", limit=3):
+    if not isinstance(students, list) or limit <= 0:
+        return []
+
+    def student_key(student, index):
+        raw = "|".join(
+            [
+                str(seed or ""),
+                str(index),
+                str(student.get("id") or ""),
+                str(student.get("account") or ""),
+                str(student.get("name") or ""),
+            ]
+        )
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    indexed = [
+        (index, student)
+        for index, student in enumerate(students)
+        if isinstance(student, dict)
+    ]
+    preferred = [
+        (index, student)
+        for index, student in indexed
+        if str(student.get("category") or "").strip() in REMINDER_SPOT_CHECK_CATEGORIES
+    ]
+    preferred_indexes = {index for index, _student in preferred}
+    fallback = [
+        (index, student)
+        for index, student in indexed
+        if index not in preferred_indexes
+    ]
+
+    chosen = sorted(preferred, key=lambda item: student_key(item[1], item[0]))[:limit]
+    if len(chosen) < limit:
+        chosen.extend(
+            sorted(fallback, key=lambda item: student_key(item[1], item[0]))[: limit - len(chosen)]
+        )
+
+    return [reminder_spot_check_student(student) for _index, student in chosen]
+
+
 def reminder_payload_class_keys(payload):
     keys = set()
     for field in ("class_name", "local_class_name"):
@@ -2953,6 +3008,26 @@ def reminder_plan_source_date(cycle_key):
     return cycle_key
 
 
+def waiting_for_monday_upload_plan(cycle_key, report_date):
+    month_key = str(cycle_key or report_date or "")[:7]
+    return {
+        "month": month_key,
+        "date": report_date,
+        "cycle_key": cycle_key,
+        "source": "waiting_for_upload",
+        "snapshot_date": "",
+        "plan_source_date": "",
+        "generated_at": "",
+        "generated_by": "",
+        "rule_version": REMINDER_PLAN_RULE_VERSION,
+        "is_frozen": False,
+        "waiting_for_monday_upload": True,
+        "groups": [],
+        "last_month_source_month": "",
+        "last_month_source_date": "",
+    }
+
+
 def generate_weekly_reminder_plan(cycle_key, source_date, generated_by=""):
     source_month = str(source_date or cycle_key)[:7]
     plan = build_completion_reminder_plan_source(
@@ -2990,10 +3065,18 @@ def save_weekly_reminder_plan(cycle_key, source_date, generated_by=""):
 
 def ensure_weekly_reminder_plan(report_date):
     cycle_key = reminder_cycle_key_for_date(report_date)
+    monday_snapshot = completion_snapshot_by_date(cycle_key)
     store = load_reminder_plans()
     plan = store.get("plans", {}).get(cycle_key)
+    if not monday_snapshot and plan and plan.get("plan_source_date") != cycle_key:
+        return waiting_for_monday_upload_plan(cycle_key, report_date)
     if plan:
+        if monday_snapshot and plan.get("plan_source_date") != cycle_key:
+            with REMINDER_PLANS_LOCK:
+                return save_weekly_reminder_plan(cycle_key, cycle_key, "system-monday-upload")
         if plan.get("rule_version") != REMINDER_PLAN_RULE_VERSION:
+            if not monday_snapshot:
+                return waiting_for_monday_upload_plan(cycle_key, report_date)
             source_date = plan.get("plan_source_date") or reminder_plan_source_date(cycle_key)
             with REMINDER_PLANS_LOCK:
                 return save_weekly_reminder_plan(cycle_key, source_date, "system-rule-update")
@@ -3002,6 +3085,9 @@ def ensure_weekly_reminder_plan(report_date):
             store["updated_at"] = plan.get("updated_at", datetime.now().isoformat(timespec="seconds"))
             save_reminder_plans(store)
         return plan
+
+    if not monday_snapshot:
+        return waiting_for_monday_upload_plan(cycle_key, report_date)
 
     source_date = reminder_plan_source_date(cycle_key)
     with REMINDER_PLANS_LOCK:
@@ -3097,7 +3183,8 @@ def build_completion_reminder_plan(month_key, report_date):
         "plan_source_date": plan.get("plan_source_date") or plan.get("snapshot_date", ""),
         "generated_at": plan.get("generated_at", ""),
         "generated_by": plan.get("generated_by", ""),
-        "is_frozen": True,
+        "is_frozen": bool(plan.get("is_frozen", True)),
+        "waiting_for_monday_upload": bool(plan.get("waiting_for_monday_upload")),
         "last_month_source_month": plan.get("last_month_source_month", ""),
         "last_month_source_date": plan.get("last_month_source_date", ""),
         "groups": groups,
@@ -3558,6 +3645,11 @@ def serialize_reminder_record(record):
         "task_label": record.get("task_label", ""),
         "student_count": len(record.get("students", [])),
         "students": record.get("students", []),
+        "spot_check_students": record.get("spot_check_students")
+        or build_reminder_spot_check_students(
+            record.get("students", []),
+            record.get("id") or record.get("created_at") or "",
+        ),
         "created_at": record.get("created_at", ""),
         "completed_at": record.get("completed_at", ""),
         "completed_by": record.get("completed_by", ""),
@@ -3720,6 +3812,7 @@ def save_completion_reminder_action():
         "last_month_completion": parse_completion(payload.get("last_month_completion")),
         "change_from_last_month": parse_completion(payload.get("change_from_last_month")),
         "students": students,
+        "spot_check_students": build_reminder_spot_check_students(students, seed=now_text),
         "status": status,
         "created_at": now_text,
         "completed_at": now_text,

@@ -4,14 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260703-work-nav-compact') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260704-renewal-teacher-minimal') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260703-work-nav-compact') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260703-talk-materials-home') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260702-activity-participants') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260702-daily-todo-small') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260704-reminder-spot-check') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260704-daily-todo-member-compact') }}" defer></script>
     <script src="{{ url_for('static', filename='js/database.js', v='20260630-renewal-rank-tooltip') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260628-renewal-leader-simple') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260704-renewal-teacher-minimal') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
     {% endif %}
@@ -92,11 +92,9 @@
               <div class="panel-title-row">
                 <div>
                   <h2>快速搜索</h2>
-                  <span id="wn-status" class="tool-status">正在读取工作链接...</span>
                 </div>
               </div>
               <label class="work-nav-search" for="wn-searchInput">
-                <span>搜索名称、关键词或说明</span>
                 <input id="wn-searchInput" type="search" placeholder="例如：飞书表格、续费、完课数据">
               </label>
               <div id="wn-linkList" class="work-nav-list"></div>
@@ -108,7 +106,7 @@
                 <div class="panel-title-row">
                   <div>
                     <h2 id="wn-formTitle">新增工作链接</h2>
-                    <span id="wn-formStatus" class="tool-status">可设置是否开放给组员</span>
+                    <span id="wn-formStatus" class="tool-status">可设置组员是否可见</span>
                   </div>
                 </div>
                 <form id="wn-linkForm" class="work-nav-form">
@@ -131,7 +129,7 @@
                   </label>
                   <label class="work-nav-open-toggle" for="wn-openInput">
                     <input id="wn-openInput" type="checkbox" checked>
-                    <span>开放给组员</span>
+                    <span>组员可见</span>
                   </label>
                   <div class="work-nav-form-actions">
                     <button id="wn-cancelEdit" class="ghost-button compact-button is-hidden" type="button">取消编辑</button>
@@ -381,11 +379,12 @@
             <section data-class-home>
               <header class="module-head class-home-head">
                 <div>
-                  <span class="module-eyebrow">完课</span>
-                  <h1>我的班级</h1>
-                  <p>添加自己的班级，进入班级后查看学员信息和一周完课百分比。</p>
+                  <div class="class-home-title-row">
+                    <h1>我的班级</h1>
+                    <button class="class-add-toggle" id="cc-addClassToggle" type="button" aria-expanded="false" aria-controls="cc-classCreateForm" title="添加班级">+</button>
+                  </div>
                 </div>
-                <form class="class-create-form class-create-inline" data-class-create-form>
+                <form class="class-create-form class-create-inline is-hidden" id="cc-classCreateForm" data-class-create-form>
                   <input id="cc-className" name="name" type="text" placeholder="例如：PU6-L3-A班" autocomplete="off">
                   <button class="primary-button compact-button" type="submit">添加</button>
                 </form>
@@ -396,10 +395,10 @@
               {% endif %}
 
               <section class="completion-activity-notice is-hidden" id="cc-activityNotice">
-                <div>
+                <div class="activity-notice-content">
                   <span class="module-eyebrow" id="cc-activityEyebrow">完课活动</span>
                   <h2 id="cc-activityTitle">盲盒种子成长计划</h2>
-                  <p id="cc-activityDescription"></p>
+                  <div id="cc-activityVisualPreview" class="activity-notice-visuals" aria-label="活动成长图"></div>
                 </div>
                 <form class="activity-join-form" data-activity-join-form>
                   <select id="cc-activityClassSelect" aria-label="选择参与活动的班级">
@@ -625,18 +624,10 @@
 
           <section class="completion-section is-hidden" data-completion-section-panel="reminder">
             <div data-reminder-home>
-              <header class="module-head">
-                <div>
-                  <span class="module-eyebrow">完课</span>
-                  <h1>催课</h1>
-                </div>
-              </header>
-
               <section class="completion-reminder-shell">
                 <div class="panel-title-row">
                   <div>
                     <h2>催课优先级排列</h2>
-                    <span id="cc-reminderPriorityStatus" class="tool-status">按较上个月完课差距自动排列</span>
                   </div>
                   <button id="cc-reminderRefresh" class="ghost-button compact-button" type="button">刷新</button>
                 </div>
@@ -647,7 +638,6 @@
                 <div class="panel-title-row">
                   <div>
                     <h2>本周催课节奏</h2>
-                    <span id="cc-reminderScheduleStatus" class="tool-status">按周一到周五自动分配催课与回收</span>
                   </div>
                 </div>
                 <div id="cc-reminderScheduleList" class="reminder-schedule-list"></div>
@@ -695,17 +685,14 @@
           <header class="module-head daily-head">
             <div>
               <span class="module-eyebrow">日报</span>
-              <h1>班主任日报</h1>
-              <p>按日期填写班主任当天数据，带班人数来自完课班级当前学员数，累计数据由系统自动叠加。</p>
-            </div>
-            <div class="module-actions">
-              <button id="dr-todayButton" type="button">回到今天</button>
-              <button id="dr-saveButton" class="primary-button compact-button" type="button" hidden>保存日报</button>
+              <div class="daily-head-title">
+                <h1>班主任日报</h1>
+                <div id="dr-reminder" class="daily-reminder is-hidden"></div>
+              </div>
             </div>
           </header>
 
           <div id="dr-message" class="tool-note daily-message"></div>
-          <div id="dr-reminder" class="daily-reminder is-hidden"></div>
 
           <section class="daily-workspace">
             <aside class="daily-todo-panel" aria-label="今日待办事项">
@@ -1253,11 +1240,24 @@
         </section>
 
         <section class="module-panel renewal-module" data-module-panel="续费">
-          <header class="module-head">
+          <header class="module-head renewal-head">
             <div>
               <span class="module-eyebrow">续费</span>
-              <h1>续费项目跟进</h1>
-              <p>从完课的“我的班级”中添加需要续费跟进的班级，并按当前续费阶段推进。</p>
+              <div class="renewal-title-row">
+                <h1>续费项目跟进</h1>
+                <form id="renewal-addForm" class="renewal-add-form renewal-add-shell">
+                  <select id="renewal-classSelect" aria-label="选择续费班级">
+                    <option value="">选择我的完课班级</option>
+                  </select>
+                  <select id="renewal-stageSelect" aria-label="选择续费阶段">
+                    <option value="铺垫阶段">铺垫阶段</option>
+                    <option value="续报首月">续报首月</option>
+                    <option value="续报次月">续报次月</option>
+                    <option value="结营续报">结营续报</option>
+                  </select>
+                  <button class="primary-button compact-button" type="submit">添加</button>
+                </form>
+              </div>
             </div>
           </header>
 
@@ -1267,28 +1267,38 @@
                 <h2>老师续费跟进</h2>
                 <p>选择老师后，只展示该老师的续费班级，进入班级即可盘单留言。</p>
               </div>
-              <span id="renewal-teacherActiveLabel">全部老师</span>
+              <div class="renewal-teacher-panel-actions">
+                <span id="renewal-teacherActiveLabel">全部老师</span>
+                <button id="renewal-teacherToggle" class="ghost-button compact-button" type="button" aria-controls="renewal-teacherList" aria-expanded="false">展开</button>
+              </div>
             </div>
             <div id="renewal-teacherList" class="renewal-teacher-list"></div>
           </section>
 
-          <section class="renewal-add-panel">
-            <div>
-              <h2>添加我的续费班级</h2>
-              <p>班级来源于完课里的班级数据；已加入续费项目的班级不会重复出现。</p>
+          <section id="renewal-goalPanel" class="renewal-goal-panel is-hidden" aria-label="本月续费目标">
+            <div class="renewal-goal-head">
+              <div>
+                <h2>本月续费目标</h2>
+                <span id="renewal-goalMonth" class="tool-status"></span>
+              </div>
+              <div id="renewal-goalSummary" class="renewal-goal-summary"></div>
             </div>
-            <form id="renewal-addForm" class="renewal-add-form">
-              <select id="renewal-classSelect" aria-label="选择续费班级">
-                <option value="">选择我的完课班级</option>
-              </select>
-              <select id="renewal-stageSelect" aria-label="选择续费阶段">
-                <option value="铺垫阶段">铺垫阶段</option>
-                <option value="续报首月">续报首月</option>
-                <option value="续报次月">续报次月</option>
-                <option value="结营续报">结营续报</option>
-              </select>
-              <button class="primary-button compact-button" type="submit">添加到续费项目</button>
-            </form>
+            <div class="renewal-goal-table-wrap">
+              <table class="renewal-goal-table">
+                <thead>
+                  <tr>
+                    <th>班主任</th>
+                    <th>班级</th>
+                    <th>本月目标</th>
+                    <th>本月已报</th>
+                    <th>还差</th>
+                    <th>达成</th>
+                    <th>累计已报/续费率</th>
+                  </tr>
+                </thead>
+                <tbody id="renewal-goalRows"></tbody>
+              </table>
+            </div>
           </section>
 
           <div id="renewal-message" class="tool-note renewal-message"></div>
