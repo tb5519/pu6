@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, g, jsonify, request, send_from_directory, url_for
 from openpyxl import load_workbook
+from openpyxl.utils.datetime import from_excel as excel_date_from_serial
 from werkzeug.utils import secure_filename
 
 from app.auth import can_manage_accounts, login_required
@@ -115,6 +116,15 @@ def current_month_key():
     return datetime.now().strftime("%Y-%m")
 
 
+def previous_month_key(month_key):
+    try:
+        anchor = datetime.strptime(str(month_key or ""), "%Y-%m")
+    except ValueError:
+        anchor = datetime.now()
+    previous = anchor.replace(day=1) - timedelta(days=1)
+    return previous.strftime("%Y-%m")
+
+
 def local_date_key(value=None):
     target = value or datetime.now()
     return target.strftime("%Y-%m-%d")
@@ -156,6 +166,98 @@ def parse_datetime_key(value):
         return parse_date_key(text)
 
 
+def parse_month_key(value):
+    text = str(value or "").strip()
+    return text if re.fullmatch(r"\d{4}-\d{2}", text) else current_month_key()
+
+
+def default_completion_period(month_key=None, active_activity=None):
+    safe_month = parse_month_key(month_key or current_month_key())
+    start = datetime.strptime(f"{safe_month}-01", "%Y-%m-%d")
+    rule = activity_period_rule(active_activity)
+    week_count = parse_activity_int(
+        rule.get("week_count"),
+        DEFAULT_WEEK_COUNT,
+        1,
+        MAX_WEEK_COUNT,
+    )
+    day_count = parse_activity_int(
+        rule.get("days_per_week"),
+        DAY_COUNT,
+        1,
+        MAX_DAY_COUNT,
+    )
+    end = start + timedelta(days=(week_count * 7) - 1)
+    return {
+        "month": safe_month,
+        "start_date": local_date_key(start),
+        "end_date": local_date_key(end),
+        "week_count": week_count,
+        "days_per_week": day_count,
+    }
+
+
+def completion_period_week_count(start, end):
+    return max(1, int(((end - start).days) // 7) + 1)
+
+
+def normalize_completion_period(value=None, month_key=None, active_activity=None):
+    fallback = default_completion_period(month_key, active_activity)
+    source = value if isinstance(value, dict) else {}
+    start = parse_date_key(source.get("start_date")) or parse_date_key(fallback["start_date"])
+    end = parse_date_key(source.get("end_date")) or parse_date_key(fallback["end_date"])
+    if end < start:
+        start, end = parse_date_key(fallback["start_date"]), parse_date_key(fallback["end_date"])
+    week_count = completion_period_week_count(start, end)
+    week_count = parse_activity_int(week_count, fallback["week_count"], 1, MAX_WEEK_COUNT)
+    day_count = parse_activity_int(
+        source.get("days_per_week"),
+        fallback["days_per_week"],
+        1,
+        MAX_DAY_COUNT,
+    )
+    return {
+        "month": parse_month_key(month_key or source.get("month") or fallback["month"]),
+        "start_date": local_date_key(start),
+        "end_date": local_date_key(end),
+        "week_count": week_count,
+        "days_per_week": day_count,
+    }
+
+
+def completion_period_from_store(store, month_key=None, active_activity=None):
+    safe_month = parse_month_key(month_key or current_month_key())
+    periods = store.get("completion_periods") if isinstance(store, dict) else {}
+    saved = periods.get(safe_month) if isinstance(periods, dict) else None
+    if saved is None and isinstance(periods, dict):
+        today = parse_date_key(local_date_key())
+        for saved_month, candidate in periods.items():
+            period = normalize_completion_period(candidate, saved_month, active_activity)
+            start = parse_date_key(period.get("start_date"))
+            end = parse_date_key(period.get("end_date"))
+            if today and start and end and start <= today <= end:
+                return period
+    return normalize_completion_period(saved, safe_month, active_activity)
+
+
+def completion_date_position(date_key, period):
+    target = parse_date_key(date_key)
+    start = parse_date_key(period.get("start_date"))
+    end = parse_date_key(period.get("end_date"))
+    if target is None or start is None or end is None or target < start or target > end:
+        return None
+    offset = (target - start).days
+    day_offset = offset % 7
+    day_count = parse_activity_int(period.get("days_per_week"), DAY_COUNT, 1, MAX_DAY_COUNT)
+    if day_offset >= day_count:
+        return None
+    week_number = (offset // 7) + 1
+    week_count = parse_activity_int(period.get("week_count"), DEFAULT_WEEK_COUNT, 1, MAX_WEEK_COUNT)
+    if week_number < 1 or week_number > week_count:
+        return None
+    return str(week_number), day_offset + 1
+
+
 def title_week_anchor_for_item(item):
     anchor = parse_date_key(item.get("title_week_anchor"))
     if anchor is None:
@@ -191,9 +293,16 @@ def current_title_week_number(item):
 def load_store():
     path = classes_file()
     if not path.exists():
-        return {"classes": []}
+        return {"classes": [], "completion_periods": {}}
     with path.open("r", encoding="utf-8") as file:
-        return json.load(file)
+        store = json.load(file)
+    if not isinstance(store, dict):
+        return {"classes": [], "completion_periods": {}}
+    if not isinstance(store.get("classes"), list):
+        store["classes"] = []
+    if not isinstance(store.get("completion_periods"), dict):
+        store["completion_periods"] = {}
+    return store
 
 
 def save_store(store):
@@ -1038,12 +1147,19 @@ def classify_student_habit(weeks):
     return "断续上课"
 
 
-def serialize_student(student, enrolled_ids=None, active_activity=None):
-    month_key = current_month_key()
-    period_rule = activity_period_rule(active_activity)
+def serialize_student(student, enrolled_ids=None, active_activity=None, completion_period=None):
+    period_rule = completion_period or activity_period_rule(active_activity)
+    month_key = period_rule.get("month") or current_month_key()
+    previous_month = previous_month_key(month_key)
     weeks = get_student_weeks(
         student,
         month_key,
+        period_rule.get("week_count"),
+        period_rule.get("days_per_week"),
+    )
+    last_month_weeks = get_student_weeks(
+        student,
+        previous_month,
         period_rule.get("week_count"),
         period_rule.get("days_per_week"),
     )
@@ -1055,6 +1171,7 @@ def serialize_student(student, enrolled_ids=None, active_activity=None):
         "account": get_student_account(student),
         "month": month_key,
         "monthly_completion": calculate_monthly_completion(weeks),
+        "last_month_completion": calculate_monthly_completion(last_month_weeks),
         "habit_category": classify_student_habit(weeks),
         "renewal_enrolled": student_id in enrolled_lookup,
         "weeks": weeks,
@@ -1062,12 +1179,17 @@ def serialize_student(student, enrolled_ids=None, active_activity=None):
     }
 
 
-def serialize_class(item, include_students=False, active_activity=True):
+def serialize_class(item, include_students=False, active_activity=True, class_store=None):
     students = item.get("students", [])
     teacher_id = class_teacher_id(item)
     title_week_number = current_title_week_number(item)
     activity_enabled = bool(item.get("completion_activity")) and bool(active_activity)
-    period_rule = activity_period_rule(active_activity if isinstance(active_activity, dict) else None)
+    source_store = class_store if class_store is not None else load_store()
+    period_rule = completion_period_from_store(
+        source_store,
+        current_month_key(),
+        active_activity if isinstance(active_activity, dict) else None,
+    )
     output = {
         "id": item["id"],
         "name": item["name"],
@@ -1081,20 +1203,18 @@ def serialize_class(item, include_students=False, active_activity=True):
         "can_edit": item.get("owner") == current_owner(),
         "student_count": len(students),
         "completion_activity": activity_enabled,
-        "period": {
-            "week_count": period_rule.get("week_count", DEFAULT_WEEK_COUNT),
-            "days_per_week": period_rule.get("days_per_week", DAY_COUNT),
-        },
+        "period": period_rule,
+        "can_manage_completion_period": can_manage_accounts(),
         "created_at": item.get("created_at", ""),
         "updated_at": item.get("updated_at", ""),
     }
     if include_students:
         enrolled_ids = renewal_enrolled_student_ids(item.get("id"))
         output["students"] = [
-            serialize_student(student, enrolled_ids, active_activity)
+            serialize_student(student, enrolled_ids, active_activity, period_rule)
             for student in students
         ]
-        output["month"] = current_month_key()
+        output["month"] = period_rule.get("month") or current_month_key()
     return output
 
 
@@ -1285,6 +1405,76 @@ def build_headers(rows, row_index):
     return headers
 
 
+def infer_year_for_month_day(month, day, period=None):
+    if isinstance(period, dict):
+        start = parse_date_key(period.get("start_date"))
+        end = parse_date_key(period.get("end_date"))
+        if start and end:
+            for year in range(start.year - 1, end.year + 2):
+                try:
+                    candidate = datetime(year, month, day)
+                except ValueError:
+                    continue
+                if start <= candidate <= end:
+                    return candidate
+            return None
+    try:
+        return datetime(datetime.now().year, month, day)
+    except ValueError:
+        return None
+
+
+def parse_header_date(value, period=None):
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return local_date_key(value)
+    if isinstance(value, (int, float)) and 20000 <= float(value) <= 60000:
+        try:
+            return local_date_key(excel_date_from_serial(value))
+        except Exception:
+            return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    for full in re.finditer(r"(\d{4})\s*[年./-]\s*(\d{1,2})\s*(?:月|[./-])\s*(\d{1,2})", text):
+        try:
+            candidate = datetime(int(full.group(1)), int(full.group(2)), int(full.group(3)))
+        except ValueError:
+            continue
+        if isinstance(period, dict):
+            start = parse_date_key(period.get("start_date"))
+            end = parse_date_key(period.get("end_date"))
+            if start and end and not (start <= candidate <= end):
+                continue
+        return local_date_key(candidate)
+
+    for short in re.finditer(r"(?<!\d)(\d{1,2})\s*(?:月|[./-])\s*(\d{1,2})\s*日?(?!\d)", text):
+        candidate = infer_year_for_month_day(int(short.group(1)), int(short.group(2)), period)
+        if candidate:
+            return local_date_key(candidate)
+    return None
+
+
+def pick_date_columns(headers, period=None):
+    candidates_by_date = {}
+    for index, header in enumerate(headers):
+        date_key = parse_header_date(header, period)
+        if not date_key:
+            continue
+        candidates_by_date.setdefault(date_key, []).append((index, header))
+    date_columns = {}
+    for date_key, candidates in candidates_by_date.items():
+        preferred = next(
+            (index for index, header in candidates if is_daily_completion_header(header)),
+            None,
+        )
+        date_columns[date_key] = preferred if preferred is not None else candidates[0][0]
+    return date_columns
+
+
 def pick_day_columns(headers):
     normalized = [normalize_header(header) for header in headers]
     day_columns = {}
@@ -1336,24 +1526,28 @@ def readable_headers(rows):
     return "；".join(candidates[:5])
 
 
-def find_header_row(rows):
+def find_header_row(rows, period=None):
     best = None
     for row_index, row in enumerate(rows[:HEADER_SCAN_LIMIT]):
         headers = build_headers(rows, row_index)
         if not any(headers):
             continue
         day_columns = pick_day_columns(headers)
+        date_columns = pick_date_columns(headers, period)
         has_daily_completion_row = any(is_daily_completion_header(header) for header in headers)
         indexes = {
             "name": pick_column(headers, NAME_COLUMNS),
             "account": pick_column(headers, ACCOUNT_COLUMNS),
             "days": day_columns,
+            "dates": date_columns,
         }
         score = 0
         score += 5 if indexes["name"] is not None else 0
         score += 5 if indexes["account"] is not None else 0
         score += len(day_columns) * 2
+        score += len(date_columns) * 3
         score += 20 if has_daily_completion_row and day_columns else 0
+        score += 20 if date_columns else 0
         if best is None or score > best["score"]:
             best = {"score": score, "row_index": row_index, "headers": headers, "indexes": indexes}
     return best
@@ -1404,22 +1598,31 @@ def row_value(row, index):
     return "" if value is None else str(value).strip()
 
 
-def rows_to_students(rows):
+def rows_to_students(rows, period=None):
     if not rows:
         return []
 
-    header = find_header_row(rows)
+    header = find_header_row(rows, period)
     indexes = header["indexes"] if header else {}
     header_row_index = header["row_index"] if header else 0
     name_index = indexes.get("name")
     account_index = indexes.get("account")
     day_columns = indexes.get("days", {})
+    date_columns = indexes.get("dates", {})
+    mapped_date_columns = {}
+    if date_columns and period:
+        for date_key, column_index in date_columns.items():
+            position = completion_date_position(date_key, period)
+            if position:
+                mapped_date_columns[date_key] = {"column": column_index, "position": position}
 
     if name_index is None:
         raise ValueError(missing_column_error("学员姓名", "学员姓名、学生姓名、孩子姓名、姓名", rows))
     if account_index is None:
         raise ValueError(missing_column_error("学员账号", "学员账号、学生账号、账号、学号、ID", rows))
-    if not day_columns:
+    if date_columns and not mapped_date_columns:
+        raise ValueError("表格里识别到了日期列，但这些日期不在当前绩效周期内，请先检查绩效周期或表格日期。")
+    if not day_columns and not mapped_date_columns:
         raise ValueError(missing_column_error("Day1-Day6", "第一天当日完成度、第二天当日完成度、Day1、Day2", rows))
 
     students = []
@@ -1428,18 +1631,30 @@ def rows_to_students(rows):
         account = row_value(row, account_index)
         if not name:
             continue
-        days = {}
-        for day, column_index in day_columns.items():
-            value = row[column_index] if column_index < len(row) else None
-            days[str(day)] = parse_completion(value)
-        students.append(
-            {
-                "name": name,
-                "account": account,
-                "days": days,
-                "updated_at": now_iso(),
-            }
-        )
+        student = {
+            "name": name,
+            "account": account,
+            "updated_at": now_iso(),
+        }
+        if mapped_date_columns:
+            day_count = parse_activity_int(period.get("days_per_week"), DAY_COUNT, 1, MAX_DAY_COUNT)
+            weeks = {}
+            for info in mapped_date_columns.values():
+                column_index = info["column"]
+                week_key, day = info["position"]
+                value = row[column_index] if column_index < len(row) else None
+                week_values = weeks.setdefault(week_key, blank_week(day_count))
+                day_index = int(day) - 1
+                if 0 <= day_index < len(week_values):
+                    week_values[day_index] = parse_completion(value)
+            student["weeks"] = weeks
+        else:
+            days = {}
+            for day, column_index in day_columns.items():
+                value = row[column_index] if column_index < len(row) else None
+                days[str(day)] = parse_completion(value)
+            student["days"] = days
+        students.append(student)
 
     if not students:
         raise ValueError("没有读取到学员数据，请确认表头下面存在学员记录。")
@@ -1466,16 +1681,16 @@ def parse_xlsx_sheets(file_storage):
         yield sheet.title, rows
 
 
-def parse_upload(file_storage):
+def parse_upload(file_storage, period=None):
     filename = (file_storage.filename or "").lower()
     if filename.endswith(".csv"):
         rows = parse_csv(file_storage)
-        return rows_to_students(rows)
+        return rows_to_students(rows, period)
     if filename.endswith(".xlsx"):
         errors = []
         for sheet_name, rows in parse_xlsx_sheets(file_storage):
             try:
-                return rows_to_students(rows)
+                return rows_to_students(rows, period)
             except ValueError as error:
                 errors.append(f"{sheet_name}：{error}")
         detail = errors[0] if errors else "没有读取到工作表内容。"
@@ -1497,11 +1712,12 @@ def normalize_identity(value):
     return str(value or "").strip().lower()
 
 
-def sync_students_from_upload(target_class, imported_students, week_number, active_activity=None):
+def sync_students_from_upload(target_class, imported_students, week_number, active_activity=None, completion_period=None):
     students = target_class.setdefault("students", [])
-    period_rule = activity_period_rule(active_activity)
+    period_rule = completion_period or activity_period_rule(active_activity)
     days_per_week = period_rule.get("days_per_week", DAY_COUNT)
     week_count = period_rule.get("week_count", DEFAULT_WEEK_COUNT)
+    auto_weeked = any(imported.get("weeks") for imported in imported_students)
     existing_by_account = {
         normalize_identity(get_student_account(student)): student
         for student in students
@@ -1513,7 +1729,7 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
         if normalize_identity(student.get("name"))
     }
 
-    month_key = current_month_key()
+    month_key = period_rule.get("month") or current_month_key()
     updated_at = now_iso()
     updated = 0
     created = 0
@@ -1547,7 +1763,14 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
         current["account"] = imported.get("account", current.get("account", "")).strip()
         current["updated_at"] = updated_at
 
-        if imported.get("days"):
+        if imported.get("weeks"):
+            month_data = ensure_month_data(current, month_key, week_count, days_per_week)
+            for imported_week, imported_values in imported["weeks"].items():
+                week_values = blank_week(days_per_week)
+                for index, value in enumerate(imported_values[:days_per_week]):
+                    week_values[index] = value
+                month_data["weeks"][str(imported_week)] = week_values
+        elif imported.get("days"):
             month_data = ensure_month_data(current, month_key, week_count, days_per_week)
             week_values = blank_week(days_per_week)
             for day, value in imported["days"].items():
@@ -1573,6 +1796,8 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
         "removed": removed,
         "renewal_removed": renewal_removed,
         "week": week_number,
+        "auto_weeks": auto_weeked,
+        "period": period_rule,
     }
 
 
@@ -1634,7 +1859,7 @@ def list_classes():
     activity_store = load_activity_store(store)
     active_activity = active_completion_activity(activity_store)
     classes = [
-        serialize_class(item, active_activity=active_activity)
+        serialize_class(item, active_activity=active_activity, class_store=store)
         for item in store["classes"]
         if item["owner"] == current_owner()
     ]
@@ -1673,7 +1898,7 @@ def create_class():
     activity_store = load_activity_store(store)
     active_activity = active_completion_activity(activity_store)
     return jsonify({
-        "class": serialize_class(item, include_students=True, active_activity=active_activity),
+        "class": serialize_class(item, include_students=True, active_activity=active_activity, class_store=store),
         **completion_activity_payload(activity_store),
     }), 201
 
@@ -1880,7 +2105,7 @@ def reminder_match_class():
     if class_id:
         direct_match = next((item for item in candidates if item.get("id") == class_id), None)
         if direct_match:
-            return jsonify({"class": serialize_class(direct_match, include_students=True, active_activity=active_activity)})
+            return jsonify({"class": serialize_class(direct_match, include_students=True, active_activity=active_activity, class_store=store)})
 
     matches = [
         item
@@ -1906,7 +2131,48 @@ def reminder_match_class():
             item.get("name", ""),
         ),
     )
-    return jsonify({"class": serialize_class(matches[0], include_students=True, active_activity=active_activity)})
+    return jsonify({"class": serialize_class(matches[0], include_students=True, active_activity=active_activity, class_store=store)})
+
+
+@classes_bp.patch("/completion-period")
+@login_required
+def update_completion_period():
+    if not can_manage_accounts():
+        return jsonify({"error": "只有管理员可以调整完课绩效周期。"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    month_key = parse_month_key(payload.get("month") or current_month_key())
+    start = parse_date_key(payload.get("start_date"))
+    end = parse_date_key(payload.get("end_date"))
+    if start is None or end is None:
+        return jsonify({"error": "请选择正确的绩效周期开始和结束日期。"}), 400
+    if end < start:
+        return jsonify({"error": "绩效周期结束日期不能早于开始日期。"}), 400
+
+    week_count = completion_period_week_count(start, end)
+    if week_count > MAX_WEEK_COUNT:
+        return jsonify({"error": f"绩效周期最多支持 {MAX_WEEK_COUNT} 周，请缩短日期范围。"}), 400
+
+    store = load_store()
+    activity_store = load_activity_store(store)
+    active_activity = active_completion_activity(activity_store)
+    periods = store.setdefault("completion_periods", {})
+    period = normalize_completion_period(
+        {
+            "month": month_key,
+            "start_date": local_date_key(start),
+            "end_date": local_date_key(end),
+            "days_per_week": DAY_COUNT,
+        },
+        month_key,
+        active_activity,
+    )
+    periods[month_key] = period
+    save_store(store)
+    return jsonify({
+        "completion_period": period,
+        **completion_activity_payload(activity_store),
+    })
 
 
 @classes_bp.patch("/<class_id>")
@@ -1960,7 +2226,7 @@ def update_class(class_id):
     if any(field in payload for field in ("name", "note", "title_week_number", "teacher_id")):
         sync_reminder_references_for_class_update(previous_item, item)
     return jsonify({
-        "class": serialize_class(item, include_students=True, active_activity=active_activity),
+        "class": serialize_class(item, include_students=True, active_activity=active_activity, class_store=store),
         **completion_activity_payload(activity_store),
     })
 
@@ -1975,7 +2241,7 @@ def get_class(class_id):
     if item is None:
         return jsonify({"error": "班级不存在。"}), 404
     return jsonify({
-        "class": serialize_class(item, include_students=True, active_activity=active_activity),
+        "class": serialize_class(item, include_students=True, active_activity=active_activity, class_store=store),
         **completion_activity_payload(activity_store),
     })
 
@@ -2010,7 +2276,7 @@ def clear_month_data(class_id):
     save_store(store)
     return jsonify({
         "result": result,
-        "class": serialize_class(item, include_students=True, active_activity=active_activity),
+        "class": serialize_class(item, include_students=True, active_activity=active_activity, class_store=store),
         **completion_activity_payload(activity_store),
     })
 
@@ -2034,7 +2300,7 @@ def clear_week_data(class_id):
     save_store(store)
     return jsonify({
         "result": result,
-        "class": serialize_class(item, include_students=True, active_activity=active_activity),
+        "class": serialize_class(item, include_students=True, active_activity=active_activity, class_store=store),
         **completion_activity_payload(activity_store),
     })
 
@@ -2065,7 +2331,7 @@ def update_student(class_id, student_id):
     save_store(store)
     return jsonify({
         "student": serialize_student(student),
-        "class": serialize_class(item, include_students=True, active_activity=active_activity),
+        "class": serialize_class(item, include_students=True, active_activity=active_activity, class_store=store),
         **completion_activity_payload(activity_store),
     })
 
@@ -2089,15 +2355,16 @@ def upload_students(class_id):
     if item is None:
         return jsonify({"error": "班级不存在。"}), 404
 
+    completion_period = completion_period_from_store(store, current_month_key(), active_activity)
     try:
-        imported_students = parse_upload(file_storage)
+        imported_students = parse_upload(file_storage, completion_period)
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
-    result = sync_students_from_upload(item, imported_students, week_number, active_activity)
+    result = sync_students_from_upload(item, imported_students, week_number, active_activity, completion_period)
     save_store(store)
     return jsonify({
         "result": result,
-        "class": serialize_class(item, include_students=True, active_activity=active_activity),
+        "class": serialize_class(item, include_students=True, active_activity=active_activity, class_store=store),
         **completion_activity_payload(activity_store),
     })

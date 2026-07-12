@@ -15,6 +15,8 @@ LEARNING_CALL_TITLES = ["首通电话", "第二通电话", "第三通电话", "�
 LEARNING_SECTION_KEYS = ("probe", "output", "concept")
 TALK_MATERIAL_CATEGORIES = {"续费", "转介绍", "学情", "挽单"}
 TALK_MATERIAL_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+TALK_TRACK_CATEGORIES = {"续费", "转介绍", "学情", "挽单"}
+RENEWAL_TALK_TYPES = {"问答话术", "留言推荐"}
 
 
 def talk_library_file():
@@ -28,13 +30,14 @@ def talk_material_dir():
 def load_talk_library():
     path = talk_library_file()
     if not path.exists():
-        return {"learning_calls": {}, "materials": []}
+        return {"learning_calls": {}, "materials": [], "tracks": []}
     with path.open("r", encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, dict):
-        return {"learning_calls": {}, "materials": []}
+        return {"learning_calls": {}, "materials": [], "tracks": []}
     data.setdefault("learning_calls", {})
     data.setdefault("materials", [])
+    data.setdefault("tracks", [])
     return data
 
 
@@ -69,6 +72,72 @@ def public_learning_call(call):
         "updated_by": call.get("updated_by", ""),
         "updated_at": call.get("updated_at", ""),
     }
+
+
+def normalize_talk_category(value):
+    category = str(value or "").strip()
+    return category if category in TALK_TRACK_CATEGORIES else "续费"
+
+
+def normalize_renewal_talk_type(value):
+    talk_type = str(value or "").strip()
+    return talk_type if talk_type in RENEWAL_TALK_TYPES else "问答话术"
+
+
+def normalize_talk_track(track):
+    if not isinstance(track, dict):
+        return None
+    text = str(
+        track.get("text")
+        or track.get("标准话术")
+        or track.get("talktrack")
+        or track.get("answer")
+        or ""
+    ).strip()
+    if not text:
+        return None
+    category = normalize_talk_category(track.get("category") or track.get("分类"))
+    track_id = str(track.get("id") or "").strip() or uuid.uuid4().hex
+    try:
+        priority = int(track.get("priority") or track.get("优先级") or 10)
+    except (TypeError, ValueError):
+        priority = 10
+    output = {
+        "id": track_id,
+        "category": category,
+        "type": normalize_renewal_talk_type(track.get("type") or track.get("类型")) if category == "续费" else "",
+        "scene": str(track.get("scene") or track.get("场景") or track.get("问题示例") or "").strip()[:120],
+        "keywords": str(track.get("keywords") or track.get("关键词") or "").strip()[:200],
+        "example": str(track.get("example") or track.get("问题示例") or "").strip()[:180],
+        "text": text[:5000],
+        "priority": priority,
+        "created_by": str(track.get("created_by") or track.get("创建人") or "").strip(),
+        "created_at": str(track.get("created_at") or "").strip(),
+        "updated_at": str(track.get("updated_at") or "").strip(),
+    }
+    if not output["scene"]:
+        output["scene"] = output["example"] or output["keywords"] or ("留言话术" if output["type"] == "留言推荐" else "新增话术")
+    return output
+
+
+def public_talk_track(track):
+    item = normalize_talk_track(track)
+    if item is None:
+        return None
+    return {
+        **item,
+        "can_delete": can_manage_accounts(),
+    }
+
+
+def normalized_talk_tracks(data):
+    tracks = []
+    for track in data.get("tracks", []):
+        item = normalize_talk_track(track)
+        if item is not None:
+            tracks.append(item)
+    tracks.sort(key=lambda item: (item.get("created_at") or "", item.get("priority") or 0), reverse=True)
+    return tracks
 
 
 def normalize_material_category(value):
@@ -131,6 +200,99 @@ def get_learning_calls():
         if title in LEARNING_CALL_TITLES and isinstance(call, dict)
     }
     return jsonify({"calls": calls})
+
+
+@talk_library_bp.get("/tracks")
+@login_required
+def get_talk_tracks():
+    data = load_talk_library()
+    tracks = [
+        public_talk_track(track)
+        for track in normalized_talk_tracks(data)
+    ]
+    return jsonify({"tracks": [track for track in tracks if track is not None]})
+
+
+@talk_library_bp.post("/tracks")
+@login_required
+def create_talk_track():
+    if not can_manage_accounts():
+        return jsonify({"error": "只有Joanna账号可以新增话术。"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    track = normalize_talk_track(payload)
+    if track is None:
+        return jsonify({"error": "请填写话术内容。"}), 400
+
+    now = datetime.now(timezone.utc).isoformat()
+    track["id"] = uuid.uuid4().hex
+    track["created_by"] = str(g.user.get("username") or "")
+    track["created_at"] = now
+    track["updated_at"] = now
+
+    data = load_talk_library()
+    tracks = normalized_talk_tracks(data)
+    tracks.insert(0, track)
+    data["tracks"] = tracks
+    save_talk_library(data)
+    return jsonify({
+        "track": public_talk_track(track),
+        "tracks": [public_talk_track(item) for item in normalized_talk_tracks(data)],
+    })
+
+
+@talk_library_bp.post("/tracks/import")
+@login_required
+def import_talk_tracks():
+    if not can_manage_accounts():
+        return jsonify({"error": "只有Joanna账号可以导入话术。"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    raw_tracks = payload.get("tracks") if isinstance(payload.get("tracks"), list) else []
+    replace_category = normalize_talk_category(payload.get("category"))
+    should_replace_category = bool(payload.get("replace_category"))
+
+    imported = []
+    now = datetime.now(timezone.utc).isoformat()
+    for raw_track in raw_tracks:
+        track = normalize_talk_track(raw_track)
+        if track is None:
+            continue
+        track["id"] = uuid.uuid4().hex
+        track["created_by"] = str(g.user.get("username") or "")
+        track["created_at"] = now
+        track["updated_at"] = now
+        imported.append(track)
+
+    if not imported:
+        return jsonify({"error": "没有读取到可导入的话术。"}), 400
+
+    data = load_talk_library()
+    tracks = normalized_talk_tracks(data)
+    if should_replace_category:
+        tracks = [track for track in tracks if normalize_talk_category(track.get("category")) != replace_category]
+    data["tracks"] = [*imported, *tracks]
+    save_talk_library(data)
+    return jsonify({
+        "imported_count": len(imported),
+        "tracks": [public_talk_track(item) for item in normalized_talk_tracks(data)],
+    })
+
+
+@talk_library_bp.delete("/tracks/<track_id>")
+@login_required
+def delete_talk_track(track_id):
+    if not can_manage_accounts():
+        return jsonify({"error": "只有Joanna账号可以删除话术。"}), 403
+
+    data = load_talk_library()
+    tracks = normalized_talk_tracks(data)
+    next_tracks = [track for track in tracks if track.get("id") != track_id]
+    if len(next_tracks) == len(tracks):
+        return jsonify({"error": "话术不存在。"}), 404
+    data["tracks"] = next_tracks
+    save_talk_library(data)
+    return jsonify({"ok": True, "tracks": [public_talk_track(item) for item in normalized_talk_tracks(data)]})
 
 
 @talk_library_bp.put("/learning-calls")

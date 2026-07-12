@@ -32,6 +32,7 @@ const RENEWAL_FIRST_MONTH_STAGE = "续报首月";
 const RENEWAL_SECOND_MONTH_STAGE = "续报次月";
 const RENEWAL_CLOSING_STAGE = "结营续报";
 const RENEWAL_FOLLOWUP_STATUSES = ["愿意继续学", "需要考虑", "拒绝", "未接听"];
+const RENEWAL_FOLLOWUP_PRIORITIES = ["重点跟进", "高意向", "可继续沟通", "暂缓跟进"];
 const RENEWAL_FOLLOWUP_METHODS = ["私信", "电话"];
 const RENEWAL_LEADER_ACTION_TYPES = ["留言", "去电", "跟进"];
 const RENEWAL_BLOCKER_OPTIONS = ["升初中", "时间紧张", "经济", "学员问题", "线下", "效果不满意", "不知道顾虑", "不回复", "拒绝早报"];
@@ -70,6 +71,7 @@ let renewalActiveNoteContext = null;
 let renewalNoteHideTimer = null;
 let renewalNoteEditorModal = null;
 let renewalNoteEditorResolve = null;
+let renewalFollowupDateFilter = "";
 
 function setRenewalMessage(message, isError = false) {
   if (!renewalMessage) return;
@@ -224,6 +226,64 @@ function renderRenewalFollowupOptions(activeStatus) {
       </option>
     `),
   ].join("");
+}
+
+function renewalStatusClass(status) {
+  if (status === "愿意继续学") return "is-willing";
+  if (status === "需要考虑") return "is-considering";
+  if (status === "拒绝") return "is-refused";
+  if (status === "未接听") return "is-unanswered";
+  return "is-empty";
+}
+
+function renewalBlockerClass(blocker) {
+  const text = String(blocker || "").trim();
+  if (!text) return "is-empty";
+  if (text.includes("升")) return "is-transition";
+  if (text.includes("时间")) return "is-time";
+  if (text.includes("经济")) return "is-money";
+  if (text.includes("学员")) return "is-student";
+  if (text.includes("线下")) return "is-offline";
+  if (text.includes("效果")) return "is-effect";
+  if (text.includes("不回")) return "is-no-reply";
+  if (text.includes("拒绝")) return "is-refused";
+  if (text.includes("不知道") || text.includes("顾虑")) return "is-unknown";
+  return "is-custom";
+}
+
+function renewalPriorityClass(priority) {
+  if (priority === "重点跟进") return "is-key";
+  if (priority === "高意向") return "is-high";
+  if (priority === "可继续沟通") return "is-warm";
+  if (priority === "暂缓跟进") return "is-paused";
+  return "is-empty";
+}
+
+function renderRenewalPriorityOptions(activePriority) {
+  const priorities = renewalData?.followup_priorities || RENEWAL_FOLLOWUP_PRIORITIES;
+  return [
+    `<option value="">无标记</option>`,
+    ...priorities.map((priority) => `
+      <option value="${escapeRenewalText(priority)}"${priority === activePriority ? " selected" : ""}>
+        ${escapeRenewalText(priority)}
+      </option>
+    `),
+  ].join("");
+}
+
+function renderRenewalPrioritySelect(project, student, disabledAttr) {
+  const priority = student.followup_priority || "";
+  return `
+    <select
+      class="renewal-priority-select ${renewalPriorityClass(priority)}"
+      data-renewal-followup-priority="${escapeRenewalText(project.id)}"
+      data-renewal-student-id="${escapeRenewalText(student.id)}"
+      title="跟进优先级"
+      ${disabledAttr}
+    >
+      ${renderRenewalPriorityOptions(priority)}
+    </select>
+  `;
 }
 
 function renderRenewalBlockerOptions(activeBlocker) {
@@ -666,6 +726,79 @@ function getRenewalGeneralInfo(student) {
   };
 }
 
+function renewalDateKey(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : "";
+}
+
+function renewalFollowupRecordsForFilter(project, student) {
+  if (isRenewalFourWeekStage(project)) {
+    return getRenewalWeekInfo(student, getRenewalSelectedWeekKey()).records || [];
+  }
+  const records = getRenewalGeneralInfo(student).records || [];
+  if (records.length) return records;
+  const followedDate = renewalDateKey(student.followup_time);
+  return followedDate ? [{ date: followedDate, date_label: followedDate }] : [];
+}
+
+function renewalStudentFollowupDates(project, student) {
+  return Array.from(new Set(
+    renewalFollowupRecordsForFilter(project, student)
+      .map((record) => renewalDateKey(record.date || record.created_at || record.date_label))
+      .filter(Boolean)
+  ));
+}
+
+function renewalStudentMatchesFollowupDate(project, student) {
+  if (!renewalFollowupDateFilter) return true;
+  return renewalStudentFollowupDates(project, student).includes(renewalFollowupDateFilter);
+}
+
+function renewalFollowupDateMeta(project, students = []) {
+  const dateMap = new Map();
+  students.forEach((student) => {
+    renewalStudentFollowupDates(project, student).forEach((dateKey) => {
+      if (!dateMap.has(dateKey)) dateMap.set(dateKey, []);
+      const names = dateMap.get(dateKey);
+      const name = String(student.name || student.account || "未命名学员").trim();
+      if (name && !names.includes(name)) names.push(name);
+    });
+  });
+  const dates = Array.from(dateMap.keys()).sort().reverse();
+  if (renewalFollowupDateFilter && !dateMap.has(renewalFollowupDateFilter)) {
+    renewalFollowupDateFilter = "";
+  }
+  const selectedNames = renewalFollowupDateFilter ? dateMap.get(renewalFollowupDateFilter) || [] : [];
+  return { dateMap, dates, selectedNames };
+}
+
+function renderRenewalFollowupDateFilter(project, students = []) {
+  const { dateMap, dates, selectedNames } = renewalFollowupDateMeta(project, students);
+  const disabledAttr = dates.length ? "" : "disabled";
+  const summary = renewalFollowupDateFilter
+    ? `当天跟进 ${selectedNames.length} 人：${selectedNames.slice(0, 12).join("、")}${selectedNames.length > 12 ? ` 等${selectedNames.length}人` : ""}`
+    : dates.length
+      ? "选择日期后，可查看当天跟进人数和名单。"
+      : "暂无跟进记录。";
+  return `
+    <div class="renewal-followup-filter">
+      <label>
+        <span>跟进时间</span>
+        <select data-renewal-followup-date-filter ${disabledAttr}>
+          <option value="">全部日期</option>
+          ${dates.map((dateKey) => `
+            <option value="${escapeRenewalText(dateKey)}"${dateKey === renewalFollowupDateFilter ? " selected" : ""}>
+              ${escapeRenewalText(dateKey)}（${Number(dateMap.get(dateKey)?.length || 0)}人）
+            </option>
+          `).join("")}
+        </select>
+      </label>
+      <small>${escapeRenewalText(summary)}</small>
+    </div>
+  `;
+}
+
 function buildRenewalWeekHistory(records = []) {
   if (!records.length) return "暂无跟进记录";
   return records
@@ -869,7 +1002,7 @@ function renderRenewalStudentNameCell(project, student, disabledAttr, extraClass
     <td
       class="database-strong-cell renewal-student-name-hover renewal-student-name-cell ${extraClass}"
       data-renewal-name-note="${escapeRenewalAttr(student.followup_note || "暂无备注")}"
-    >
+      >
       <span class="renewal-student-name-line">
         <input
           class="renewal-student-name-input"
@@ -882,6 +1015,7 @@ function renderRenewalStudentNameCell(project, student, disabledAttr, extraClass
           autocomplete="off"
           ${disabledAttr}
         >
+        ${renderRenewalPrioritySelect(project, student, disabledAttr)}
       </span>
       ${noteCard}
       ${renderRenewalEnrolledToggle(project, student, disabledAttr, true)}
@@ -1454,7 +1588,10 @@ function updateRenewalStudentRow(project, studentId) {
 
 function renderRenewalStandardStudentTable(project, students, disabledAttr) {
   const completionLabel = project.completion_label || "上月完课";
+  const followupFilter = renderRenewalFollowupDateFilter(project, students);
+  const visibleStudents = students.filter((student) => renewalStudentMatchesFollowupDate(project, student));
   return `
+    ${followupFilter}
     <table class="database-table renewal-student-table">
       <thead>
         <tr>
@@ -1467,7 +1604,7 @@ function renderRenewalStandardStudentTable(project, students, disabledAttr) {
         </tr>
       </thead>
       <tbody>
-        ${students.map((student) => `
+        ${visibleStudents.length ? visibleStudents.map((student) => `
           <tr data-renewal-student-row="${escapeRenewalText(student.id)}">
             ${renderRenewalStudentNameCell(project, student, disabledAttr)}
             <td>${escapeRenewalText(student.account || "-")}</td>
@@ -1475,7 +1612,7 @@ function renderRenewalStandardStudentTable(project, students, disabledAttr) {
             <td data-renewal-followup-time-cell>${escapeRenewalText(student.followup_time || "-")}</td>
             <td>
               <select
-                class="renewal-followup-select"
+                class="renewal-followup-select renewal-status-select ${renewalStatusClass(student.followup_status || "")}"
                 data-renewal-followup-status="${escapeRenewalText(project.id)}"
                 data-renewal-student-id="${escapeRenewalText(student.id)}"
                 ${disabledAttr}
@@ -1485,7 +1622,13 @@ function renderRenewalStandardStudentTable(project, students, disabledAttr) {
             </td>
             ${renderRenewalRemarkCell(project, student, disabledAttr)}
           </tr>
-        `).join("")}
+        `).join("") : `
+          <tr>
+            <td class="renewal-hidden-enrolled-empty" colspan="6">
+              ${renewalFollowupDateFilter ? "当天暂无匹配学员。" : "暂无学员数据。"}
+            </td>
+          </tr>
+        `}
       </tbody>
     </table>
   `;
@@ -1508,10 +1651,11 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
   const completionLabel = project.completion_label || "上月完课";
   const showLeaderPlanColumn = shouldShowRenewalLeaderPlanColumn(project, students);
   const firstMonthColumnCount = 4 + 1 + (showLeaderPlanColumn ? 1 : 0) + 3 + (RENEWAL_WEEKS.length - 1) + 1;
+  const followupFilter = renderRenewalFollowupDateFilter(project, students);
   const enrolledStudents = students.filter((student) => student.enrolled);
   const visibleStudents = renewalShowEnrolledStudents
-    ? students
-    : students.filter((student) => !student.enrolled);
+    ? students.filter((student) => renewalStudentMatchesFollowupDate(project, student))
+    : students.filter((student) => !student.enrolled && renewalStudentMatchesFollowupDate(project, student));
   const enrolledToggle = enrolledStudents.length
     ? `
       <div class="renewal-student-toolbar">
@@ -1523,6 +1667,7 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
     `
     : "";
   return `
+    ${followupFilter}
     ${enrolledToggle}
     <table class="database-table renewal-student-table renewal-first-month-table">
       <thead>
@@ -1559,11 +1704,11 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
             <td class="renewal-sticky-col renewal-sticky-account">${escapeRenewalText(student.account || "-")}</td>
             <td class="database-percent-cell renewal-sticky-col renewal-sticky-average">${escapeRenewalText(formatRenewalRate(student.average_completion))}</td>
             <td class="renewal-sticky-col renewal-sticky-intention">
-              <span class="renewal-intention-pill">${escapeRenewalText(student.followup_status || "未填写")}</span>
+              <span class="renewal-intention-pill ${renewalStatusClass(student.followup_status || "")}">${escapeRenewalText(student.followup_status || "未填写")}</span>
             </td>
             <td class="renewal-sticky-col renewal-sticky-blocker">
               <select
-                class="renewal-followup-select renewal-blocker-select"
+                class="renewal-followup-select renewal-blocker-select ${renewalBlockerClass(student.current_blocker || "")}"
                 data-renewal-current-blocker="${escapeRenewalText(project.id)}"
                 data-renewal-student-id="${escapeRenewalText(student.id)}"
                 data-renewal-current-value="${escapeRenewalText(student.current_blocker || "")}"
@@ -1577,7 +1722,9 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
           </tr>
         `).join("") : `
           <tr>
-            <td class="renewal-hidden-enrolled-empty" colspan="${firstMonthColumnCount}">已报名学员已自动隐藏，点击上方按钮可展开查看。</td>
+            <td class="renewal-hidden-enrolled-empty" colspan="${firstMonthColumnCount}">
+              ${renewalFollowupDateFilter ? "当天暂无匹配学员。" : "已报名学员已自动隐藏，点击上方按钮可展开查看。"}
+            </td>
           </tr>
         `}
       </tbody>
@@ -1589,10 +1736,11 @@ function renderRenewalSecondMonthStudentTable(project, students, disabledAttr) {
   const showLeaderPlanColumn = shouldShowRenewalLeaderPlanColumn(project, students);
   const completionLabel = project.completion_label || "上月完课";
   const secondMonthColumnCount = 4 + 1 + (showLeaderPlanColumn ? 1 : 0) + 4;
+  const followupFilter = renderRenewalFollowupDateFilter(project, students);
   const enrolledStudents = students.filter((student) => student.enrolled);
   const visibleStudents = renewalShowEnrolledStudents
-    ? students
-    : students.filter((student) => !student.enrolled);
+    ? students.filter((student) => renewalStudentMatchesFollowupDate(project, student))
+    : students.filter((student) => !student.enrolled && renewalStudentMatchesFollowupDate(project, student));
   const enrolledToggle = enrolledStudents.length
     ? `
       <div class="renewal-student-toolbar">
@@ -1604,6 +1752,7 @@ function renderRenewalSecondMonthStudentTable(project, students, disabledAttr) {
     `
     : "";
   return `
+    ${followupFilter}
     ${enrolledToggle}
     <table class="database-table renewal-student-table renewal-first-month-table renewal-second-month-table">
       <thead>
@@ -1631,11 +1780,11 @@ function renderRenewalSecondMonthStudentTable(project, students, disabledAttr) {
             <td class="renewal-sticky-col renewal-sticky-account">${escapeRenewalText(student.account || "-")}</td>
             <td class="database-percent-cell renewal-sticky-col renewal-sticky-average">${escapeRenewalText(formatRenewalRate(student.average_completion))}</td>
             <td class="renewal-sticky-col renewal-sticky-intention">
-              <span class="renewal-intention-pill">${escapeRenewalText(student.followup_status || "未填写")}</span>
+              <span class="renewal-intention-pill ${renewalStatusClass(student.followup_status || "")}">${escapeRenewalText(student.followup_status || "未填写")}</span>
             </td>
             <td class="renewal-sticky-col renewal-sticky-blocker">
               <select
-                class="renewal-followup-select renewal-blocker-select"
+                class="renewal-followup-select renewal-blocker-select ${renewalBlockerClass(student.current_blocker || "")}"
                 data-renewal-current-blocker="${escapeRenewalText(project.id)}"
                 data-renewal-student-id="${escapeRenewalText(student.id)}"
                 data-renewal-current-value="${escapeRenewalText(student.current_blocker || "")}"
@@ -1652,7 +1801,9 @@ function renderRenewalSecondMonthStudentTable(project, students, disabledAttr) {
           </tr>
         `).join("") : `
           <tr>
-            <td class="renewal-hidden-enrolled-empty" colspan="${secondMonthColumnCount}">已报名学员已自动隐藏，点击上方按钮可展开查看。</td>
+            <td class="renewal-hidden-enrolled-empty" colspan="${secondMonthColumnCount}">
+              ${renewalFollowupDateFilter ? "当天暂无匹配学员。" : "已报名学员已自动隐藏，点击上方按钮可展开查看。"}
+            </td>
           </tr>
         `}
       </tbody>
@@ -2177,6 +2328,7 @@ function initRenewal() {
   });
   renewalWeekSelect?.addEventListener("change", () => {
     setRenewalSelectedWeekKey(renewalWeekSelect.value);
+    renewalFollowupDateFilter = "";
     if (renewalActiveDetailData) {
       renderRenewalDetail(renewalActiveDetailData);
     }
@@ -2264,10 +2416,30 @@ function initRenewal() {
     }
     const statusSelect = event.target.closest("[data-renewal-followup-status]");
     if (statusSelect) {
+      statusSelect.className = `renewal-followup-select renewal-status-select ${renewalStatusClass(statusSelect.value)}`;
       updateRenewalStudent(
         statusSelect.dataset.renewalFollowupStatus,
         statusSelect.dataset.renewalStudentId,
         { followup_status: statusSelect.value }
+      );
+      return;
+    }
+    const followupDateFilter = event.target.closest("[data-renewal-followup-date-filter]");
+    if (followupDateFilter) {
+      renewalFollowupDateFilter = followupDateFilter.value || "";
+      if (renewalActiveDetailData) {
+        renderRenewalDetail(renewalActiveDetailData);
+      }
+      return;
+    }
+    const prioritySelect = event.target.closest("[data-renewal-followup-priority]");
+    if (prioritySelect) {
+      prioritySelect.className = `renewal-priority-select ${renewalPriorityClass(prioritySelect.value)}`;
+      updateRenewalStudent(
+        prioritySelect.dataset.renewalFollowupPriority,
+        prioritySelect.dataset.renewalStudentId,
+        { followup_priority: prioritySelect.value },
+        { successMessage: "跟进优先级已更新。" }
       );
       return;
     }
@@ -2277,6 +2449,7 @@ function initRenewal() {
         addRenewalInlineBlockerOption(blockerSelect);
         return;
       }
+      blockerSelect.className = `renewal-followup-select renewal-blocker-select ${renewalBlockerClass(blockerSelect.value)}`;
       updateRenewalStudent(
         blockerSelect.dataset.renewalCurrentBlocker,
         blockerSelect.dataset.renewalStudentId,

@@ -96,7 +96,8 @@ COMPLETION_PERFORMANCE_BASE_TARGETS = {
 REMINDER_ASSESSMENT_WEEK_LIMIT = 41
 REMINDER_HIGH_GAP_THRESHOLD = 10
 REMINDER_DAILY_MIN_CLASSES = 2
-REMINDER_PLAN_RULE_VERSION = "home-class-source-v2"
+REMINDER_DAILY_MAX_TASKS = 3
+REMINDER_PLAN_RULE_VERSION = "home-class-source-v3-daily-cap"
 REMINDER_WEEK_FLOW = [
     {"key": "monday", "label": "周一", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": None, "focus_count": 0},
     {"key": "tuesday", "label": "周二", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": None, "focus_count": 0},
@@ -104,6 +105,7 @@ REMINDER_WEEK_FLOW = [
     {"key": "thursday", "label": "周四", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": "tuesday", "focus_count": 0},
     {"key": "friday", "label": "周五", "new_count": REMINDER_DAILY_MIN_CLASSES, "recover_from": None, "focus_count": 0},
 ]
+REMINDER_DAY_KEYS = [item["key"] for item in REMINDER_WEEK_FLOW]
 REMINDER_FLOW_BY_KEY = {item["key"]: item for item in REMINDER_WEEK_FLOW}
 REMINDER_RECOVERY_TARGET_BY_ORIGIN = {
     item["recover_from"]: item["key"]
@@ -822,6 +824,16 @@ def completion_snapshot_by_date(date_key, store=None):
     if isinstance(snapshot, dict):
         return {**snapshot, "date": snapshot.get("date") or str(date_key)}
     return None
+
+
+def latest_completion_snapshot_before(report_date, store=None):
+    snapshots = snapshot_list(store)
+    candidates = [
+        snapshot
+        for snapshot in snapshots
+        if str(snapshot.get("date", "")) <= str(report_date or "")
+    ]
+    return (candidates or snapshots)[-1] if (candidates or snapshots) else None
 
 
 def previous_completion_snapshot(snapshot_date, store=None):
@@ -1988,8 +2000,10 @@ def reminder_student_snapshot(student):
         "account": str(student.get("account") or "").strip(),
         "category": str(student.get("category") or student.get("habit_category") or "暂无数据").strip(),
         "monthly_completion": parse_completion(student.get("monthly_completion")),
+        "last_month_completion": parse_completion(student.get("last_month_completion")),
         "renewal_enrolled": bool(student.get("renewal_enrolled")),
         "prompt": str(student.get("prompt") or "").strip(),
+        "remark": str(student.get("remark") or "").strip()[:500],
         "phone_call": {
             "completed": bool(phone_call.get("completed")),
             "completed_at": str(phone_call.get("completed_at") or "").strip(),
@@ -2025,6 +2039,8 @@ def reminder_spot_check_student(student):
         "account": str(student.get("account") or "").strip(),
         "category": str(student.get("category") or "暂无数据").strip(),
         "monthly_completion": parse_completion(student.get("monthly_completion")),
+        "last_month_completion": parse_completion(student.get("last_month_completion")),
+        "remark": str(student.get("remark") or "").strip()[:500],
         "prompt": str(student.get("prompt") or "").strip(),
         "phone_call": student.get("phone_call") if isinstance(student.get("phone_call"), dict) else {},
     }
@@ -2423,6 +2439,7 @@ def reminder_class_ref(
         "requires_high_frequency": bool(row.get("requires_high_frequency")),
         "source": row.get("source", "database"),
         "source_label": row.get("source_label", "数据库"),
+        "recover_from": row.get("recover_from") or recover_from or "",
     }
     if action_records is not None:
         output["action_state"] = reminder_schedule_action_state(
@@ -2512,6 +2529,25 @@ def normalize_reminder_priority_rows(rows):
 
 def reminder_rows_signature_set(rows):
     return {reminder_schedule_row_signature(row) for row in rows}
+
+
+def reminder_schedule_task_rows(day):
+    if not isinstance(day, dict):
+        return []
+    rows = []
+    for key in ("new_classes", "recover_classes", "focus_classes"):
+        rows.extend([row for row in day.get(key, []) if isinstance(row, dict)])
+    return rows
+
+
+def reminder_schedule_unique_count(schedule):
+    signatures = set()
+    for day in schedule or []:
+        signatures.update(
+            reminder_schedule_row_signature(row)
+            for row in reminder_schedule_task_rows(day)
+        )
+    return len(signatures)
 
 
 def append_unique_reminder_rows(target, rows):
@@ -2666,7 +2702,8 @@ def reconcile_weekly_reminder_plan(plan):
             "extra_classes": extra_rows,
         })
 
-        rebuilt_schedule = build_reminder_schedule(schedule_rows)
+        schedule_manually_adjusted = bool(group.get("schedule_manually_adjusted"))
+        rebuilt_schedule = group.get("schedule", []) if schedule_manually_adjusted else build_reminder_schedule(schedule_rows)
         next_values = {
             "priorities": priority_rows,
             "database_fallbacks": fallback_rows,
@@ -2676,7 +2713,7 @@ def reconcile_weekly_reminder_plan(plan):
             "included_count": len(priority_rows),
             "ignored_count": len(fallback_rows),
             "extra_count": len(extra_rows),
-            "schedule_count": len(schedule_rows),
+            "schedule_count": reminder_schedule_unique_count(rebuilt_schedule) if schedule_manually_adjusted else len(schedule_rows),
             "schedule": rebuilt_schedule,
         }
         for key, value in next_values.items():
@@ -2725,11 +2762,23 @@ def build_reminder_schedule(schedule_rows, action_records=None):
     def fill_daily_rows(existing_rows, target_count, excluded_signatures=None):
         nonlocal fill_cursor
         excluded_signatures = excluded_signatures or set()
-        selected = [
+        preferred_rows = [
             row
             for row in dedupe(existing_rows)
             if reminder_schedule_row_signature(row) not in excluded_signatures
         ]
+        selected = []
+        if preferred_rows:
+            attempts = 0
+            max_attempts = max(len(preferred_rows) * 2, target_count)
+            while len(selected) < target_count and attempts < max_attempts:
+                row = preferred_rows[fill_cursor % len(preferred_rows)]
+                fill_cursor += 1
+                attempts += 1
+                signature = reminder_schedule_row_signature(row)
+                if any(reminder_schedule_row_signature(item) == signature for item in selected):
+                    continue
+                selected.append(row)
         if len(selected) >= target_count or not fill_rows:
             return selected
 
@@ -2749,7 +2798,10 @@ def build_reminder_schedule(schedule_rows, action_records=None):
 
     for item in REMINDER_WEEK_FLOW:
         recover_classes = buckets.get(item["recover_from"] or "", [])
+        recover_classes = dedupe(recover_classes)[:REMINDER_DAILY_MAX_TASKS]
         recover_signatures = reminder_rows_signature_set(recover_classes)
+        remaining_capacity = max(0, REMINDER_DAILY_MAX_TASKS - len(recover_classes))
+        target_new_count = min(item.get("new_count", REMINDER_DAILY_MIN_CLASSES), remaining_capacity)
         new_classes = []
         if item["key"] in {"monday", "tuesday", "friday"}:
             new_classes.extend(high_frequency_rows)
@@ -2757,7 +2809,7 @@ def build_reminder_schedule(schedule_rows, action_records=None):
             new_classes.extend(activity_rows)
         new_classes = fill_daily_rows(
             new_classes,
-            item.get("new_count", REMINDER_DAILY_MIN_CLASSES),
+            target_new_count,
             recover_signatures,
         )
         if new_classes:
@@ -2778,7 +2830,7 @@ def build_reminder_schedule(schedule_rows, action_records=None):
                         item["key"],
                         "回收",
                         action_records if include_action_state else None,
-                        item.get("recover_from"),
+                        row.get("recover_from") or item.get("recover_from"),
                     )
                     for row in recover_classes
                 ],
@@ -3063,6 +3115,27 @@ def save_weekly_reminder_plan(cycle_key, source_date, generated_by=""):
     return plan
 
 
+def preview_weekly_reminder_plan(report_date):
+    store = load_completion_snapshots()
+    snapshot = latest_completion_snapshot(str(report_date or "")[:7], report_date, store)
+    if not snapshot:
+        snapshot = latest_completion_snapshot_before(report_date, store)
+    if not snapshot:
+        return waiting_for_monday_upload_plan(reminder_cycle_key_for_date(report_date), report_date)
+
+    source_date = snapshot.get("date") or report_date
+    plan = generate_weekly_reminder_plan(reminder_cycle_key_for_date(report_date), source_date, "preview")
+    plan.update(
+        {
+            "date": report_date,
+            "preview_mode": True,
+            "is_frozen": False,
+            "generated_by": "preview",
+        }
+    )
+    return plan
+
+
 def ensure_weekly_reminder_plan(report_date):
     cycle_key = reminder_cycle_key_for_date(report_date)
     monday_snapshot = completion_snapshot_by_date(cycle_key)
@@ -3126,7 +3199,15 @@ def reminder_schedule_with_action_states(schedule, action_records, local_upload_
                     for row in day.get("new_classes", [])
                 ],
                 "recover_classes": [
-                    reminder_class_ref(row, day_key, "回收", action_records, recover_from, local_upload_lookup, report_date)
+                    reminder_class_ref(
+                        row,
+                        day_key,
+                        "回收",
+                        action_records,
+                        row.get("recover_from") or recover_from,
+                        local_upload_lookup,
+                        report_date,
+                    )
                     for row in day.get("recover_classes", [])
                 ],
                 "focus_classes": [
@@ -3151,11 +3232,11 @@ def reminder_plan_summary(groups, action_records):
     }
 
 
-def build_completion_reminder_plan(month_key, report_date):
+def build_completion_reminder_plan(month_key, report_date, preview=False):
     visible_teacher_ids = reminder_visible_teacher_ids()
     action_records = reminder_schedule_action_records(visible_teacher_ids)
     local_upload_lookup = reminder_local_class_upload_lookup(visible_teacher_ids)
-    plan = ensure_weekly_reminder_plan(report_date)
+    plan = preview_weekly_reminder_plan(report_date) if preview else ensure_weekly_reminder_plan(report_date)
     day_key = reminder_day_key_for_date(report_date)
     groups = [
         {
@@ -3184,6 +3265,7 @@ def build_completion_reminder_plan(month_key, report_date):
         "generated_at": plan.get("generated_at", ""),
         "generated_by": plan.get("generated_by", ""),
         "is_frozen": bool(plan.get("is_frozen", True)),
+        "preview_mode": bool(plan.get("preview_mode")),
         "waiting_for_monday_upload": bool(plan.get("waiting_for_monday_upload")),
         "last_month_source_month": plan.get("last_month_source_month", ""),
         "last_month_source_date": plan.get("last_month_source_date", ""),
@@ -3200,6 +3282,217 @@ def reminder_day_tasks(day):
         for item in day.get(key, []) or []:
             tasks.append({**item, "task_label": task_label})
     return tasks
+
+
+def can_manage_completion_reminder_schedule():
+    return current_user_teacher_id() == COMPLETION_UPLOAD_TEACHER_ID
+
+
+def reminder_schedule_bucket_key(task_label):
+    return {
+        "催课": "new_classes",
+        "回收": "recover_classes",
+        "重点复催": "focus_classes",
+    }.get(str(task_label or "").strip())
+
+
+def reminder_schedule_day(schedule, day_key):
+    return next((day for day in schedule or [] if day.get("key") == day_key), None)
+
+
+def reminder_schedule_target_day_key(source_day_key, direction="", target_day_key=""):
+    if target_day_key in REMINDER_DAY_KEYS:
+        return target_day_key
+    if source_day_key not in REMINDER_DAY_KEYS:
+        return ""
+    index = REMINDER_DAY_KEYS.index(source_day_key)
+    if direction == "prev":
+        index -= 1
+    elif direction == "next":
+        index += 1
+    else:
+        return ""
+    if index < 0 or index >= len(REMINDER_DAY_KEYS):
+        return ""
+    return REMINDER_DAY_KEYS[index]
+
+
+def reminder_schedule_row_matches_payload(row, payload):
+    payload_teacher_id = normalize_teacher_id(payload.get("teacher_id"))
+    row_teacher_id = normalize_teacher_id(row.get("teacher_id"))
+    if payload_teacher_id and row_teacher_id and payload_teacher_id != row_teacher_id:
+        return False
+
+    for field in ("class_id", "local_class_id"):
+        payload_value = str(payload.get(field) or "").strip()
+        row_value = str(row.get(field) or "").strip()
+        if payload_value and row_value and payload_value == row_value:
+            return True
+
+    payload_keys = set(payload.get("class_keys") or [])
+    if not payload_keys:
+        for field in ("class_name", "local_class_name", "name"):
+            payload_keys.update(reminder_class_match_keys(payload.get(field, "")))
+    row_keys = reminder_row_candidate_keys(row)
+    return bool(payload_keys and row_keys and payload_keys.intersection(row_keys))
+
+
+def reminder_schedule_pop_row(day, bucket_key, payload):
+    rows = day.get(bucket_key)
+    if not isinstance(rows, list):
+        return None
+    for index, row in enumerate(rows):
+        if isinstance(row, dict) and reminder_schedule_row_matches_payload(row, payload):
+            return rows.pop(index)
+    return None
+
+
+def reminder_schedule_day_task_count(day):
+    return len(reminder_schedule_task_rows(day))
+
+
+def reminder_recovery_day_for_origin(schedule, origin_day_key):
+    target_key = REMINDER_RECOVERY_TARGET_BY_ORIGIN.get(str(origin_day_key or ""))
+    if not target_key:
+        return None, ""
+    return reminder_schedule_day(schedule, target_key), target_key
+
+
+def reminder_pop_paired_recovery(schedule, row, origin_day_key):
+    recovery_day, recovery_day_key = reminder_recovery_day_for_origin(schedule, origin_day_key)
+    if not recovery_day:
+        return None, "", None
+    recovery_row = reminder_schedule_pop_row(
+        recovery_day,
+        "recover_classes",
+        {
+            **row,
+            "task_label": "回收",
+            "day_key": recovery_day_key,
+            "recover_from": origin_day_key,
+        },
+    )
+    return recovery_day, recovery_day_key, recovery_row
+
+
+def refresh_group_schedule_count(group):
+    group["schedule_count"] = reminder_schedule_unique_count(group.get("schedule", []))
+
+
+def update_moved_recovery_records(row, old_day_key, new_day_key, recover_from):
+    if not old_day_key or not new_day_key or old_day_key == new_day_key:
+        return
+    cycle_key = current_reminder_cycle_key()
+    now_text = datetime.now().isoformat(timespec="seconds")
+
+    def mutate(store):
+        changed = False
+        for record in store.get("records", []):
+            if record.get("cycle_key") != cycle_key:
+                continue
+            if record.get("status") != "pending_recovery":
+                continue
+            if str(record.get("recovery_day_key") or "") != str(old_day_key):
+                continue
+            if recover_from and str(record.get("origin_day_key") or "") != str(recover_from):
+                continue
+            if normalize_teacher_id(record.get("teacher_id")) != normalize_teacher_id(row.get("teacher_id")):
+                continue
+            if not reminder_record_class_intersects(record, row):
+                continue
+            record["recovery_day_key"] = new_day_key
+            record["recovery_day_label"] = reminder_day_label(new_day_key)
+            changed = True
+        if changed:
+            store["updated_at"] = now_text
+        return changed
+
+    with REMINDER_ACTIONS_LOCK:
+        update_json(completion_reminder_actions_file(), {"records": []}, mutate)
+
+
+def adjust_weekly_reminder_schedule(plan, payload):
+    teacher_id = normalize_teacher_id(payload.get("teacher_id"))
+    day_key = str(payload.get("day_key") or "").strip()
+    task_label = str(payload.get("task_label") or "催课").strip()
+    action = str(payload.get("action") or "").strip()
+    bucket_key = reminder_schedule_bucket_key(task_label)
+    if not teacher_id:
+        raise ValueError("缺少老师信息。")
+    if not day_key or day_key not in REMINDER_DAY_KEYS:
+        raise ValueError("缺少要调整的日期。")
+    if not bucket_key:
+        raise ValueError("暂不支持调整这个任务类型。")
+    if action not in {"delete", "move"}:
+        raise ValueError("缺少调整方式。")
+
+    group = next(
+        (
+            item
+            for item in plan.get("groups", [])
+            if normalize_teacher_id(item.get("teacher_id")) == teacher_id
+        ),
+        None,
+    )
+    if not group:
+        raise ValueError("没有找到这个老师的本周催课安排。")
+
+    source_day = reminder_schedule_day(group.get("schedule", []), day_key)
+    if not source_day:
+        raise ValueError("没有找到要调整的日期。")
+
+    target_day_key = ""
+    target_day = None
+    target_recovery_day = None
+    if action == "move":
+        target_day_key = reminder_schedule_target_day_key(
+            day_key,
+            str(payload.get("direction") or "").strip(),
+            str(payload.get("target_day_key") or "").strip(),
+        )
+        target_day = reminder_schedule_day(group.get("schedule", []), target_day_key)
+        if not target_day:
+            raise ValueError("目标日期不在本周工作日内。")
+        if task_label == "催课":
+            target_recovery_day, _target_recovery_day_key = reminder_recovery_day_for_origin(
+                group.get("schedule", []),
+                target_day_key,
+            )
+
+    row = reminder_schedule_pop_row(source_day, bucket_key, payload)
+    if not row:
+        raise ValueError("没有找到要调整的班级。")
+    recovery_day = None
+    recovery_day_key = ""
+    recovery_row = None
+    if task_label == "催课":
+        recovery_day, recovery_day_key, recovery_row = reminder_pop_paired_recovery(
+            group.get("schedule", []),
+            row,
+            day_key,
+        )
+
+    message = "已删除这个班级的催课安排。"
+    if action == "move":
+        if task_label == "回收":
+            row["recover_from"] = row.get("recover_from") or source_day.get("recover_from") or payload.get("recover_from") or ""
+        target_day.setdefault(bucket_key, []).append(row)
+        if task_label == "催课" and target_recovery_day:
+            next_recovery_row = recovery_row or row
+            next_recovery_row["recover_from"] = target_day_key
+            target_recovery_day.setdefault("recover_classes", []).append(next_recovery_row)
+        update_moved_recovery_records(row, day_key, target_day_key, row.get("recover_from", ""))
+        message = f"已移动到{reminder_day_label(target_day_key)}。"
+
+    now_text = datetime.now().isoformat(timespec="seconds")
+    group["schedule_manually_adjusted"] = True
+    group["schedule_adjusted_at"] = now_text
+    group["schedule_adjusted_by"] = g.user.get("username", "")
+    refresh_group_schedule_count(group)
+    plan["updated_at"] = now_text
+    plan["manual_adjusted_at"] = now_text
+    plan["manual_adjusted_by"] = g.user.get("username", "")
+    return message
 
 
 def build_completion_reminder_supervision(month_key, report_date):
@@ -3611,7 +3904,11 @@ def completion_reminders():
         current_date = datetime.now().strftime("%Y-%m-%d")
         report_date = current_date if current_date.startswith(f"{month_key}-") else month_end_date(month_key)
 
-    return jsonify(build_completion_reminder_plan(month_key, report_date))
+    preview = str(request.args.get("preview") or "").lower() in {"1", "true", "yes"}
+    if preview and not can_manage_completion_reminder_schedule():
+        return jsonify({"error": "只有管理员可以预览催课排班。"}), 403
+
+    return jsonify(build_completion_reminder_plan(month_key, report_date, preview))
 
 
 @database_bp.get("/completion-reminders/supervision")
@@ -3628,6 +3925,38 @@ def completion_reminder_supervision():
         report_date = current_date if current_date.startswith(f"{month_key}-") else month_end_date(month_key)
 
     return jsonify(build_completion_reminder_supervision(month_key, report_date))
+
+
+@database_bp.post("/completion-reminders/schedule")
+@login_required
+def adjust_completion_reminder_schedule():
+    if not can_manage_completion_reminder_schedule():
+        return jsonify({"error": "只有管理员可以调整催课安排。"}), 403
+    payload = request.get_json(silent=True) or {}
+    try:
+        report_date = normalize_date(payload.get("date"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    month_key = normalize_month(payload.get("month") or report_date[:7])
+    cycle_key = str(payload.get("cycle_key") or reminder_cycle_key_for_date(report_date)).strip()
+
+    ensure_weekly_reminder_plan(report_date)
+    try:
+        with REMINDER_PLANS_LOCK:
+            store = load_reminder_plans()
+            plan = store.setdefault("plans", {}).get(cycle_key)
+            if not plan or plan.get("waiting_for_monday_upload"):
+                return jsonify({"error": "本周还没有可调整的催课安排。"}), 400
+            message = adjust_weekly_reminder_schedule(plan, payload)
+            store.setdefault("plans", {})[cycle_key] = plan
+            store["updated_at"] = plan.get("updated_at", datetime.now().isoformat(timespec="seconds"))
+            save_reminder_plans(store)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    data = build_completion_reminder_plan(month_key, report_date)
+    data["message"] = message
+    return jsonify(data)
 
 
 def serialize_reminder_record(record):
@@ -3667,8 +3996,9 @@ def completion_reminder_action_records():
     task_label = str(request.args.get("task_label") or "催课").strip()
     recover_from = str(request.args.get("recover_from") or "").strip()
     teacher_id = normalize_teacher_id(request.args.get("teacher_id"))
+    all_cycle = str(request.args.get("all_cycle") or "").strip().lower() in {"1", "true", "yes"}
 
-    if not class_name or not day_key:
+    if not class_name or (not day_key and not all_cycle):
         return jsonify({"records": [], "student_count": 0})
     if teacher_id and not can_access_reminder_teacher(teacher_id):
         return jsonify({"error": "只能查看自己有权限的催课记录。"}), 403
@@ -3682,7 +4012,14 @@ def completion_reminder_action_records():
         if not can_access_reminder_teacher(record_teacher_id):
             continue
         row = {"class_name": class_name, "teacher_id": teacher_id or record_teacher_id}
-        if reminder_record_matches_schedule(record, row, day_key, task_label, recover_from):
+        if all_cycle:
+            if record.get("cycle_key") != current_reminder_cycle_key():
+                continue
+            if str(record.get("task_label") or "") == "回收":
+                continue
+            if reminder_record_class_intersects(record, row):
+                records.append(serialize_reminder_record(record))
+        elif reminder_record_matches_schedule(record, row, day_key, task_label, recover_from):
             records.append(serialize_reminder_record(record))
 
     records = sorted(

@@ -25,6 +25,7 @@ renewal_bp = Blueprint("renewal", __name__, url_prefix="/api/renewal")
 
 RENEWAL_STAGES = ["铺垫阶段", "续报首月", "续报次月", "结营续报"]
 FOLLOWUP_STATUSES = ["愿意继续学", "需要考虑", "拒绝", "未接听"]
+FOLLOWUP_PRIORITIES = ["重点跟进", "高意向", "可继续沟通", "暂缓跟进"]
 RENEWAL_FIRST_MONTH_STAGE = "续报首月"
 RENEWAL_SECOND_MONTH_STAGE = "续报次月"
 RENEWAL_FOUR_WEEK_STAGES = {RENEWAL_FIRST_MONTH_STAGE, RENEWAL_SECOND_MONTH_STAGE}
@@ -42,6 +43,8 @@ FOLLOWUP_STATUS_PRIORITY = {
     "拒绝": 3,
     "": 4,
 }
+FOLLOWUP_PRIORITY_RANK = {priority: index for index, priority in enumerate(FOLLOWUP_PRIORITIES)}
+FOLLOWUP_PRIORITY_RANK[""] = len(FOLLOWUP_PRIORITIES)
 
 
 def renewal_file():
@@ -143,6 +146,11 @@ def normalize_stage(value):
 def normalize_followup_status(value):
     status = str(value or "").strip()
     return status if status in FOLLOWUP_STATUSES else ""
+
+
+def normalize_followup_priority(value):
+    priority = str(value or "").strip()
+    return priority if priority in FOLLOWUP_PRIORITIES else ""
 
 
 def normalize_leader_action_type(value):
@@ -523,6 +531,7 @@ def student_followup_record(project, student_id):
     record["status"] = normalize_followup_status(record.get("status"))
     record["enrolled"] = bool(record.get("enrolled"))
     record["current_blocker"] = normalize_blocker(record.get("current_blocker"))
+    record["priority"] = normalize_followup_priority(record.get("priority"))
     record["weekly_followups"] = normalize_weekly_followups(record.get("weekly_followups"))
     record["general_followups"] = normalize_general_followups(record.get("general_followups"))
     record["notes"] = normalize_note_entries(record)
@@ -1053,13 +1062,27 @@ def blocker_priority(value):
 
 def student_priority_key(student):
     status = student.get("followup_status") or ""
+    priority = student.get("followup_priority") or ""
     blocker_bucket, blocker_index, blocker = blocker_priority(student.get("current_blocker"))
     return (
         1 if student.get("enrolled") else 0,
+        FOLLOWUP_PRIORITY_RANK.get(priority, FOLLOWUP_PRIORITY_RANK[""]),
         blocker_bucket,
         blocker_index,
         blocker,
         FOLLOWUP_STATUS_PRIORITY.get(status, FOLLOWUP_STATUS_PRIORITY[""]),
+        str(student.get("name") or ""),
+        str(student.get("account") or ""),
+    )
+
+
+def student_prep_priority_key(student):
+    status = student.get("followup_status") or ""
+    priority = student.get("followup_priority") or ""
+    return (
+        1 if student.get("enrolled") else 0,
+        FOLLOWUP_STATUS_PRIORITY.get(status, FOLLOWUP_STATUS_PRIORITY[""]),
+        FOLLOWUP_PRIORITY_RANK.get(priority, FOLLOWUP_PRIORITY_RANK[""]),
         str(student.get("name") or ""),
         str(student.get("account") or ""),
     )
@@ -1230,6 +1253,7 @@ def serialize_project_detail(project, classes_by_id):
                 "average_completion": calculate_monthly_completion(get_student_weeks(student, month_key)),
                 "followup_time": format_followup_time(followup.get("followed_at")),
                 "followup_status": normalize_followup_status(followup.get("status")),
+                "followup_priority": normalize_followup_priority(followup.get("priority")),
                 "current_blocker": normalize_blocker(followup.get("current_blocker")),
                 "weekly_followups": serialize_weekly_followups(followup),
                 "general_followup": serialize_general_followups(followup, include_weekly=include_weekly_in_general),
@@ -1248,6 +1272,8 @@ def serialize_project_detail(project, classes_by_id):
             })
         if output.get("stage") in RENEWAL_PRIORITY_STAGES:
             students.sort(key=student_priority_key)
+        elif output.get("stage") == RENEWAL_STAGES[0]:
+            students.sort(key=student_prep_priority_key)
         output["students"] = students
     return output
 
@@ -1372,6 +1398,7 @@ def build_payload():
     return {
         "stages": RENEWAL_STAGES,
         "followup_statuses": FOLLOWUP_STATUSES,
+        "followup_priorities": FOLLOWUP_PRIORITIES,
         "followup_methods": FOLLOWUP_METHODS,
         "blocker_options": blocker_options(store),
         "projects": projects,
@@ -1532,6 +1559,9 @@ def update_student_enrollment(project_id, student_id):
     if "followup_status" in payload:
         record["status"] = normalize_followup_status(payload.get("followup_status"))
         had_update = True
+    elif "followup_priority" in payload:
+        record["priority"] = normalize_followup_priority(payload.get("followup_priority"))
+        had_update = True
     elif "enrolled" in payload:
         next_enrolled = bool(payload.get("enrolled"))
         was_enrolled = bool(record.get("enrolled"))
@@ -1602,7 +1632,12 @@ def update_student_enrollment(project_id, student_id):
         record["leader_note_done"] = bool(payload.get("leader_note_done"))
         record["leader_note_done_at"] = now_iso() if record["leader_note_done"] else ""
         had_update = True
-    if had_update and "weekly_followup" not in payload and "general_followup" not in payload:
+    if (
+        had_update
+        and "weekly_followup" not in payload
+        and "general_followup" not in payload
+        and "followup_priority" not in payload
+    ):
         record["followed_at"] = now_iso()
     if had_update:
         project["updated_at"] = now_iso()

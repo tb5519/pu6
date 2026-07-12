@@ -1,5 +1,6 @@
 const dailyTodayButton = document.querySelector("#dr-todayButton");
 const dailySaveButton = document.querySelector("#dr-saveButton");
+const dailyRefreshButton = document.querySelector("#dr-refreshButton");
 const dailyMessage = document.querySelector("#dr-message");
 const dailyDateInput = document.querySelector("#dr-dateInput");
 const dailySelectedDateTitle = document.querySelector("#dr-selectedDateTitle");
@@ -534,6 +535,19 @@ function initDailyReport() {
     await flushDailyAutoSave();
     dailySelectedDate = dailyDateInput.value;
     await loadDailyReport();
+  });
+
+  dailyRefreshButton?.addEventListener("click", async () => {
+    dailyRefreshButton.disabled = true;
+    try {
+      await flushDailyAutoSave();
+      await loadDailyReport();
+      setDailyMessage("日报已刷新。");
+    } catch (error) {
+      setDailyMessage(error.message, true);
+    } finally {
+      dailyRefreshButton.disabled = false;
+    }
   });
 
   dailyTodoForm?.addEventListener("submit", async (event) => {

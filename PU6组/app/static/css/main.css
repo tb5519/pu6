@@ -1591,6 +1591,38 @@ input {
     #fff;
 }
 
+.completion-period-controls {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  background: #fff;
+  color: #4f3a97;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.completion-period-controls input {
+  width: 126px;
+  min-height: 30px;
+  border: 0;
+  color: #191143;
+  font: inherit;
+  background: transparent;
+}
+
+.completion-period-controls em {
+  color: #8175aa;
+  font-style: normal;
+}
+
+.period-save-button {
+  min-width: 82px;
+}
+
 .file-button input,
 .hidden-file-input {
   position: absolute;
@@ -1752,6 +1784,115 @@ input {
 .search-card textarea:focus {
   border-color: #7f4af3;
   box-shadow: 0 0 0 4px rgba(127, 74, 243, 0.12);
+}
+
+.talk-mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  margin: 8px 0 10px;
+  padding: 4px;
+  border: 1px solid #ded2f5;
+  border-radius: 8px;
+  background: #fbf9ff;
+}
+
+.talk-mode-tabs.is-hidden {
+  display: none;
+}
+
+.talk-mode-tabs button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  color: #6c6387;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.talk-mode-tabs button.is-active {
+  color: #ffffff;
+  background: #6f3ff1;
+  box-shadow: 0 8px 18px rgba(111, 63, 241, 0.18);
+}
+
+.talk-daily-message {
+  margin: 0 0 12px;
+}
+
+.talk-daily-message.is-hidden {
+  display: none;
+}
+
+.talk-daily-message-card,
+.talk-daily-message-empty {
+  border: 1px solid #cfeee7;
+  border-radius: 8px;
+  background: #f5fcfa;
+}
+
+.talk-daily-message-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.talk-daily-message-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.talk-daily-message-head div {
+  display: grid;
+  gap: 3px;
+}
+
+.talk-daily-message-head span,
+.talk-daily-message-card em {
+  color: #27786d;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.talk-daily-message-head strong {
+  color: #17123c;
+  font-size: 14px;
+}
+
+.talk-daily-message-card p {
+  margin: 0;
+  color: #2f3550;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.talk-daily-message-card > .primary-button {
+  justify-self: start;
+}
+
+.talk-daily-message-card .compact-button {
+  min-width: 82px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.talk-daily-message-empty {
+  padding: 10px;
+  color: #6a6384;
+  font-size: 13px;
+  font-weight: 850;
 }
 
 .tool-panel textarea {
@@ -2713,6 +2854,19 @@ input {
   margin-top: 16px;
 }
 
+.reminder-preview-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 10px;
+}
+
+.reminder-preview-action span {
+  color: #746a92;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .reminder-teacher-block {
   min-width: 0;
   border: 1px solid rgba(225, 215, 246, 0.72);
@@ -2830,6 +2984,13 @@ input {
   border-radius: 8px;
   background: #ffffff;
   padding: 13px;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.reminder-day-card.is-drop-target {
+  border-color: #7f4af3;
+  background: #f8f3ff;
+  box-shadow: inset 0 0 0 1px rgba(127, 74, 243, 0.2);
 }
 
 .reminder-day-card h4 {
@@ -2865,6 +3026,22 @@ input {
   padding: 0 9px;
   font-size: 12px;
   font-weight: 900;
+}
+
+.reminder-class-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.reminder-class-chip-wrap[draggable="true"],
+.reminder-class-chip-wrap[draggable="true"] .reminder-class-chip {
+  cursor: grab;
+}
+
+.reminder-class-chip-wrap.is-dragging {
+  opacity: 0.48;
 }
 
 .reminder-class-chip {
@@ -2912,6 +3089,42 @@ input {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.reminder-chip-tools {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.reminder-chip-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(127, 74, 243, 0.22);
+  border-radius: 999px;
+  color: #6b38ef;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.reminder-chip-tools button:hover,
+.reminder-chip-tools button:focus-visible {
+  color: #fff;
+  border-color: #7f4af3;
+  background: #7f4af3;
+  outline: 0;
+}
+
+.reminder-chip-tools button:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
 }
 
 .reminder-task-tag {
@@ -3427,8 +3640,8 @@ input {
   --reminder-sticky-category-width: 108px;
   --reminder-sticky-completion-width: 118px;
   --reminder-sticky-activity-width: 136px;
-  width: 100%;
-  min-width: 1580px;
+  width: max-content;
+  min-width: 1760px;
   border-collapse: separate;
   border-spacing: 0;
   color: #26384c;
@@ -3520,7 +3733,6 @@ input {
   width: var(--reminder-sticky-completion-width);
   min-width: var(--reminder-sticky-completion-width);
   max-width: var(--reminder-sticky-completion-width);
-  box-shadow: 10px 0 16px rgba(72, 45, 130, 0.08);
 }
 
 .reminder-student-table .reminder-sticky-activity {
@@ -3595,6 +3807,33 @@ input {
   color: #26384c;
   font-weight: 850;
   line-height: 1.55;
+}
+
+.reminder-remark-cell {
+  min-width: 180px;
+  max-width: 220px;
+  white-space: normal;
+  color: #4c4567;
+  line-height: 1.5;
+}
+
+.reminder-remark-cell textarea {
+  width: 170px;
+  min-height: 58px;
+  resize: vertical;
+  padding: 8px 9px;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  background: #fff;
+  color: #191143;
+  font: inherit;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.reminder-remark-cell textarea:focus {
+  outline: 2px solid rgba(107, 56, 239, 0.18);
+  border-color: #8b5cf6;
 }
 
 .reminder-activity-progress {
@@ -4005,11 +4244,11 @@ input {
   min-height: 26px;
   padding: 0 12px;
   border-radius: 8px 0 8px 0;
-  color: #0f5132;
-  background: #dff7d7;
+  color: #ffffff;
+  background: #ef4444;
   font-size: 12px;
   font-weight: 950;
-  box-shadow: 0 8px 18px rgba(31, 115, 80, 0.12);
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.22);
 }
 
 .class-card.is-activity-class {
@@ -4429,8 +4668,17 @@ input {
   font-weight: 900;
 }
 
+.student-name-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .student-name-input {
+  flex: 1 1 auto;
   width: 100%;
+  min-width: 0;
   min-height: 30px;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -4451,6 +4699,22 @@ input {
   border-color: #7f4af3;
   background: #ffffff;
   box-shadow: 0 0 0 3px rgba(127, 74, 243, 0.12);
+}
+
+.student-renewal-badge {
+  flex: 0 0 auto;
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #f59e0b;
+  font-size: 11px;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.22);
 }
 
 .student-table .sticky-col,
@@ -5026,6 +5290,31 @@ input {
   font-size: 13px;
   font-weight: 900;
   outline: 0;
+}
+
+.daily-refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6f3ff1;
+  font-size: 12px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.daily-refresh-button:hover {
+  border-color: #bba8f6;
+  background: #f7f4ff;
+}
+
+.daily-refresh-button:disabled {
+  cursor: wait;
+  opacity: 0.58;
 }
 
 .daily-summary {
@@ -6432,11 +6721,11 @@ input {
 }
 
 .renewal-first-month-table {
-  min-width: 1460px !important;
+  min-width: 1490px !important;
 }
 
 .renewal-second-month-table {
-  min-width: 1120px !important;
+  min-width: 1150px !important;
 }
 
 .renewal-first-month-table .renewal-sticky-group,
@@ -6447,8 +6736,8 @@ input {
 
 .renewal-first-month-table .renewal-sticky-group {
   left: 0;
-  width: 356px;
-  min-width: 356px;
+  width: 384px;
+  min-width: 384px;
   z-index: 9;
   box-shadow: 10px 0 16px rgba(72, 45, 130, 0.08);
 }
@@ -6474,34 +6763,34 @@ input {
 
 .renewal-first-month-table .renewal-sticky-name {
   left: 0;
-  width: 88px;
-  min-width: 88px;
-  max-width: 88px;
+  width: 116px;
+  min-width: 116px;
+  max-width: 116px;
 }
 
 .renewal-first-month-table .renewal-sticky-account {
-  left: 88px;
+  left: 116px;
   width: 104px;
   min-width: 104px;
   max-width: 104px;
 }
 
 .renewal-first-month-table .renewal-sticky-average {
-  left: 192px;
+  left: 220px;
   width: 78px;
   min-width: 78px;
   max-width: 78px;
 }
 
 .renewal-first-month-table .renewal-sticky-intention {
-  left: 270px;
+  left: 298px;
   width: 86px;
   min-width: 86px;
   max-width: 86px;
 }
 
 .renewal-first-month-table .renewal-sticky-blocker {
-  left: 356px;
+  left: 384px;
   width: 116px;
   min-width: 116px;
   max-width: 116px;
@@ -6696,6 +6985,45 @@ input {
   font-weight: 900;
 }
 
+.renewal-followup-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+  padding: 9px 10px;
+  border: 1px solid #eee7fb;
+  border-radius: 8px;
+  background: #fffdfa;
+}
+
+.renewal-followup-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #625b80;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.renewal-followup-filter select {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid #d8cdf4;
+  border-radius: 8px;
+  color: #291f55;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.renewal-followup-filter small {
+  color: #746a92;
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .renewal-week-picker {
   flex: 0 0 auto;
   display: inline-grid;
@@ -6735,12 +7063,48 @@ input {
   justify-content: center;
   min-height: 26px;
   padding: 0 7px;
+  border: 1px solid transparent;
   border-radius: 999px;
   color: #4f2ca4;
   background: #f0e8ff;
   font-weight: 950;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.renewal-intention-pill.is-willing,
+.renewal-status-select.is-willing {
+  color: #116453;
+  border-color: #b9ead4;
+  background: #e7f8ef;
+}
+
+.renewal-intention-pill.is-considering,
+.renewal-status-select.is-considering {
+  color: #8a5200;
+  border-color: #f6d889;
+  background: #fff7df;
+}
+
+.renewal-intention-pill.is-unanswered,
+.renewal-status-select.is-unanswered {
+  color: #385077;
+  border-color: #c9d7f0;
+  background: #eef4ff;
+}
+
+.renewal-intention-pill.is-refused,
+.renewal-status-select.is-refused {
+  color: #a72d2d;
+  border-color: #f1c2c2;
+  background: #fff0f0;
+}
+
+.renewal-intention-pill.is-empty,
+.renewal-status-select.is-empty {
+  color: #746a92;
+  border-color: #e2d9f2;
+  background: #f8f5ff;
 }
 
 .renewal-enrolled-toggle {
@@ -6776,7 +7140,8 @@ input {
 }
 
 .renewal-student-name-line {
-  display: block;
+  display: grid;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -6813,6 +7178,58 @@ input {
 
 .renewal-student-name-input.is-saving {
   opacity: 0.62;
+}
+
+.renewal-priority-select {
+  width: calc(100% - 24px);
+  min-width: 78px;
+  max-width: 104px;
+  min-height: 22px;
+  padding: 0 5px;
+  border: 1px solid #e4dafa;
+  border-radius: 999px;
+  color: #746a92;
+  background: #fbf9ff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 950;
+  outline: 0;
+  cursor: pointer;
+}
+
+.renewal-priority-select:hover,
+.renewal-priority-select:focus {
+  border-color: #bba8f6;
+  box-shadow: 0 0 0 3px rgba(111, 63, 241, 0.1);
+}
+
+.renewal-priority-select.is-key {
+  color: #9f1239;
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+.renewal-priority-select.is-high {
+  color: #92400e;
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.renewal-priority-select.is-warm {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.renewal-priority-select.is-paused {
+  color: #475569;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.renewal-priority-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .renewal-name-note-card {
@@ -6892,6 +7309,72 @@ input {
 .renewal-blocker-select {
   min-width: 108px;
   max-width: 108px;
+}
+
+.renewal-blocker-select.is-transition {
+  color: #31509b;
+  border-color: #c8d8ff;
+  background: #eef4ff;
+}
+
+.renewal-blocker-select.is-time {
+  color: #7c3d13;
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.renewal-blocker-select.is-money {
+  color: #7a4f00;
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.renewal-blocker-select.is-student {
+  color: #5b21b6;
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+}
+
+.renewal-blocker-select.is-offline {
+  color: #0f766e;
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.renewal-blocker-select.is-effect {
+  color: #9f1239;
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+.renewal-blocker-select.is-no-reply {
+  color: #475569;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.renewal-blocker-select.is-refused {
+  color: #991b1b;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.renewal-blocker-select.is-unknown {
+  color: #6d28d9;
+  border-color: #e9d5ff;
+  background: #faf5ff;
+}
+
+.renewal-blocker-select.is-custom {
+  color: #365314;
+  border-color: #d9f99d;
+  background: #f7fee7;
+}
+
+.renewal-blocker-select.is-empty {
+  color: #746a92;
+  border-color: #e2d9f2;
+  background: #f8f5ff;
 }
 
 .renewal-leader-plan-head {

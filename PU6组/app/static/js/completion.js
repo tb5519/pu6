@@ -38,6 +38,9 @@ const activityParticipants = document.querySelector("#cc-activityParticipants");
 const activityArchive = document.querySelector("#cc-activityArchive");
 const classNameInput = document.querySelector("#cc-className");
 const classWeekSelect = document.querySelector("#cc-weekSelect");
+const classPeriodStartInput = document.querySelector("#cc-periodStart");
+const classPeriodEndInput = document.querySelector("#cc-periodEnd");
+const classPeriodSaveButton = document.querySelector("#cc-periodSave");
 const classUploadButton = document.querySelector("#cc-uploadButton");
 const classClearWeekButton = document.querySelector("#cc-clearWeekButton");
 const classClearMonthButton = document.querySelector("#cc-clearMonthButton");
@@ -89,6 +92,7 @@ const ACTIVITY_STAGE_DEFAULTS = ["盲盒种子", "发芽", "抽枝", "神秘小�
 const ACTIVITY_RESULT_DEFAULTS = ["彩虹花", "向日葵", "樱花树", "蓝绣球", "小橘树", "紫铃兰"];
 const ACTIVITY_STAGE_LIMIT = 8;
 const ACTIVITY_RESULT_LIMIT = 12;
+const REMINDER_DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const ACTIVITY_MAX_PROGRESS = DEFAULT_WEEK_COUNT;
 const ACTIVITY_RULE_WEEKLY = "weekly_full";
 const ACTIVITY_RULE_DAILY_POINTS = "daily_points";
@@ -121,6 +125,8 @@ let activeReminderClass = null;
 let activeReminderArrangement = null;
 let reminderActionIndex = new Map();
 let reminderTodayKey = "";
+let reminderPlanContext = {};
+let reminderCurrentPlanData = null;
 let editingClassId = null;
 let editingActivityId = "";
 
@@ -134,8 +140,8 @@ function activePeriodSettings(sourceActivity = completionActivity) {
   const rule = sourceActivity?.rule || {};
   const fallbackPeriod = activeClass?.period || {};
   return {
-    weekCount: clampInteger(rule.week_count ?? fallbackPeriod.week_count, DEFAULT_WEEK_COUNT, 1, MAX_WEEK_COUNT),
-    dayCount: clampInteger(rule.days_per_week ?? fallbackPeriod.days_per_week, DEFAULT_DAY_COUNT, 1, MAX_DAY_COUNT),
+    weekCount: clampInteger(fallbackPeriod.week_count ?? rule.week_count, DEFAULT_WEEK_COUNT, 1, MAX_WEEK_COUNT),
+    dayCount: clampInteger(fallbackPeriod.days_per_week ?? rule.days_per_week, DEFAULT_DAY_COUNT, 1, MAX_DAY_COUNT),
   };
 }
 
@@ -760,6 +766,8 @@ function showClassDetail() {
   setCompletionSection("classes");
   classHomeView?.classList.add("is-hidden");
   classDetailView?.classList.remove("is-hidden");
+  updateWeekSelectOptions();
+  syncCompletionPeriodControls();
   setClassMessage("");
   setDetailMessage("");
 }
@@ -820,6 +828,49 @@ function updateWeekSelectOptions() {
       .join("");
     select.value = keys.includes(currentValue) ? currentValue : keys[0];
   });
+}
+
+function syncCompletionPeriodControls() {
+  const period = activeClass?.period || {};
+  if (classPeriodStartInput) {
+    classPeriodStartInput.value = period.start_date || "";
+    classPeriodStartInput.disabled = !activeClass?.can_manage_completion_period;
+  }
+  if (classPeriodEndInput) {
+    classPeriodEndInput.value = period.end_date || "";
+    classPeriodEndInput.disabled = !activeClass?.can_manage_completion_period;
+  }
+  if (classPeriodSaveButton) {
+    classPeriodSaveButton.hidden = !activeClass?.can_manage_completion_period;
+  }
+}
+
+async function saveCompletionPeriod() {
+  if (!activeClass) return;
+  const startDate = classPeriodStartInput?.value || "";
+  const endDate = classPeriodEndInput?.value || "";
+  if (!startDate || !endDate) {
+    throw new Error("请先选择绩效周期的开始和结束日期。");
+  }
+  const month = activeClass.month || localDateKey().slice(0, 7);
+  const data = await apiRequest("/api/classes/completion-period", {
+    method: "PATCH",
+    body: JSON.stringify({
+      month,
+      start_date: startDate,
+      end_date: endDate,
+    }),
+  });
+  updateActivityState(data);
+  activeClass.period = data.completion_period || activeClass.period;
+  classes = classes.map((item) => (
+    item.id === activeClass.id ? { ...item, period: activeClass.period } : item
+  ));
+  updateWeekSelectOptions();
+  syncCompletionPeriodControls();
+  renderStudents();
+  clearCompletionImage();
+  setDetailMessage("绩效周期已更新，上传带日期的表格时会按这个周期自动分周。");
 }
 
 function localDateKey(date = new Date()) {
@@ -1156,6 +1207,29 @@ function fitCanvasText(ctx, text, maxWidth) {
   return `${output}…`;
 }
 
+function wrapCanvasText(ctx, text, maxWidth, maxLines = 2) {
+  const value = String(text || "").trim();
+  if (!value) return [];
+  const chars = Array.from(value);
+  const lines = [];
+  let current = "";
+  chars.forEach((char) => {
+    const next = `${current}${char}`;
+    if (current && ctx.measureText(next).width > maxWidth) {
+      lines.push(current);
+      current = char.trimStart();
+    } else {
+      current = next;
+    }
+  });
+  if (current) lines.push(current);
+  if (lines.length <= maxLines) return lines;
+  const output = lines.slice(0, maxLines);
+  const remaining = lines.slice(maxLines - 1).join("");
+  output[maxLines - 1] = fitCanvasText(ctx, remaining, maxWidth);
+  return output;
+}
+
 function setGeneratedImage(panelTitle, imageUrl, fileName, message) {
   if (classImagePanelTitle) classImagePanelTitle.textContent = panelTitle;
   if (classImagePreview) classImagePreview.src = imageUrl;
@@ -1211,6 +1285,26 @@ function drawFitText(ctx, text, x, y, maxWidth, options = {}) {
   ctx.textAlign = align;
   ctx.textBaseline = baseline;
   ctx.fillText(fitCanvasText(ctx, text, maxWidth), x, y);
+}
+
+function drawWrappedFitText(ctx, text, x, y, maxWidth, options = {}) {
+  const {
+    font = "700 24px Microsoft YaHei, Arial, sans-serif",
+    color = "#213047",
+    align = "left",
+    baseline = "alphabetic",
+    lineHeight = 30,
+    maxLines = 2,
+  } = options;
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = baseline;
+  const lines = wrapCanvasText(ctx, text, maxWidth, maxLines);
+  lines.forEach((line, index) => {
+    ctx.fillText(line, x, y + index * lineHeight);
+  });
+  return lines.length;
 }
 
 function drawPlantPot(ctx, cx, bottom, scale = 1) {
@@ -1479,7 +1573,7 @@ async function generateActivityImage() {
 
   const width = 1200;
   const margin = 56;
-  const headerHeight = 230;
+  const headerHeight = 258;
   const cardGap = 18;
   const columns = 2;
   const cardWidth = (width - margin * 2 - cardGap) / columns;
@@ -1500,45 +1594,57 @@ async function generateActivityImage() {
   headerGradient.addColorStop(0, "#dff7d7");
   headerGradient.addColorStop(0.55, "#fff4b9");
   headerGradient.addColorStop(1, "#e5f3ff");
-  fillRoundedRect(ctx, margin, 34, width - margin * 2, 166, 28, headerGradient);
-  strokeRoundedRect(ctx, margin, 34, width - margin * 2, 166, 28, "rgba(39, 128, 100, 0.2)");
+  fillRoundedRect(ctx, margin, 34, width - margin * 2, 188, 28, headerGradient);
+  strokeRoundedRect(ctx, margin, 34, width - margin * 2, 188, 28, "rgba(39, 128, 100, 0.2)");
 
   const currentActivityLabel = activityLabel();
   const currentActivityTitle = completionActivity?.title || "班级成长花园";
+  const statsBoxWidth = 270;
+  const statsBoxX = width - margin - statsBoxWidth - 22;
+  const statsCenterX = statsBoxX + statsBoxWidth / 2;
+  const titleMaxWidth = statsBoxX - (margin + 34) - 28;
 
-  drawFitText(ctx, `${currentActivityLabel} · ${currentActivityTitle}`, margin + 34, 92, 620, {
-    font: "900 42px Microsoft YaHei, Arial, sans-serif",
+  const titleLineCount = drawWrappedFitText(ctx, `${currentActivityLabel} · ${currentActivityTitle}`, margin + 34, 84, titleMaxWidth, {
+    font: "900 38px Microsoft YaHei, Arial, sans-serif",
     color: "#183a2f",
+    lineHeight: 44,
+    maxLines: 2,
   });
   const finalStageLabel = normalizeActivityRule(completionActivity || {}).type === ACTIVITY_RULE_DAILY_POINTS
     ? activityVisuals.result_labels[0] || "满分达成"
     : activityVisuals.stage_labels[activityVisuals.stage_labels.length - 1] || "满进度";
   const imageNote = activityVisuals.image_note || completionActivity?.description || "按本月完课任务累计活动进度。";
   const imageFooter = activityVisuals.image_footer || "本图统计本月当前累计活动进度，补交完成后会自动更新。";
+  const detailStartY = titleLineCount > 1 ? 158 : 132;
 
-  drawFitText(ctx, `${activeClass.name || "班级"} ｜ 本月活动进度`, margin + 36, 135, 620, {
+  drawFitText(ctx, `${activeClass.name || "班级"} ｜ 本月活动进度`, margin + 36, detailStartY, titleMaxWidth, {
     font: "800 25px Microsoft YaHei, Arial, sans-serif",
     color: "#4f665d",
   });
-  drawFitText(ctx, imageNote, margin + 36, 172, 760, {
+  drawFitText(ctx, imageNote, margin + 36, detailStartY + 37, statsBoxX - (margin + 36) - 16, {
     font: "700 23px Microsoft YaHei, Arial, sans-serif",
     color: "#60756d",
   });
 
-  fillRoundedRect(ctx, width - margin - 295, 65, 250, 102, 22, "rgba(255, 255, 255, 0.72)");
-  drawFitText(ctx, "班级成长进度", width - margin - 170, 98, 220, {
+  fillRoundedRect(ctx, statsBoxX, 62, statsBoxWidth, 124, 22, "rgba(255, 255, 255, 0.72)");
+  drawFitText(ctx, "班级成长进度", statsCenterX, 94, statsBoxWidth - 34, {
     font: "800 20px Microsoft YaHei, Arial, sans-serif",
     color: "#60756d",
     align: "center",
   });
-  drawFitText(ctx, formatCompletion(progressRate), width - margin - 170, 144, 220, {
+  drawFitText(ctx, formatCompletion(progressRate), statsCenterX, 136, statsBoxWidth - 34, {
     font: "900 44px Microsoft YaHei, Arial, sans-serif",
     color: "#17624d",
     align: "center",
   });
-  const classProgressText = `${formatActivityProgressValue(totalProgress)}/${formatActivityProgressValue(maxProgress)} ${rows[0]?.progress.unit || ""} · ${grownCount} 人${finalStageLabel}`;
-  drawFitText(ctx, classProgressText, width - margin - 170, 170, 220, {
+  const progressUnit = rows[0]?.progress.unit || "";
+  drawFitText(ctx, `${formatActivityProgressValue(totalProgress)}/${formatActivityProgressValue(maxProgress)} ${progressUnit}`, statsCenterX, 163, statsBoxWidth - 34, {
     font: "800 18px Microsoft YaHei, Arial, sans-serif",
+    color: "#7c6f4b",
+    align: "center",
+  });
+  drawFitText(ctx, `${grownCount} 人${finalStageLabel}`, statsCenterX, 182, statsBoxWidth - 34, {
+    font: "800 16px Microsoft YaHei, Arial, sans-serif",
     color: "#7c6f4b",
     align: "center",
   });
@@ -2047,11 +2153,22 @@ function reminderStudentStats(student = {}) {
     });
   });
 
+  const currentCompletion = Number(student.monthly_completion);
+  const lastMonthCompletion = Number(student.last_month_completion);
+  const isLongTermFromLastMonth = Number.isFinite(lastMonthCompletion)
+    && lastMonthCompletion <= 0
+    && Number.isFinite(currentCompletion)
+    && currentCompletion <= 0;
+  const rawCategory = student.habit_category || "暂无数据";
+  const category = isLongTermFromLastMonth
+    ? "长期不上课"
+    : (rawCategory === "长期不上课" ? "异常断课" : rawCategory);
+
   return {
     weeks,
     uploaded,
     incomplete,
-    category: student.habit_category || "暂无数据",
+    category,
   };
 }
 
@@ -2113,7 +2230,7 @@ function renderReminderDayCell(rate) {
 }
 
 function renderReminderStudentRows(students = [], options = {}) {
-  return students
+  const rows = students
     .map((student) => {
       const stats = reminderStudentStats(student);
       return {
@@ -2121,6 +2238,7 @@ function renderReminderStudentRows(students = [], options = {}) {
         stats,
         prompt: reminderPromptForStudent(student, stats),
         activityStage: options.includeActivity ? reminderActivityStageInfo(student) : null,
+        remark: "",
         phone_call: {
           completed: false,
           completed_at: "",
@@ -2132,6 +2250,7 @@ function renderReminderStudentRows(students = [], options = {}) {
       if (priorityGap) return priorityGap;
       return (second.stats.incomplete?.length || 0) - (first.stats.incomplete?.length || 0);
     });
+  return rows.map((row, index) => ({ ...row, reminder_index: index }));
 }
 
 function reminderNowText() {
@@ -2157,6 +2276,22 @@ function renderReminderPromptCell(row = {}, rowIndex = 0, canRecordPhoneCall = f
           <small>${phoneCall.completed_at ? `记录：${escapeText(phoneCall.completed_at)}` : ""}</small>
         </label>
       ` : ""}
+    </td>
+  `;
+}
+
+function renderReminderRemarkCell(row = {}, rowIndex = 0, canEdit = false) {
+  const remark = row.student?.remark || "";
+  return `
+    <td class="reminder-remark-cell">
+      ${canEdit ? `
+        <textarea
+          data-reminder-remark-index="${rowIndex}"
+          rows="2"
+          maxlength="500"
+          placeholder="记录断课原因"
+        >${escapeText(remark)}</textarea>
+      ` : `<span>${escapeText(remark || "-")}</span>`}
     </td>
   `;
 }
@@ -2352,9 +2487,11 @@ function renderReminderStudentTable(rows = [], options = {}) {
     )))
     .join("");
   const bodyRows = rows
-    .map((row, rowIndex) => {
+    .map((row, localRowIndex) => {
       const { student, stats } = row;
       const canRecordPhoneCall = activeReminderClass?.task_label !== "回收" && !activeReminderClass?.action_state?.completed;
+      const canEditRemark = canRecordPhoneCall;
+      const rowIndex = Number.isFinite(Number(row.reminder_index)) ? Number(row.reminder_index) : localRowIndex;
       const showActivityProgress = Boolean(options.showActivityFilter);
       const dayCells = weekKeys
         .flatMap((week) => stats.weeks[week].map((rate, dayIndex) => (
@@ -2369,14 +2506,16 @@ function renderReminderStudentTable(rows = [], options = {}) {
           <td class="reminder-student-name reminder-sticky-col reminder-sticky-name">${renderReminderStudentName(student)}</td>
           <td class="reminder-sticky-col reminder-sticky-category">${renderHabitCell(stats.category)}</td>
           <td class="reminder-sticky-col reminder-sticky-completion">${renderMonthlyCell(student.monthly_completion)}</td>
+          <td>${renderMonthlyCell(student.last_month_completion)}</td>
           ${showActivityProgress ? renderReminderActivityProgressCell(row) : ""}
           ${renderReminderPromptCell(row, rowIndex, canRecordPhoneCall)}
+          ${renderReminderRemarkCell(row, rowIndex, canEditRemark)}
           ${dayCells}
         </tr>
       `;
     })
     .join("");
-  const columnCount = 4 + (options.showActivityFilter ? 1 : 0) + (weekKeys.length * dayCount);
+  const columnCount = 6 + (options.showActivityFilter ? 1 : 0) + (weekKeys.length * dayCount);
   const spacerRow = `<tr class="reminder-scroll-spacer" aria-hidden="true"><td colspan="${columnCount}"></td></tr>`;
 
   return `
@@ -2395,8 +2534,10 @@ function renderReminderStudentTable(rows = [], options = {}) {
               <th class="reminder-sticky-col reminder-sticky-name" rowspan="2">学员姓名</th>
               <th class="reminder-sticky-col reminder-sticky-category" rowspan="2">学员分类</th>
               <th class="reminder-sticky-col reminder-sticky-completion" rowspan="2">本月完成度</th>
+              <th rowspan="2">上月平均完课</th>
               ${options.showActivityFilter ? `<th class="reminder-sticky-col reminder-sticky-activity" rowspan="2">活动进度</th>` : ""}
               <th class="reminder-prompt-head" rowspan="2">催课建议</th>
+              <th rowspan="2">催课备注</th>
               ${weekHeaders}
             </tr>
             <tr>${dayHeaders}</tr>
@@ -2437,6 +2578,24 @@ function reminderRecoveryKeySet(records = []) {
 
 function reminderRowMatchesKeys(row, keySet) {
   return reminderStudentKeys(row.student).some((key) => keySet.has(key));
+}
+
+function reminderSavedStudentMatchesRow(savedStudent = {}, row = {}) {
+  const rowKeys = new Set(reminderStudentKeys(row.student || {}));
+  return reminderStudentKeys(savedStudent).some((key) => rowKeys.has(key));
+}
+
+function reminderLongTermAlreadyReminded(row = {}, records = []) {
+  if ((row.stats?.category || "") !== "长期不上课") return false;
+  return records.some((record) => (
+    String(record.task_label || "") !== "回收"
+    && (record.students || []).some((student) => reminderSavedStudentMatchesRow(student, row))
+  ));
+}
+
+function reminderRowsForCurrentAction(rows = [], cycleRecords = []) {
+  return reminderRowsNeedingFollowUp(rows)
+    .filter((row) => !reminderLongTermAlreadyReminded(row, cycleRecords));
 }
 
 function findReminderCurrentRow(student = {}, rows = []) {
@@ -2519,8 +2678,10 @@ function reminderStudentPayload({ student, stats, prompt, phone_call }) {
     account: student.account || "",
     category: stats.category || "暂无数据",
     monthly_completion: student.monthly_completion,
+    last_month_completion: student.last_month_completion,
     renewal_enrolled: Boolean(student.renewal_enrolled),
     prompt,
+    remark: student.remark || "",
     phone_call: {
       completed: Boolean(phone_call?.completed),
       completed_at: phone_call?.completed_at || "",
@@ -2565,6 +2726,15 @@ async function loadReminderActionRecords(item = {}) {
   return data.records || [];
 }
 
+async function loadReminderCycleActionRecords(item = {}) {
+  const params = new URLSearchParams();
+  params.set("class_name", reminderDisplayClassName(item) || item.class_name || "");
+  params.set("all_cycle", "1");
+  if (item.teacher_id) params.set("teacher_id", item.teacher_id);
+  const data = await apiRequest(`/api/database/completion-reminders/action-records?${params.toString()}`);
+  return data.records || [];
+}
+
 function renderReminderSnapshotDayCell(rate) {
   return renderReminderDayCell(rate);
 }
@@ -2593,7 +2763,7 @@ function renderReminderSavedStudentRows(students = []) {
   if (!students.length) {
     return `
       <tr>
-        <td colspan="7" class="reminder-saved-empty">本次完成时没有需催课学员。</td>
+        <td colspan="9" class="reminder-saved-empty">本次完成时没有需催课学员。</td>
       </tr>
     `;
   }
@@ -2603,8 +2773,10 @@ function renderReminderSavedStudentRows(students = []) {
       <td>${escapeText(student.account || "-")}</td>
       <td>${renderHabitCell(student.category || "暂无数据")}</td>
       <td>${renderMonthlyCell(student.monthly_completion)}</td>
+      <td>${renderMonthlyCell(student.last_month_completion)}</td>
       <td class="reminder-saved-days">${escapeText(reminderStudentIncompleteLabels(student))}</td>
       <td class="reminder-student-prompt">${escapeText(student.prompt || "")}</td>
+      <td class="reminder-remark-cell">${escapeText(student.remark || "-")}</td>
       <td>${renderReminderPhoneCallRecord(student)}</td>
     </tr>
   `).join("");
@@ -2673,8 +2845,10 @@ function renderReminderActionRecords(records = []) {
                   <th>学员账号</th>
                   <th>催课时分类</th>
                   <th>催课时完成度</th>
+                  <th>上月平均完课</th>
                   <th>未完成任务</th>
                   <th>催课建议</th>
+                  <th>催课备注</th>
                   <th>去电记录</th>
                 </tr>
               </thead>
@@ -2715,8 +2889,10 @@ function renderReminderSnapshotTable(students = [], currentRows = []) {
         <td class="reminder-student-name reminder-sticky-col reminder-sticky-name">${renderReminderStudentName(student)}</td>
         <td>${renderHabitCell(student.category || "暂无数据")}</td>
         <td>${renderMonthlyCell(student.monthly_completion)}</td>
+        <td>${renderMonthlyCell(student.last_month_completion)}</td>
         <td class="reminder-recovery-result-cell">${renderReminderRecoveryResultCell(result)}</td>
         <td class="reminder-student-prompt">${escapeText(student.prompt || "")}</td>
+        <td class="reminder-remark-cell">${escapeText(student.remark || "-")}</td>
         ${dayCells}
       </tr>
     `;
@@ -2730,8 +2906,10 @@ function renderReminderSnapshotTable(students = [], currentRows = []) {
             <th class="reminder-sticky-col reminder-sticky-name" rowspan="2">学员姓名</th>
             <th rowspan="2">催课时分类</th>
             <th rowspan="2">催课时完成度</th>
+            <th rowspan="2">上月平均完课</th>
             <th rowspan="2">回收结果</th>
             <th rowspan="2">催课时建议</th>
+            <th rowspan="2">催课备注</th>
             ${weekHeaders}
           </tr>
           <tr>${dayHeaders}</tr>
@@ -2850,6 +3028,18 @@ function bindReminderPhoneCallInputs() {
   });
 }
 
+function bindReminderRemarkInputs() {
+  reminderArrangementBody?.querySelectorAll("[data-reminder-remark-index]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const index = Number(input.dataset.reminderRemarkIndex);
+      const row = activeReminderArrangement?.rows?.[index];
+      if (!row) return;
+      row.student.remark = input.value.trim();
+      row.remark = row.student.remark;
+    });
+  });
+}
+
 function applyReminderTableFilters(section) {
   if (!section) return;
   const category = section.querySelector("[data-reminder-category-filter]")?.value || "";
@@ -2886,9 +3076,9 @@ function bindReminderCategoryFilters() {
 
 async function completeReminderArrangement() {
   if (!activeReminderClass || !activeReminderArrangement) return;
-  const { classData, localClass, rows, recoveryRecords } = activeReminderArrangement;
+  const { classData, localClass, rows, recoveryRecords, cycleActionRecords = [] } = activeReminderArrangement;
   const task = activeReminderClass.task_label || "催课";
-  const needRows = reminderRowsNeedingFollowUp(rows);
+  const needRows = reminderRowsForCurrentAction(rows, cycleActionRecords);
   const payload = {
     task_label: task,
     day_key: activeReminderClass.day_key || "",
@@ -2936,6 +3126,7 @@ async function completeReminderArrangement() {
 function bindReminderArrangementActions() {
   bindReminderCategoryFilters();
   bindReminderPhoneCallInputs();
+  bindReminderRemarkInputs();
   const button = reminderArrangementBody?.querySelector("[data-reminder-complete-action]");
   button?.addEventListener("click", () => {
     completeReminderArrangement().catch((error) => setReminderDetailMessage(error.message, true));
@@ -2998,13 +3189,14 @@ async function renderReminderArrangement() {
   const students = classData?.students || [];
   const includeActivityFilter = Boolean(classData?.completion_activity && completionActivity);
   const rows = renderReminderStudentRows(students, { includeActivity: includeActivityFilter });
-  const needReminderCount = rows.filter((row) => row.stats.incomplete.length > 0).length;
+  const cycleActionRecords = await loadReminderCycleActionRecords(activeReminderClass);
+  const currentActionRows = reminderRowsForCurrentAction(rows, cycleActionRecords);
+  const needReminderCount = currentActionRows.length;
   const recoveryRecords = await loadReminderRecoveryRecords(activeReminderClass);
   const actionRecords = canManageAllReminders ? await loadReminderActionRecords(activeReminderClass) : [];
   const taskLabel = activeReminderClass.task_label || "催课";
   const isRecoveryTask = taskLabel === "回收";
-  const currentNeedRows = reminderRowsNeedingFollowUp(rows);
-  activeReminderArrangement = { localClass, classData, rows, recoveryRecords };
+  activeReminderArrangement = { localClass, classData, rows, recoveryRecords, cycleActionRecords };
 
   reminderArrangementBody.innerHTML = `
     <section class="reminder-arrangement-summary">
@@ -3029,10 +3221,10 @@ async function renderReminderArrangement() {
         <strong class="${needReminderCount > 0 ? "is-negative" : "is-positive"}">${needReminderCount}</strong>
       </div>
     </section>
-    ${renderReminderCompletionBar(rows, recoveryRecords)}
+    ${renderReminderCompletionBar(isRecoveryTask ? rows : currentActionRows, recoveryRecords)}
     ${canManageAllReminders ? renderReminderActionRecords(actionRecords) : ""}
     ${isRecoveryTask ? renderReminderRecoveryRecords(recoveryRecords, rows) : ""}
-    ${isRecoveryTask ? renderReminderRecoveryNewNeeds(rows, recoveryRecords) : renderReminderStudentTable(currentNeedRows, {
+    ${isRecoveryTask ? renderReminderRecoveryNewNeeds(rows, recoveryRecords) : renderReminderStudentTable(currentActionRows, {
       title: "今日需催课学员",
       subtitle: "只展示当前最新完课数据中未达100%的学员",
       emptyText: "当前最新数据里没有需要催课的学员。",
@@ -3159,21 +3351,33 @@ function reminderClassChips(items = [], emptyText = "无", context = {}) {
       ? `${actionState.label || "已完成"}：${actionState.completed_at}`
       : (actionState.label || "已完成");
     const token = `reminder-${reminderActionIndex.size}`;
+    const recoverFrom = item.recover_from || context.recoverFrom || "";
     reminderActionIndex.set(token, {
       ...item,
       day_key: context.dayKey || "",
       day_label: context.dayLabel || "",
       task_label: context.taskLabel || "",
-      recover_from: context.recoverFrom || "",
+      recover_from: recoverFrom,
     });
+    const adminControls = canManageAllReminders ? `
+      <span class="reminder-chip-tools" aria-label="调整催课安排">
+        <button type="button" data-reminder-adjust="${escapeText(token)}" data-action="delete" title="删除安排">×</button>
+      </span>
+    ` : "";
+    const dragAttrs = canManageAllReminders
+      ? ` draggable="true" data-reminder-drag="${escapeText(token)}"`
+      : "";
     return `
-      <button class="reminder-class-chip ${item.source === "my_class" ? "is-extra" : ""} ${isCompleted ? "is-completed" : ""}" type="button" data-reminder-open="${escapeText(token)}">
-        ${isCompleted ? `<span class="reminder-done-mark" title="${escapeText(completedTitle)}">✅</span>` : ""}
-        <em>${item.rank ? `#${item.rank}` : (item.source === "my_class" ? "补" : "库")}</em>
-        <span class="reminder-class-chip-name">${escapeText(reminderDisplayClassName(item))}</span>
-        <small class="reminder-task-tag ${taskClass}">${escapeText(taskLabel)}</small>
-        ${showUploadMark ? `<small class="reminder-upload-mark ${uploadClass}" title="${escapeText(uploadTitle)}">${escapeText(uploadText)}</small>` : ""}
-      </button>
+      <span class="reminder-class-chip-wrap"${dragAttrs}>
+        <button class="reminder-class-chip ${item.source === "my_class" ? "is-extra" : ""} ${isCompleted ? "is-completed" : ""}" type="button" data-reminder-open="${escapeText(token)}">
+          ${isCompleted ? `<span class="reminder-done-mark" title="${escapeText(completedTitle)}">✅</span>` : ""}
+          <em>${item.rank ? `#${item.rank}` : (item.source === "my_class" ? "补" : "库")}</em>
+          <span class="reminder-class-chip-name">${escapeText(reminderDisplayClassName(item))}</span>
+          <small class="reminder-task-tag ${taskClass}">${escapeText(taskLabel)}</small>
+          ${showUploadMark ? `<small class="reminder-upload-mark ${uploadClass}" title="${escapeText(uploadTitle)}">${escapeText(uploadText)}</small>` : ""}
+        </button>
+        ${adminControls}
+      </span>
     `;
   }).join("");
 }
@@ -3185,6 +3389,201 @@ function reminderTaskRow(label, items, emptyText, day = {}) {
       <div>${reminderClassChips(items, emptyText, { dayKey: day.key, dayLabel: day.label, taskLabel: label, recoverFrom: day.recover_from })}</div>
     </div>
   `;
+}
+
+function reminderTaskBucket(taskLabel = "") {
+  if (taskLabel === "回收") return "recover_classes";
+  if (taskLabel === "重点复催") return "focus_classes";
+  return "new_classes";
+}
+
+function reminderScheduleDay(schedule = [], dayKey = "") {
+  return schedule.find((day) => day.key === dayKey) || null;
+}
+
+function reminderRecoveryDayKey(originDayKey = "") {
+  if (originDayKey === "monday") return "wednesday";
+  if (originDayKey === "tuesday") return "thursday";
+  return "";
+}
+
+function reminderItemSignature(item = {}) {
+  const classId = item.class_id || item.local_class_id || item.id || "";
+  const className = reminderDisplayClassName(item) || item.class_name || item.name || "";
+  return `${item.teacher_id || ""}|${classId}|${className}`;
+}
+
+function reminderSameItem(left = {}, right = {}) {
+  if (left.teacher_id && right.teacher_id && left.teacher_id !== right.teacher_id) return false;
+  const idFields = ["class_id", "local_class_id", "id"];
+  if (idFields.some((field) => left[field] && right[field] && left[field] === right[field])) return true;
+  const leftName = reminderDisplayClassName(left) || left.class_name || left.name || "";
+  const rightName = reminderDisplayClassName(right) || right.class_name || right.name || "";
+  return Boolean(leftName && rightName && leftName === rightName);
+}
+
+function reminderPopLocalRow(day, bucket, item) {
+  const rows = day?.[bucket];
+  if (!Array.isArray(rows)) return null;
+  const index = rows.findIndex((row) => reminderSameItem(row, item));
+  if (index < 0) return null;
+  return rows.splice(index, 1)[0];
+}
+
+function reminderPopPairedRecovery(group, row, originDayKey) {
+  const recoveryDayKey = reminderRecoveryDayKey(originDayKey);
+  const recoveryDay = reminderScheduleDay(group?.schedule || [], recoveryDayKey);
+  if (!recoveryDay) return null;
+  return reminderPopLocalRow(recoveryDay, "recover_classes", {
+    ...row,
+    task_label: "回收",
+    recover_from: originDayKey,
+  });
+}
+
+function reminderUniqueScheduleCount(schedule = []) {
+  const signatures = new Set();
+  schedule.forEach((day) => {
+    reminderDayTasks(day).forEach((item) => {
+      signatures.add(reminderItemSignature(item));
+    });
+  });
+  return signatures.size;
+}
+
+function adjustReminderScheduleLocally(item = {}, action = "", direction = "", targetDayKeyOverride = "") {
+  if (!reminderCurrentPlanData) return;
+  const group = (reminderCurrentPlanData.groups || []).find((entry) => entry.teacher_id === item.teacher_id);
+  const sourceDay = reminderScheduleDay(group?.schedule || [], item.day_key || "");
+  const bucket = reminderTaskBucket(item.task_label || "催课");
+  if (!group || !sourceDay) {
+    throw new Error("没有找到这个老师的本周催课安排。");
+  }
+
+  let targetDay = null;
+  let targetDayKey = "";
+  let targetRecoveryDay = null;
+  if (action === "move") {
+    const sourceIndex = REMINDER_DAY_KEYS.indexOf(item.day_key || "");
+    const targetIndex = direction === "prev" ? sourceIndex - 1 : sourceIndex + 1;
+    targetDayKey = targetDayKeyOverride && REMINDER_DAY_KEYS.includes(targetDayKeyOverride)
+      ? targetDayKeyOverride
+      : (REMINDER_DAY_KEYS[targetIndex] || "");
+    if (targetDayKey === item.day_key) return;
+    targetDay = reminderScheduleDay(group.schedule || [], targetDayKey);
+    if (!targetDay) {
+      throw new Error("目标日期不在本周工作日内。");
+    }
+    if ((item.task_label || "催课") === "催课") {
+      const targetRecoveryDayKey = reminderRecoveryDayKey(targetDayKey);
+      targetRecoveryDay = reminderScheduleDay(group.schedule || [], targetRecoveryDayKey);
+    }
+  }
+
+  const row = reminderPopLocalRow(sourceDay, bucket, item);
+  if (!row) {
+    throw new Error("没有找到要调整的班级。");
+  }
+  const pairedRecovery = (item.task_label || "催课") === "催课"
+    ? reminderPopPairedRecovery(group, row, item.day_key || "")
+    : null;
+
+  if (action === "move") {
+    targetDay[bucket] = targetDay[bucket] || [];
+    targetDay[bucket].push(row);
+    if ((item.task_label || "催课") === "催课" && targetRecoveryDay) {
+      const recoveryRow = pairedRecovery || { ...row };
+      recoveryRow.recover_from = targetDayKey;
+      targetRecoveryDay.recover_classes = targetRecoveryDay.recover_classes || [];
+      targetRecoveryDay.recover_classes.push(recoveryRow);
+    }
+  }
+
+  group.schedule_count = reminderUniqueScheduleCount(group.schedule || []);
+  reminderCurrentPlanData.summary = reminderCurrentPlanData.summary || {};
+  reminderCurrentPlanData.summary.schedule_count = (reminderCurrentPlanData.groups || [])
+    .reduce((total, entry) => total + Number(entry.schedule_count || 0), 0);
+  renderReminderPlan(reminderCurrentPlanData);
+}
+
+async function adjustReminderSchedule(item = {}, action = "", direction = "", targetDayKey = "") {
+  if (!canManageAllReminders || !item.day_key || !item.teacher_id) return;
+  if (action === "move" && targetDayKey === item.day_key) return;
+  if (action === "delete") {
+    const confirmed = window.confirm(`确认删除「${reminderDisplayClassName(item) || "这个班级"}」的${item.day_label || ""}${item.task_label || "催课"}安排吗？`);
+    if (!confirmed) return;
+  }
+  if (reminderPlanContext.preview) {
+    adjustReminderScheduleLocally(item, action, direction, targetDayKey);
+    return;
+  }
+  const payload = {
+    action,
+    direction,
+    month: reminderPlanContext.month || "",
+    date: reminderPlanContext.date || "",
+    cycle_key: reminderPlanContext.cycle_key || "",
+    teacher_id: item.teacher_id || "",
+    day_key: item.day_key || "",
+    target_day_key: targetDayKey || "",
+    task_label: item.task_label || "催课",
+    recover_from: item.recover_from || "",
+    class_id: item.class_id || "",
+    local_class_id: item.local_class_id || "",
+    class_name: reminderDisplayClassName(item) || item.class_name || "",
+    local_class_name: item.local_class_name || "",
+  };
+  const data = await apiRequest("/api/database/completion-reminders/schedule", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  renderReminderPlan(data);
+  reminderPlanLoaded = true;
+}
+
+function bindReminderScheduleDrag() {
+  if (!reminderScheduleList || !canManageAllReminders) return;
+  reminderScheduleList.querySelectorAll("[data-reminder-drag]").forEach((node) => {
+    node.addEventListener("dragstart", (event) => {
+      const token = node.dataset.reminderDrag || "";
+      if (!token || !reminderActionIndex.has(token)) {
+        event.preventDefault();
+        return;
+      }
+      node.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", token);
+    });
+    node.addEventListener("dragend", () => {
+      node.classList.remove("is-dragging");
+      reminderScheduleList.querySelectorAll("[data-reminder-drop-day]").forEach((target) => {
+        target.classList.remove("is-drop-target");
+      });
+    });
+  });
+
+  reminderScheduleList.querySelectorAll("[data-reminder-drop-day]").forEach((target) => {
+    target.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      target.classList.add("is-drop-target");
+    });
+    target.addEventListener("dragleave", (event) => {
+      if (!target.contains(event.relatedTarget)) {
+        target.classList.remove("is-drop-target");
+      }
+    });
+    target.addEventListener("drop", (event) => {
+      event.preventDefault();
+      target.classList.remove("is-drop-target");
+      const token = event.dataTransfer.getData("text/plain");
+      const item = reminderActionIndex.get(token);
+      const targetDayKey = target.dataset.reminderDropDay || "";
+      if (!item || !targetDayKey) return;
+      adjustReminderSchedule(item, "move", "", targetDayKey)
+        .catch((error) => window.alert(error.message));
+    });
+  });
 }
 
 function renderReminderSchedule(groups = []) {
@@ -3204,7 +3603,7 @@ function renderReminderSchedule(groups = []) {
     <article class="reminder-teacher-block">
       <div class="reminder-teacher-head">
         <h3>${escapeText(group.teacher_name || "未分配")}</h3>
-        <span>本周 ${group.schedule_count || 0} 个班级</span>
+        <span>本周排入 ${group.schedule_count || 0} 个班｜手动可调</span>
       </div>
       <div class="reminder-week-grid">
         ${(group.schedule || []).map((day) => {
@@ -3214,7 +3613,7 @@ function renderReminderSchedule(groups = []) {
             reminderTaskRow("重点复催", day.focus_classes || [], "无重点复催", day),
           ].filter(Boolean).join("");
           return `
-            <section class="reminder-day-card">
+            <section class="reminder-day-card" data-reminder-drop-day="${escapeText(day.key || "")}">
               <h4>${escapeText(day.label)}</h4>
               ${rows || `<div class="reminder-no-task">无需安排</div>`}
             </section>
@@ -3230,19 +3629,50 @@ function renderReminderSchedule(groups = []) {
       if (item) showReminderDetail(item);
     });
   });
+  reminderScheduleList.querySelectorAll("[data-reminder-adjust]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const item = reminderActionIndex.get(button.dataset.reminderAdjust);
+      if (!item) return;
+      button.disabled = true;
+      adjustReminderSchedule(item, button.dataset.action || "", button.dataset.direction || "")
+        .catch((error) => {
+          window.alert(error.message);
+          button.disabled = false;
+        });
+    });
+  });
+  bindReminderScheduleDrag();
 }
 
 function renderReminderPlan(data) {
   const summary = data?.summary || {};
+  reminderCurrentPlanData = data || null;
   reminderTodayKey = data?.day_key || "";
-  canManageAllReminders = Boolean(data?.can_manage_all);
+  const isPreviewMode = Boolean(data?.preview_mode);
+  const canManageAll = Boolean(data?.can_manage_all);
+  reminderPlanContext = {
+    month: data?.month || "",
+    date: data?.date || "",
+    cycle_key: data?.cycle_key || "",
+    preview: isPreviewMode,
+  };
+  canManageAllReminders = canManageAll;
   updateReminderTabBadge(data);
-  const shouldShowPriority = !data?.can_manage_all;
+  const shouldShowPriority = !canManageAll;
   reminderPriorityShell?.classList.toggle("is-hidden", !shouldShowPriority);
   if (data?.waiting_for_monday_upload) {
     const waitText = data.cycle_key
       ? `等待本周一（${data.cycle_key}）完课数据。`
       : "等待本周一完课数据。";
+    const previewAction = canManageAll
+      ? `
+        <div class="reminder-preview-action">
+          <button class="ghost-button compact-button" type="button" data-reminder-preview-plan>用最新数据预览排班</button>
+          <span>仅用于查看效果，不会保存为正式本周排班。</span>
+        </div>
+      `
+      : "";
     if (shouldShowPriority && reminderPriorityStatus) {
       reminderPriorityStatus.textContent = waitText;
     }
@@ -3255,7 +3685,10 @@ function renderReminderPlan(data) {
       reminderPriorityList.innerHTML = "";
     }
     if (reminderScheduleList) {
-      reminderScheduleList.innerHTML = `<div class="empty-state compact-empty">${escapeText(waitText)}</div>`;
+      reminderScheduleList.innerHTML = `<div class="empty-state compact-empty">${escapeText(waitText)}${previewAction}</div>`;
+      reminderScheduleList.querySelector("[data-reminder-preview-plan]")?.addEventListener("click", () => {
+        loadReminderPlan(true, true).catch((error) => renderReminderError(error.message));
+      });
     }
     return;
   }
@@ -3267,8 +3700,12 @@ function renderReminderPlan(data) {
     reminderPriorityStatus.textContent = `${sourceDate}，${lastMonthSource}，可排序 ${summary.included_count || 0} 个班级`;
   }
   if (reminderScheduleStatus) {
-    const frozenText = data?.is_frozen ? "本周计划已固定，周内上传新数据不会重排" : "按当前数据生成";
-    reminderScheduleStatus.textContent = `${frozenText}；W41前考核班优先，下降超10%一周三催一回收；共 ${summary.schedule_count || 0} 个班级`;
+    const frozenText = isPreviewMode
+      ? "预览模式，调整只在当前页面生效"
+      : data?.is_frozen
+        ? "本周计划已固定，周内上传新数据不会重排"
+        : "按当前数据生成";
+    reminderScheduleStatus.textContent = `${frozenText}；自动排班单日最多3个，管理员可手动调整；共 ${summary.schedule_count || 0} 个班级`;
   }
   const groups = data?.groups || [];
   if (shouldShowPriority) {
@@ -3305,7 +3742,7 @@ function updateReminderTabBadge(data = {}) {
   reminderSectionButton.title = pendingCount > 0 ? `今日还有 ${pendingCount} 个催课任务未完成` : "";
 }
 
-async function loadReminderPlan(force = false) {
+async function loadReminderPlan(force = false, preview = false) {
   if (!reminderPriorityList || reminderPlanLoading) return;
   if (reminderPlanLoaded && !force) return;
   reminderPlanLoading = true;
@@ -3315,7 +3752,8 @@ async function loadReminderPlan(force = false) {
     if (!classes.length) {
       await loadClasses();
     }
-    const data = await apiRequest("/api/database/completion-reminders");
+    const url = preview ? "/api/database/completion-reminders?preview=1" : "/api/database/completion-reminders";
+    const data = await apiRequest(url);
     renderReminderPlan(data);
     reminderPlanLoaded = true;
   } finally {
@@ -3451,13 +3889,16 @@ function renderStudents() {
       return `
         <tr>
           <td class="sticky-col student-name-cell">
-            <input
-              class="student-name-input"
-              type="text"
-              value="${escapeText(student.name)}"
-              data-student-name="${escapeText(student.id)}"
-              aria-label="编辑学员姓名"
-            >
+            <div class="student-name-line">
+              <input
+                class="student-name-input"
+                type="text"
+                value="${escapeText(student.name)}"
+                data-student-name="${escapeText(student.id)}"
+                aria-label="编辑学员姓名"
+              >
+              ${student.renewal_enrolled ? `<span class="student-renewal-badge" title="已续费">续</span>` : ""}
+            </div>
           </td>
           <td class="student-account-col">${escapeText(student.account)}</td>
           <td>${renderMonthlyCell(student.monthly_completion)}</td>
@@ -3591,6 +4032,8 @@ async function uploadStudents(file) {
   });
   updateActivityState(data);
   activeClass = data.class;
+  updateWeekSelectOptions();
+  syncCompletionPeriodControls();
   renderStudents();
   await loadClasses();
   if (classGenerateImage?.checked) {
@@ -3740,6 +4183,10 @@ function initCompletion() {
     }
     setDetailMessage(`请选择要导入到${weekLabel(classWeekSelect?.value || "1")}的 Excel 或 CSV 文件。`);
     classFileInput?.click();
+  });
+
+  classPeriodSaveButton?.addEventListener("click", () => {
+    saveCompletionPeriod().catch((error) => setDetailMessage(error.message, true));
   });
 
   classGenerateCurrentImage?.addEventListener("click", generateCompletionImage);
