@@ -291,6 +291,7 @@ def normalize_todo_items(report):
     items = report.get("todos") if isinstance(report, dict) else []
     if not isinstance(items, list):
         return []
+    teacher_lookup = daily_teacher_lookup()
     output = []
     for item in items:
         if not isinstance(item, dict):
@@ -300,11 +301,13 @@ def normalize_todo_items(report):
         if not todo_id or not text:
             continue
         completed_by = item.get("completed_by") if isinstance(item.get("completed_by"), dict) else {}
+        target_teacher_ids = normalize_todo_target_ids(item.get("target_teacher_ids"), teacher_lookup)
         output.append({
             "id": todo_id,
             "text": text[:120],
             "created_by": str(item.get("created_by") or "").strip(),
             "created_at": str(item.get("created_at") or "").strip(),
+            "target_teacher_ids": target_teacher_ids,
             "completed_by": {
                 str(key or "").strip().lower(): str(value or "")
                 for key, value in completed_by.items()
@@ -312,6 +315,31 @@ def normalize_todo_items(report):
             },
         })
     return output
+
+
+def normalize_todo_target_ids(value, teacher_lookup=None):
+    if value in (None, "", "all"):
+        return []
+    if not isinstance(value, list):
+        return []
+    lookup = teacher_lookup or daily_teacher_lookup()
+    output = []
+    seen = set()
+    for raw_id in value:
+        teacher_id = normalize_teacher_id(raw_id)
+        if not teacher_id or teacher_id not in lookup or teacher_id in seen:
+            continue
+        output.append(teacher_id)
+        seen.add(teacher_id)
+    return output
+
+
+def todo_target_teacher_ids(item, teacher_ids):
+    target_ids = item.get("target_teacher_ids")
+    if not isinstance(target_ids, list) or not target_ids:
+        return teacher_ids
+    allowed = [teacher_id for teacher_id in target_ids if teacher_id in teacher_ids]
+    return allowed or teacher_ids
 
 
 def parse_todo_texts(value):
@@ -348,20 +376,29 @@ def serialize_todos(report):
 
     for item in items:
         completed_by = item["completed_by"]
-        completed_ids = [teacher_id for teacher_id in teacher_ids if teacher_id in completed_by]
-        pending_ids = [teacher_id for teacher_id in teacher_ids if teacher_id not in completed_by]
+        target_ids = todo_target_teacher_ids(item, teacher_ids)
+        if not can_manage and current_id not in target_ids:
+            continue
+        completed_ids = [teacher_id for teacher_id in target_ids if teacher_id in completed_by]
+        pending_ids = [teacher_id for teacher_id in target_ids if teacher_id not in completed_by]
         output = {
             "id": item["id"],
             "text": item["text"],
             "created_by": item["created_by"],
             "created_at": item["created_at"],
             "completed": bool(current_id and current_id in completed_by),
-            "can_toggle": can_toggle,
+            "can_toggle": bool(can_toggle and current_id in target_ids),
             "can_delete": can_manage,
             "completed_count": len(completed_ids),
-            "teacher_count": len(teacher_ids),
+            "teacher_count": len(target_ids),
+            "target_scope": "specific" if item.get("target_teacher_ids") else "all",
+            "target_count": len(target_ids),
         }
         if can_manage:
+            output["target_teachers"] = [
+                {"teacher_id": teacher_id, "teacher_name": teacher_lookup.get(teacher_id, teacher_id)}
+                for teacher_id in target_ids
+            ]
             output["completed_teachers"] = [
                 {"teacher_id": teacher_id, "teacher_name": teacher_lookup.get(teacher_id, teacher_id)}
                 for teacher_id in completed_ids
@@ -619,6 +656,7 @@ def create_daily_todo():
     todo_texts = parse_todo_texts(payload.get("text"))
     if not todo_texts:
         return jsonify({"error": "请填写待办事项内容。"}), 400
+    target_teacher_ids = normalize_todo_target_ids(payload.get("target_teacher_ids"))
 
     with DAILY_SAVE_LOCK:
         store = load_daily_store()
@@ -631,6 +669,7 @@ def create_daily_todo():
                 "text": text,
                 "created_by": str(g.user.get("username") or ""),
                 "created_at": created_at,
+                "target_teacher_ids": target_teacher_ids,
                 "completed_by": {},
             })
         report["todos"] = todos
@@ -658,6 +697,13 @@ def update_daily_todo(todo_id):
         todo = find_todo_item(report, todo_id)
         if todo is None:
             return jsonify({"error": "待办事项不存在。"}), 404
+        teacher_ids = list(daily_teacher_lookup().keys())
+        normalized_todos = normalize_todo_items({"todos": [todo]})
+        if not normalized_todos:
+            return jsonify({"error": "待办事项不存在。"}), 404
+        target_ids = todo_target_teacher_ids(normalized_todos[0], teacher_ids)
+        if teacher_id not in target_ids:
+            return jsonify({"error": "这条待办事项没有指定给当前账号。"}), 403
         completed_by = todo.setdefault("completed_by", {})
         if payload.get("completed"):
             completed_by[teacher_id] = now_iso()

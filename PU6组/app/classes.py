@@ -75,6 +75,12 @@ ACCOUNT_COLUMNS = {
     "账号",
     "帐号",
     "学号",
+    "手机号",
+    "手机号码",
+    "联系电话",
+    "联系方式",
+    "电话",
+    "手机",
     "学员账号",
     "学员帐号",
     "学生账号",
@@ -85,6 +91,10 @@ ACCOUNT_COLUMNS = {
     "学员id",
     "学生id",
     "account",
+    "phone",
+    "mobile",
+    "mobilephone",
+    "phonenumber",
     "studentaccount",
     "studentid",
     "userid",
@@ -1295,18 +1305,19 @@ def normalize_header(value):
     return text
 
 
-def pick_column(headers, candidates):
+def pick_column(headers, candidates, excluded_indexes=None):
+    excluded = set(excluded_indexes or [])
     normalized = [normalize_header(header) for header in headers]
     candidate_values = [normalize_header(candidate) for candidate in candidates]
 
-    lookup = {header: index for index, header in enumerate(normalized) if header}
+    lookup = {header: index for index, header in enumerate(normalized) if header and index not in excluded}
     for candidate in candidate_values:
         index = lookup.get(candidate)
         if index is not None:
             return index
 
     for index, header in enumerate(normalized):
-        if not header:
+        if index in excluded or not header:
             continue
         for candidate in candidate_values:
             if candidate and (candidate in header or header in candidate):
@@ -1336,6 +1347,10 @@ def is_daily_completion_header(header):
             "本日完成率",
             "本日完课度",
             "本日完课率",
+            "完成度",
+            "完成率",
+            "完课度",
+            "完课率",
         )
     )
 
@@ -1535,9 +1550,10 @@ def find_header_row(rows, period=None):
         day_columns = pick_day_columns(headers)
         date_columns = pick_date_columns(headers, period)
         has_daily_completion_row = any(is_daily_completion_header(header) for header in headers)
+        name_index = pick_column(headers, NAME_COLUMNS)
         indexes = {
-            "name": pick_column(headers, NAME_COLUMNS),
-            "account": pick_column(headers, ACCOUNT_COLUMNS),
+            "name": name_index,
+            "account": pick_column(headers, ACCOUNT_COLUMNS, {name_index} if name_index is not None else None),
             "days": day_columns,
             "dates": date_columns,
         }

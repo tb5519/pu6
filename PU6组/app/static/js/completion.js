@@ -2715,6 +2715,7 @@ function reminderActionQuery(item = {}) {
   params.set("day_key", item.day_key || "");
   params.set("task_label", item.task_label || "催课");
   params.set("recover_from", item.recover_from || "");
+  params.set("cycle_key", reminderPlanContext?.cycle_key || "");
   if (item.teacher_id) params.set("teacher_id", item.teacher_id);
   return params.toString();
 }
@@ -2730,6 +2731,7 @@ async function loadReminderCycleActionRecords(item = {}) {
   const params = new URLSearchParams();
   params.set("class_name", reminderDisplayClassName(item) || item.class_name || "");
   params.set("all_cycle", "1");
+  params.set("cycle_key", reminderPlanContext?.cycle_key || "");
   if (item.teacher_id) params.set("teacher_id", item.teacher_id);
   const data = await apiRequest(`/api/database/completion-reminders/action-records?${params.toString()}`);
   return data.records || [];

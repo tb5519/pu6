@@ -9,9 +9,9 @@
     <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260712-talk-daily-message') }}" defer></script>
     <script src="{{ url_for('static', filename='js/completion.js', v='20260712-reminder-last-month-scroll') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260712-daily-refresh') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260630-renewal-rank-tooltip') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260712-renewal-blocker-colors') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/daily-report.js', v='20260716-todo-targets') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/database.js', v='20260716-performance-periods') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260715-renewal-click-panels') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
     {% endif %}
@@ -718,6 +718,17 @@
               </div>
               <form id="dr-todoForm" class="daily-todo-form is-hidden">
                 <textarea id="dr-todoInput" maxlength="3000" rows="4" placeholder="批量新增：一行一条，可写 1. 事项内容"></textarea>
+                <div class="daily-todo-targets" aria-label="待办适用老师">
+                  <label>
+                    <input type="radio" name="dr-todoTargetMode" value="all" checked>
+                    <span>全部老师</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="dr-todoTargetMode" value="specific">
+                    <span>指定老师</span>
+                  </label>
+                  <div id="dr-todoTeacherList" class="daily-todo-teacher-list is-hidden"></div>
+                </div>
                 <button class="primary-button compact-button" type="submit">批量添加</button>
               </form>
               <div id="dr-todoList" class="daily-todo-list"></div>
@@ -804,6 +815,46 @@
 
           <div id="db-message" class="tool-note database-message"></div>
 
+          {% if can_upload_completion_data %}
+          <section id="db-periodSettings" class="database-period-panel is-collapsed" aria-label="绩效周期设置">
+            <div id="db-periodHead" class="database-period-head" role="button" tabindex="0" aria-controls="db-periodBody" aria-expanded="false">
+              <div>
+                <h2>绩效周期设置</h2>
+                <span id="db-periodStatus">按板块设置本期统计范围</span>
+              </div>
+              <div class="database-period-actions">
+                <button id="db-periodSaveButton" class="primary-button compact-button" type="button">保存周期</button>
+                <span id="db-periodToggleIcon" class="database-period-toggle" aria-hidden="true">⌄</span>
+              </div>
+            </div>
+            <div id="db-periodBody" class="database-period-body is-hidden">
+              <div class="database-period-grid">
+                <article class="database-period-card" data-db-period-section="completion">
+                  <strong>完课</strong>
+                  <button class="database-period-range-button" type="button" data-db-period-picker="completion">选择周期</button>
+                  <input type="hidden" data-db-period-start="completion">
+                  <input type="hidden" data-db-period-end="completion">
+                </article>
+                <article class="database-period-card" data-db-period-section="learning">
+                  <strong>学情</strong>
+                  <button class="database-period-range-button" type="button" data-db-period-picker="learning">选择周期</button>
+                  <input type="hidden" data-db-period-start="learning">
+                  <input type="hidden" data-db-period-end="learning">
+                </article>
+                <article class="database-period-card" data-db-period-section="renewalReferral">
+                  <strong>续费&转介绍</strong>
+                  <button class="database-period-range-button" type="button" data-db-period-picker="renewalReferral">选择周期</button>
+                  <input type="hidden" data-db-period-start="renewal">
+                  <input type="hidden" data-db-period-end="renewal">
+                  <input type="hidden" data-db-period-start="referral">
+                  <input type="hidden" data-db-period-end="referral">
+                </article>
+              </div>
+              <div id="db-periodCalendar" class="database-period-calendar is-hidden" aria-label="绩效周期日历"></div>
+            </div>
+          </section>
+          {% endif %}
+
           <section class="database-home" data-db-view="home" aria-label="数据库首页">
             <section class="database-topic-grid" aria-label="数据板块汇总">
               <article class="database-topic-card topic-completion">
@@ -815,7 +866,7 @@
               <article class="database-topic-card topic-learning">
                 <span>学情达成率</span>
                 <strong id="db-learningToday">0</strong>
-                <small>本月累计 <em id="db-learningMonth">0</em> · 基数 <em id="db-learningBase">0</em></small>
+                <small>周期累计 <em id="db-learningMonth">0</em> · 基数 <em id="db-learningBase">0</em></small>
                 <button type="button" data-db-topic="learning">进入学情专区</button>
               </article>
               <article class="database-topic-card topic-renewal">
@@ -827,7 +878,7 @@
               <article class="database-topic-card topic-referral">
                 <span>转介绍总单量</span>
                 <strong id="db-referralToday">0</strong>
-                <small>本月线索 <em id="db-referralMonth">0</em></small>
+                <small>周期线索 <em id="db-referralMonth">0</em></small>
                 <button type="button" data-db-topic="referral">进入转介绍专区</button>
               </article>
               <article class="database-topic-card topic-gmv">
@@ -1282,7 +1333,6 @@
               </div>
               <div class="renewal-teacher-panel-actions">
                 <span id="renewal-teacherActiveLabel">全部老师</span>
-                <button id="renewal-teacherToggle" class="ghost-button compact-button" type="button" aria-controls="renewal-teacherList" aria-expanded="false">展开</button>
               </div>
             </div>
             <div id="renewal-teacherList" class="renewal-teacher-list"></div>
@@ -1294,25 +1344,30 @@
                 <h2>本月续费目标</h2>
                 <span id="renewal-goalMonth" class="tool-status"></span>
               </div>
-              <div id="renewal-goalSummary" class="renewal-goal-summary"></div>
+              <div class="renewal-goal-head-actions">
+                <div id="renewal-goalSummary" class="renewal-goal-summary"></div>
+              </div>
             </div>
-            <div class="renewal-goal-table-wrap">
-              <table class="renewal-goal-table">
-                <thead>
-                  <tr>
-                    <th>班主任</th>
-                    <th>班级</th>
-                    <th>本月目标</th>
-                    <th>本月已报</th>
-                    <th>还差</th>
-                    <th>达成</th>
-                    <th>累计已报/续费率</th>
-                  </tr>
-                </thead>
-                <tbody id="renewal-goalRows"></tbody>
-              </table>
+            <div id="renewal-goalBody" class="renewal-goal-body is-hidden">
+              <div class="renewal-goal-table-wrap">
+                <table class="renewal-goal-table">
+                  <thead>
+                    <tr>
+                      <th>班主任</th>
+                      <th>班级</th>
+                      <th>本月目标</th>
+                      <th>本月已报</th>
+                      <th>还差</th>
+                      <th>达成</th>
+                      <th>累计已报/续费率</th>
+                    </tr>
+                  </thead>
+                  <tbody id="renewal-goalRows"></tbody>
+                </table>
+              </div>
             </div>
           </section>
+          <section id="renewal-intentOverview" class="renewal-intent-overview is-hidden" aria-label="管理员续费意向看板"></section>
 
           <div id="renewal-message" class="tool-note renewal-message"></div>
           <section id="renewal-stageBoard" class="renewal-stage-board" aria-label="续费阶段跟进"></section>

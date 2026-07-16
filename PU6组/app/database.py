@@ -43,6 +43,12 @@ GMV_SECTIONS = {
     "renewal": {"label": "续费GMV", "field": "renewal_orders"},
     "referral": {"label": "转介绍GMV", "field": "referral_conversions"},
 }
+PERFORMANCE_PERIOD_SECTIONS = {
+    "completion": {"label": "完课", "default": "current_period"},
+    "learning": {"label": "学情", "default": "current_period"},
+    "renewal": {"label": "续费", "default": "current_period"},
+    "referral": {"label": "转介绍", "default": "current_period"},
+}
 COMPLETION_PERFORMANCE_TIERS = [
     {"level": 1, "label": "一档", "reward": 440, "factor": 1},
     {"level": 2, "label": "二档", "reward": 400, "factor": 0.96},
@@ -321,6 +327,7 @@ def load_database_settings():
     learning.setdefault("classes", {})
     learning.setdefault("teachers", {})
     settings.setdefault("gmv", {})
+    settings.setdefault("performance_periods", {})
     return settings
 
 
@@ -417,6 +424,86 @@ def period_week_index(date_text, report_date):
     except ValueError:
         return month_week_index(date_text)
     return max(0, min(3, (day - start).days // 7))
+
+
+def parse_setting_date(value):
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return ""
+    try:
+        return datetime.strptime(raw_value, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        raise ValueError("绩效周期日期格式不正确。") from None
+
+
+def performance_period_default(section_key, month_key, report_date):
+    config = PERFORMANCE_PERIOD_SECTIONS.get(section_key, {})
+    if section_key == "gmv" or config.get("default") == "natural_month":
+        start_date = f"{month_key}-01"
+        end_date = month_end_date(month_key)
+    else:
+        start_date = period_start_for(report_date)
+        end_date = report_date
+    return {
+        "section": section_key,
+        "label": config.get("label", section_key),
+        "start_date": start_date,
+        "end_date": end_date,
+        "is_custom": False,
+    }
+
+
+def performance_period_for(section_key, month_key, report_date, settings=None):
+    settings = settings or load_database_settings()
+    default = performance_period_default(section_key, month_key, report_date)
+    saved = (
+        settings.get("performance_periods", {})
+        .get(month_key, {})
+        .get(section_key, {})
+    )
+    if not isinstance(saved, dict):
+        saved = {}
+    try:
+        start_date = parse_setting_date(saved.get("start_date")) or default["start_date"]
+        end_date = parse_setting_date(saved.get("end_date")) or default["end_date"]
+    except ValueError:
+        start_date = default["start_date"]
+        end_date = default["end_date"]
+    if end_date < start_date:
+        start_date = default["start_date"]
+        end_date = default["end_date"]
+    effective_end = min(end_date, report_date)
+    return {
+        **default,
+        "start_date": start_date,
+        "end_date": end_date,
+        "effective_end": effective_end,
+        "is_custom": bool(saved.get("start_date") or saved.get("end_date")),
+    }
+
+
+def date_in_performance_period(date_text, period):
+    return period.get("start_date", "") <= str(date_text) <= period.get("effective_end", period.get("end_date", ""))
+
+
+def performance_period_week_index(date_text, period):
+    try:
+        start = datetime.strptime(period.get("start_date", ""), "%Y-%m-%d")
+        day = datetime.strptime(str(date_text), "%Y-%m-%d")
+    except ValueError:
+        return month_week_index(date_text)
+    return max(0, min(3, (day - start).days // 7))
+
+
+def performance_periods_payload(month_key, report_date):
+    settings = load_database_settings()
+    return {
+        "can_edit": can_upload_completion_data(),
+        "sections": {
+            section_key: performance_period_for(section_key, month_key, report_date, settings)
+            for section_key in PERFORMANCE_PERIOD_SECTIONS
+        },
+    }
 
 
 def current_user_teacher_id():
@@ -1399,12 +1486,17 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
 
 
 def build_completion_summary(month_key, report_date=None, compare_date=None):
+    period = performance_period_for("completion", month_key, report_date or month_end_date(month_key))
+    effective_report_date = period.get("effective_end") or report_date or month_end_date(month_key)
     store = load_completion_snapshots()
-    snapshot = latest_completion_snapshot(month_key, report_date or month_end_date(month_key), store)
+    snapshot = latest_completion_snapshot(month_key, effective_report_date, store)
     if snapshot:
-        return build_completion_snapshot_summary(month_key, snapshot, store, compare_date)
+        summary = build_completion_snapshot_summary(month_key, snapshot, store, compare_date)
+        summary["period"] = period
+        return summary
 
     summary = build_completion_snapshot_summary(month_key, {"date": "", "rows": []}, store, compare_date)
+    summary["period"] = period
     summary["source"] = "empty"
     summary["snapshot_date"] = ""
     summary["uploaded_at"] = ""
@@ -1433,8 +1525,9 @@ def report_rows_by_teacher(report):
     }
 
 
-def build_metric_summary(month_key, report_date, completion_teachers, metric_key):
+def build_metric_summary(month_key, report_date, completion_teachers, metric_key, period=None):
     field = DATABASE_METRICS[metric_key]["field"]
+    period = period or performance_period_for(metric_key, month_key, report_date)
     store = load_json(daily_report_file(), {"reports": {}})
     rows = {
         teacher["teacher_id"]: {
@@ -1449,7 +1542,7 @@ def build_metric_summary(month_key, report_date, completion_teachers, metric_key
 
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
-        if not date_in_period(date_text, report_date):
+        if not date_in_performance_period(date_text, period):
             continue
         saved_rows = report_rows_by_teacher(report)
         for teacher_id, output in rows.items():
@@ -1465,6 +1558,7 @@ def build_metric_summary(month_key, report_date, completion_teachers, metric_key
     return {
         "field": field,
         "label": DATABASE_METRICS[metric_key]["label"],
+        "period": period,
         "today_total": sum(row["today"] for row in row_list),
         "month_total": sum(row["month_total"] for row in row_list),
         "rows": row_list,
@@ -1473,6 +1567,7 @@ def build_metric_summary(month_key, report_date, completion_teachers, metric_key
 
 def build_renewal_summary(month_key, report_date, completion_teachers):
     field = DATABASE_METRICS["renewal"]["field"]
+    period = performance_period_for("renewal", month_key, report_date)
     store = load_json(daily_report_file(), {"reports": {}})
     rows = {
         teacher["teacher_id"]: {
@@ -1488,9 +1583,9 @@ def build_renewal_summary(month_key, report_date, completion_teachers):
 
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
-        if not date_in_period(date_text, report_date):
+        if not date_in_performance_period(date_text, period):
             continue
-        week_index = period_week_index(date_text, report_date)
+        week_index = performance_period_week_index(date_text, period)
         saved_rows = report_rows_by_teacher(report)
         for teacher_id, output in rows.items():
             source = saved_rows.get(teacher_id)
@@ -1510,6 +1605,7 @@ def build_renewal_summary(month_key, report_date, completion_teachers):
     return {
         "field": field,
         "label": DATABASE_METRICS["renewal"]["label"],
+        "period": period,
         "today_total": sum(row["today"] for row in row_list),
         "month_total": sum(row["month_total"] for row in row_list),
         "week_totals": week_totals,
@@ -1627,7 +1723,8 @@ def build_renewal_rate_summary(month_key, report_date):
 
 def build_learning_summary(month_key, report_date, completion):
     class_completion = build_class_completion_summary(month_key)
-    summary = build_metric_summary(month_key, report_date, class_completion["teachers"], "learning")
+    learning_period = performance_period_for("learning", month_key, report_date)
+    summary = build_metric_summary(month_key, report_date, class_completion["teachers"], "learning", learning_period)
     summary["rows"] = [
         row
         for row in summary["rows"]
@@ -1696,6 +1793,7 @@ def build_learning_summary(month_key, report_date, completion):
 
 
 def build_referral_summary(month_key, report_date, completion_teachers):
+    period = performance_period_for("referral", month_key, report_date)
     store = load_json(daily_report_file(), {"reports": {}})
     rows = {
         teacher["teacher_id"]: {
@@ -1712,7 +1810,7 @@ def build_referral_summary(month_key, report_date, completion_teachers):
 
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
-        if not date_in_period(date_text, report_date):
+        if not date_in_performance_period(date_text, period):
             continue
         saved_rows = report_rows_by_teacher(report)
         for teacher_id, output in rows.items():
@@ -1730,6 +1828,7 @@ def build_referral_summary(month_key, report_date, completion_teachers):
     row_list = list(rows.values())
     return {
         "label": "转介绍",
+        "period": period,
         "leads_today_total": sum(row["leads_today"] for row in row_list),
         "leads_month_total": sum(row["leads_month_total"] for row in row_list),
         "conversions_today_total": sum(row["conversions_today"] for row in row_list),
@@ -1767,6 +1866,7 @@ def normalize_gmv_week_overrides(raw_values):
 
 def build_gmv_section(month_key, report_date, completion_teachers, section_key):
     config = GMV_SECTIONS[section_key]
+    period = performance_period_for("gmv", month_key, report_date)
     store = load_json(daily_report_file(), {"reports": {}})
     rows = {
         teacher["teacher_id"]: {
@@ -1781,9 +1881,9 @@ def build_gmv_section(month_key, report_date, completion_teachers, section_key):
 
     for date_key, report in store.get("reports", {}).items():
         date_text = str(date_key)
-        if not date_in_period(date_text, report_date):
+        if not date_in_performance_period(date_text, period):
             continue
-        week_index = period_week_index(date_text, report_date)
+        week_index = performance_period_week_index(date_text, period)
         saved_rows = report_rows_by_teacher(report)
         for teacher_id, output in rows.items():
             source = saved_rows.get(teacher_id)
@@ -1830,6 +1930,7 @@ def build_gmv_section(month_key, report_date, completion_teachers, section_key):
         "key": section_key,
         "label": config["label"],
         "field": config["field"],
+        "period": period,
         "unit_price": GMV_UNIT_PRICE,
         "can_edit": can_manage_gmv(),
         "week_totals": week_totals,
@@ -1855,6 +1956,7 @@ def build_gmv_summary(month_key, report_date, completion_teachers):
     return {
         "unit_price": GMV_UNIT_PRICE,
         "can_edit": can_manage_gmv(),
+        "period": performance_period_for("gmv", month_key, report_date),
         "renewal": renewal,
         "referral": referral,
         "month_total": month_total,
@@ -1879,6 +1981,9 @@ def monthly_archive_settings(month_key):
     return {
         "learning": json.loads(json.dumps(settings.get("learning", {}), ensure_ascii=False)),
         "gmv": json.loads(json.dumps(settings.get("gmv", {}).get(month_key, {}), ensure_ascii=False)),
+        "performance_periods": json.loads(
+            json.dumps(settings.get("performance_periods", {}).get(month_key, {}), ensure_ascii=False)
+        ),
     }
 
 
@@ -2540,6 +2645,63 @@ def reminder_schedule_task_rows(day):
     return rows
 
 
+def reminder_schedule_task_count(day):
+    return len(reminder_schedule_task_rows(day))
+
+
+def reminder_schedule_has_row(schedule, row):
+    signature = reminder_schedule_row_signature(row)
+    return any(
+        reminder_schedule_row_signature(existing) == signature
+        for day in schedule or []
+        for existing in reminder_schedule_task_rows(day)
+    )
+
+
+def append_rows_to_manual_reminder_schedule(group, rows):
+    if not group.get("schedule_manually_adjusted"):
+        return False
+    schedule = group.get("schedule")
+    if not isinstance(schedule, list) or not schedule:
+        return False
+
+    changed = False
+    for row in rows:
+        if not isinstance(row, dict) or reminder_schedule_has_row(schedule, row):
+            continue
+
+        placed = False
+        for require_recovery_capacity in (True, False):
+            for day in schedule:
+                day_key = str(day.get("key") or "")
+                if not day_key or reminder_schedule_task_count(day) >= REMINDER_DAILY_MAX_TASKS:
+                    continue
+                recovery_day_key = REMINDER_RECOVERY_TARGET_BY_ORIGIN.get(day_key)
+                recovery_day = reminder_schedule_day(schedule, recovery_day_key) if recovery_day_key else None
+                if (
+                    require_recovery_capacity
+                    and recovery_day_key
+                    and (
+                        not recovery_day
+                        or reminder_schedule_task_count(recovery_day) >= REMINDER_DAILY_MAX_TASKS
+                    )
+                ):
+                    continue
+
+                day.setdefault("new_classes", []).append({**row})
+                if recovery_day_key and recovery_day and reminder_schedule_task_count(recovery_day) < REMINDER_DAILY_MAX_TASKS:
+                    recovery_day.setdefault("recover_classes", []).append({**row, "recover_from": day_key})
+                changed = True
+                placed = True
+                break
+            if placed:
+                break
+
+    if changed:
+        refresh_group_schedule_count(group)
+    return changed
+
+
 def reminder_schedule_unique_count(schedule):
     signatures = set()
     for day in schedule or []:
@@ -2630,6 +2792,7 @@ def append_missing_current_home_classes(plan):
             continue
 
         existing_signatures = reminder_group_row_signatures(target_group)
+        newly_added_rows = []
         for key in ("priorities", "database_fallbacks", "extra_classes"):
             target_rows = target_group.setdefault(key, [])
             for source_row in source_group.get(key, []):
@@ -2639,8 +2802,11 @@ def append_missing_current_home_classes(plan):
                 if signature in existing_signatures:
                     continue
                 target_rows.append({**source_row})
+                newly_added_rows.append({**source_row})
                 existing_signatures.add(signature)
                 changed = True
+        if newly_added_rows and append_rows_to_manual_reminder_schedule(target_group, newly_added_rows):
+            changed = True
     return changed
 
 
@@ -2751,12 +2917,25 @@ def build_reminder_schedule(schedule_rows, action_records=None):
         for row in all_rows
         if row.get("completion_activity") and not row.get("requires_high_frequency")
     ])
+    renewal_rows = dedupe([
+        row
+        for row in all_rows
+        if (
+            not row.get("completion_assessed", True)
+            and not row.get("requires_high_frequency")
+            and not row.get("completion_activity")
+        )
+    ])
     regular_rows = dedupe([
         row
         for row in all_rows
-        if not row.get("requires_high_frequency") and not row.get("completion_activity")
+        if (
+            row.get("completion_assessed", True)
+            and not row.get("requires_high_frequency")
+            and not row.get("completion_activity")
+        )
     ])
-    fill_rows = regular_rows + activity_rows + high_frequency_rows
+    fill_rows = regular_rows + renewal_rows + activity_rows + high_frequency_rows
     fill_cursor = 0
 
     def fill_daily_rows(existing_rows, target_count, excluded_signatures=None):
@@ -2805,6 +2984,8 @@ def build_reminder_schedule(schedule_rows, action_records=None):
         new_classes = []
         if item["key"] in {"monday", "tuesday", "friday"}:
             new_classes.extend(high_frequency_rows)
+        if item["key"] in {"wednesday", "thursday", "friday"}:
+            new_classes.extend(renewal_rows)
         if item["key"] in {"monday", "friday"}:
             new_classes.extend(activity_rows)
         new_classes = fill_daily_rows(
@@ -3647,6 +3828,61 @@ def update_learning_settings():
     return jsonify({"ok": True})
 
 
+@database_bp.put("/performance-periods")
+@login_required
+def update_performance_periods():
+    if not can_upload_completion_data():
+        return jsonify({"error": "只有文云Joanna账号可以设置绩效周期。"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        month_key = normalize_month(payload.get("month"))
+        report_date = normalize_date(payload.get("date") or month_end_date(month_key))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    periods_payload = payload.get("periods") if isinstance(payload.get("periods"), dict) else {}
+
+    with DATABASE_SETTINGS_LOCK:
+        settings = load_database_settings()
+        period_settings = settings.setdefault("performance_periods", {})
+        month_settings = period_settings.setdefault(month_key, {})
+
+        for section_key, config in PERFORMANCE_PERIOD_SECTIONS.items():
+            raw_period = periods_payload.get(section_key)
+            if not isinstance(raw_period, dict):
+                continue
+            try:
+                start_date = parse_setting_date(raw_period.get("start_date"))
+                end_date = parse_setting_date(raw_period.get("end_date"))
+            except ValueError as error:
+                return jsonify({"error": f"{config['label']}：{error}"}), 400
+            if not start_date and not end_date:
+                month_settings.pop(section_key, None)
+                continue
+            if not start_date or not end_date:
+                return jsonify({"error": f"{config['label']}绩效周期需要同时填写开始和结束日期。"}), 400
+            if end_date < start_date:
+                return jsonify({"error": f"{config['label']}绩效周期结束日期不能早于开始日期。"}), 400
+            month_settings[section_key] = {
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+        for stale_key in list(month_settings.keys()):
+            if stale_key not in PERFORMANCE_PERIOD_SECTIONS:
+                month_settings.pop(stale_key, None)
+
+        if month_settings:
+            period_settings[month_key] = month_settings
+        else:
+            period_settings.pop(month_key, None)
+        save_database_settings(settings)
+
+    return jsonify({
+        "ok": True,
+        "performance_periods": performance_periods_payload(month_key, report_date),
+    })
+
+
 @database_bp.post("/completion-upload")
 @login_required
 def upload_completion_snapshot():
@@ -3875,6 +4111,7 @@ def database_summary():
             "month": month_key,
             "date": report_date,
             "period_start": period_start_for(report_date),
+            "performance_periods": performance_periods_payload(month_key, report_date),
             "completion": completion,
             "learning": build_learning_summary(month_key, report_date, completion),
             "renewal": build_renewal_summary(month_key, report_date, completion_teachers),
@@ -3997,6 +4234,7 @@ def completion_reminder_action_records():
     recover_from = str(request.args.get("recover_from") or "").strip()
     teacher_id = normalize_teacher_id(request.args.get("teacher_id"))
     all_cycle = str(request.args.get("all_cycle") or "").strip().lower() in {"1", "true", "yes"}
+    cycle_key = str(request.args.get("cycle_key") or current_reminder_cycle_key()).strip() or current_reminder_cycle_key()
 
     if not class_name or (not day_key and not all_cycle):
         return jsonify({"records": [], "student_count": 0})
@@ -4011,10 +4249,10 @@ def completion_reminder_action_records():
             continue
         if not can_access_reminder_teacher(record_teacher_id):
             continue
+        if record.get("cycle_key") != cycle_key:
+            continue
         row = {"class_name": class_name, "teacher_id": teacher_id or record_teacher_id}
         if all_cycle:
-            if record.get("cycle_key") != current_reminder_cycle_key():
-                continue
             if str(record.get("task_label") or "") == "回收":
                 continue
             if reminder_record_class_intersects(record, row):

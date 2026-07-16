@@ -18,6 +18,7 @@ const dailyTodoDate = document.querySelector("#dr-todoDate");
 const dailyTodoProgress = document.querySelector("#dr-todoProgress");
 const dailyTodoForm = document.querySelector("#dr-todoForm");
 const dailyTodoInput = document.querySelector("#dr-todoInput");
+const dailyTodoTeacherList = document.querySelector("#dr-todoTeacherList");
 const dailyTodoList = document.querySelector("#dr-todoList");
 
 const DAILY_FIELD_LABELS = [
@@ -35,6 +36,7 @@ let dailyRows = [];
 let dailyFields = DAILY_FIELD_LABELS;
 let dailyWeeklyBase = {};
 let dailyTodos = [];
+let dailyTeachers = [];
 let dailyCanManageTodos = false;
 let dailyDirtyRows = new Map();
 let dailyAutoSaveTimer = null;
@@ -106,6 +108,42 @@ function dailyMissingTeacherText(missingTeachers = []) {
   return names.length > 5 ? `${visibleNames} 等 ${names.length} 人` : visibleNames;
 }
 
+function dailyTodoTargetMode() {
+  return dailyTodoForm?.querySelector("input[name='dr-todoTargetMode']:checked")?.value || "all";
+}
+
+function renderDailyTodoTargetOptions() {
+  if (!dailyTodoTeacherList) return;
+  dailyTodoTeacherList.innerHTML = dailyTeachers.length
+    ? dailyTeachers.map((teacher) => {
+      const teacherId = teacher.teacher_id || teacher.id || teacher.username || "";
+      const teacherName = teacher.teacher_name || teacher.name || teacherId;
+      return `
+        <label>
+          <input type="checkbox" value="${escapeDailyText(teacherId)}" data-daily-todo-target>
+          <span>${escapeDailyText(teacherName)}</span>
+        </label>
+      `;
+    }).join("")
+    : `<span class="daily-todo-target-empty">暂无老师名单</span>`;
+  dailyTodoTeacherList.classList.toggle("is-hidden", dailyTodoTargetMode() !== "specific");
+}
+
+function selectedDailyTodoTargetIds() {
+  if (dailyTodoTargetMode() !== "specific") return [];
+  return Array.from(dailyTodoTeacherList?.querySelectorAll("[data-daily-todo-target]:checked") || [])
+    .map((input) => String(input.value || "").trim())
+    .filter(Boolean);
+}
+
+function resetDailyTodoTargetForm() {
+  dailyTodoForm?.querySelector("input[name='dr-todoTargetMode'][value='all']")?.click();
+  dailyTodoTeacherList?.querySelectorAll("[data-daily-todo-target]").forEach((input) => {
+    input.checked = false;
+  });
+  dailyTodoTeacherList?.classList.add("is-hidden");
+}
+
 function editableCurrentDailyRows(reminder = dailyTodayReminder) {
   if (!reminder?.current_teacher_id) {
     return dailyRows.filter((row) => row.can_edit !== false).map((row) => collectDailyRow(row));
@@ -141,6 +179,10 @@ function renderDailyTodos(data = {}) {
   const todoData = data.todos || {};
   dailyTodos = todoData.items || [];
   dailyCanManageTodos = Boolean(todoData.can_manage);
+  if (Array.isArray(data.teachers)) {
+    dailyTeachers = data.teachers;
+    renderDailyTodoTargetOptions();
+  }
   if (dailyTodoDate) dailyTodoDate.textContent = formatChineseDate(data.date || dailySelectedDate);
   if (dailyTodoForm) dailyTodoForm.classList.toggle("is-hidden", !dailyCanManageTodos);
 
@@ -166,9 +208,12 @@ function renderDailyTodos(data = {}) {
   dailyTodoList.innerHTML = displayTodos
     .map((item) => {
       const pendingNames = (item.pending_teachers || []).map((teacher) => teacher.teacher_name).join("、");
+      const targetNames = (item.target_teachers || []).map((teacher) => teacher.teacher_name).join("、");
+      const targetLabel = item.target_scope === "specific" ? `指定 ${Number(item.target_count || 0)} 人` : "全部老师";
       const progressDetail = dailyCanManageTodos ? `
         <details class="daily-todo-progress-detail">
           <summary>完成 ${Number(item.completed_count || 0)} / ${Number(item.teacher_count || 0)}</summary>
+          <p><strong>适用：</strong>${escapeDailyText(item.target_scope === "specific" ? targetNames || targetLabel : targetLabel)}</p>
           <p><strong>未完成：</strong>${escapeDailyText(pendingNames || "暂无")}</p>
         </details>
       ` : "";
@@ -183,6 +228,7 @@ function renderDailyTodos(data = {}) {
             >
             <span>${escapeDailyText(item.text)}</span>
           </label>
+          ${dailyCanManageTodos ? `<span class="daily-todo-target-badge">${escapeDailyText(targetLabel)}</span>` : ""}
           ${item.can_delete ? `<button class="daily-todo-delete-button" type="button" data-daily-todo-delete="${escapeDailyText(item.id)}" title="删除" aria-label="删除">−</button>` : ""}
           ${progressDetail ? `<div class="daily-todo-meta">${progressDetail}</div>` : ""}
         </article>
@@ -488,12 +534,13 @@ async function saveDailyReport(date = dailySelectedDate, rows = collectDailyRows
   }
 }
 
-async function createDailyTodo(text) {
+async function createDailyTodo(text, targetTeacherIds = []) {
   const data = await dailyApiRequest("/api/daily-report/todos", {
     method: "POST",
     body: JSON.stringify({
       date: dailySelectedDate,
       text,
+      target_teacher_ids: targetTeacherIds,
     }),
   });
   renderDailyTodos(data);
@@ -557,13 +604,24 @@ function initDailyReport() {
       dailyTodoInput?.focus();
       return;
     }
+    const targetTeacherIds = selectedDailyTodoTargetIds();
+    if (dailyTodoTargetMode() === "specific" && !targetTeacherIds.length) {
+      setDailyMessage("请选择至少一位老师，或切换为全部老师。", true);
+      return;
+    }
     try {
-      const data = await createDailyTodo(text);
+      const data = await createDailyTodo(text, targetTeacherIds);
       dailyTodoForm.reset();
+      resetDailyTodoTargetForm();
       setDailyMessage(`待办事项已添加 ${Number(data.added_count || 1)} 条。`);
     } catch (error) {
       setDailyMessage(error.message, true);
     }
+  });
+
+  dailyTodoForm?.addEventListener("change", (event) => {
+    if (!event.target.closest("input[name='dr-todoTargetMode']")) return;
+    dailyTodoTeacherList?.classList.toggle("is-hidden", dailyTodoTargetMode() !== "specific");
   });
 
   dailyTodoInput?.addEventListener("keydown", (event) => {

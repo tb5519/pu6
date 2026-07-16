@@ -3,6 +3,13 @@ const databaseDateInput = document.querySelector("#db-dateInput");
 const databaseRefreshButton = document.querySelector("#db-refreshButton");
 const databaseArchiveMonthButton = document.querySelector("#db-archiveMonthButton");
 const databaseMessage = document.querySelector("#db-message");
+const databasePeriodSettings = document.querySelector("#db-periodSettings");
+const databasePeriodHead = document.querySelector("#db-periodHead");
+const databasePeriodBody = document.querySelector("#db-periodBody");
+const databasePeriodStatus = document.querySelector("#db-periodStatus");
+const databasePeriodSaveButton = document.querySelector("#db-periodSaveButton");
+const databasePeriodToggleIcon = document.querySelector("#db-periodToggleIcon");
+const databasePeriodCalendar = document.querySelector("#db-periodCalendar");
 const databaseViews = document.querySelectorAll("[data-db-view]");
 const databaseTopicButtons = document.querySelectorAll("[data-db-topic]");
 const databaseClassCount = document.querySelector("#db-classCount");
@@ -66,11 +73,22 @@ const databaseUpdatedAt = document.querySelector("#db-updatedAt");
 const DATABASE_CATEGORIES = ["完课超赞", "异常断课", "断续上课", "长期不上课", "周末欠缺", "偶尔断课", "暂无数据"];
 const LEARNING_TARGET_RATES = [0.26, 0.28, 0.3];
 const GMV_SECTION_LABELS = { renewal: "续费", referral: "转介绍" };
+const DATABASE_PERIOD_SECTION_LABELS = { completion: "完课", learning: "学情", renewal: "续费", referral: "转介绍" };
+const DATABASE_PERIOD_SECTIONS = ["completion", "learning", "renewal", "referral"];
+const DATABASE_PERIOD_GROUPS = [
+  { key: "completion", label: "完课", sections: ["completion"] },
+  { key: "learning", label: "学情", sections: ["learning"] },
+  { key: "renewalReferral", label: "续费&转介绍", sections: ["renewal", "referral"] },
+];
 const CLOSING_RENEWAL_STORAGE_KEY = "pu6ClosingRenewalClassIds";
 let currentDatabaseData = null;
 let selectedCompletionCompareDate = "";
 let showOlderCompletionDates = false;
 let gmvEditMode = false;
+let databasePeriodPanelOpen = false;
+let activePeriodPickerKey = "";
+let activePeriodDraftStart = "";
+let databasePeriodCalendarMonth = null;
 let selectedClosingRenewalClassIds = loadClosingRenewalSelection();
 
 function setDatabaseMessage(message, isError = false) {
@@ -108,6 +126,200 @@ function formatDatabaseShortDate(dateText) {
   const parts = String(dateText || "").split("-");
   if (parts.length !== 3) return dateText || "-";
   return `${Number(parts[1])}.${Number(parts[2])}`;
+}
+
+function formatDatabasePeriod(period = {}) {
+  if (!period.start_date && !period.end_date) return "";
+  return `${formatDatabaseShortDate(period.start_date)}-${formatDatabaseShortDate(period.end_date)}`;
+}
+
+function parseDatabaseDate(dateText) {
+  const [year, month, day] = String(dateText || "").split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function databaseDateFromParts(year, month, day) {
+  return `${year}-${padDatabaseNumber(month)}-${padDatabaseNumber(day)}`;
+}
+
+function databasePeriodGroupRange(group, sections = {}) {
+  const primary = sections[group.sections[0]] || {};
+  return {
+    start_date: primary.start_date || "",
+    end_date: primary.end_date || "",
+    is_custom: group.sections.some((sectionKey) => Boolean(sections[sectionKey]?.is_custom)),
+  };
+}
+
+function setPeriodGroupInputs(groupKey, startDate, endDate) {
+  const group = DATABASE_PERIOD_GROUPS.find((item) => item.key === groupKey);
+  if (!group) return;
+  group.sections.forEach((sectionKey) => {
+    const startInput = document.querySelector(`[data-db-period-start="${sectionKey}"]`);
+    const endInput = document.querySelector(`[data-db-period-end="${sectionKey}"]`);
+    if (startInput) startInput.value = startDate || "";
+    if (endInput) endInput.value = endDate || "";
+  });
+}
+
+function getPeriodGroupInputs(groupKey) {
+  const group = DATABASE_PERIOD_GROUPS.find((item) => item.key === groupKey);
+  const sectionKey = group?.sections?.[0] || groupKey;
+  const startInput = document.querySelector(`[data-db-period-start="${sectionKey}"]`);
+  const endInput = document.querySelector(`[data-db-period-end="${sectionKey}"]`);
+  return {
+    start_date: startInput?.value || "",
+    end_date: endInput?.value || "",
+  };
+}
+
+function updatePeriodGroupButton(groupKey) {
+  const range = getPeriodGroupInputs(groupKey);
+  const button = document.querySelector(`[data-db-period-picker="${groupKey}"]`);
+  if (!button) return;
+  button.textContent = range.start_date && range.end_date
+    ? formatDatabasePeriod(range)
+    : "选择周期";
+}
+
+function renderPerformancePeriods(data = {}) {
+  if (!databasePeriodSettings) return;
+  const periodData = data.performance_periods || {};
+  const sections = periodData.sections || {};
+  DATABASE_PERIOD_GROUPS.forEach((group) => {
+    const period = databasePeriodGroupRange(group, sections);
+    setPeriodGroupInputs(group.key, period.start_date, period.end_date);
+    updatePeriodGroupButton(group.key);
+    const card = document.querySelector(`[data-db-period-section="${group.key}"]`);
+    card?.classList.toggle("is-custom", Boolean(period.is_custom));
+    card?.setAttribute("title", `${group.label}：${formatDatabasePeriod(period)}`);
+  });
+  if (databasePeriodStatus) {
+    const labels = DATABASE_PERIOD_GROUPS
+      .map((group) => {
+        const period = databasePeriodGroupRange(group, sections);
+        return `${group.label} ${formatDatabasePeriod(period)}`;
+      })
+      .join(" · ");
+    databasePeriodStatus.textContent = labels || "按板块设置本期统计范围";
+  }
+}
+
+function collectPerformancePeriods() {
+  const periods = {};
+  DATABASE_PERIOD_SECTIONS.forEach((sectionKey) => {
+    const startInput = document.querySelector(`[data-db-period-start="${sectionKey}"]`);
+    const endInput = document.querySelector(`[data-db-period-end="${sectionKey}"]`);
+    periods[sectionKey] = {
+      start_date: startInput?.value || "",
+      end_date: endInput?.value || "",
+    };
+  });
+  return periods;
+}
+
+function setDatabasePeriodPanel(open) {
+  databasePeriodPanelOpen = Boolean(open);
+  databasePeriodSettings?.classList.toggle("is-collapsed", !databasePeriodPanelOpen);
+  databasePeriodBody?.classList.toggle("is-hidden", !databasePeriodPanelOpen);
+  databasePeriodHead?.setAttribute("aria-expanded", databasePeriodPanelOpen ? "true" : "false");
+  if (databasePeriodToggleIcon) databasePeriodToggleIcon.textContent = databasePeriodPanelOpen ? "⌃" : "⌄";
+  if (!databasePeriodPanelOpen) closeDatabasePeriodCalendar();
+}
+
+function closeDatabasePeriodCalendar() {
+  activePeriodPickerKey = "";
+  activePeriodDraftStart = "";
+  databasePeriodCalendar?.classList.add("is-hidden");
+  if (databasePeriodCalendar) databasePeriodCalendar.innerHTML = "";
+}
+
+function databaseCalendarAnchorFor(groupKey) {
+  const range = getPeriodGroupInputs(groupKey);
+  return parseDatabaseDate(range.start_date) || parseDatabaseDate(databaseDateInput?.value) || new Date();
+}
+
+function openDatabasePeriodCalendar(groupKey) {
+  activePeriodPickerKey = groupKey;
+  const range = getPeriodGroupInputs(groupKey);
+  activePeriodDraftStart = range.start_date && !range.end_date ? range.start_date : "";
+  const anchor = databaseCalendarAnchorFor(groupKey);
+  databasePeriodCalendarMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  renderDatabasePeriodCalendar();
+  databasePeriodCalendar?.classList.remove("is-hidden");
+}
+
+function databasePeriodDayClass(dateKey, range) {
+  const classes = [];
+  if (dateKey === range.start_date) classes.push("is-start");
+  if (dateKey === range.end_date) classes.push("is-end");
+  if (range.start_date && range.end_date && range.start_date < dateKey && dateKey < range.end_date) {
+    classes.push("is-in-range");
+  }
+  if (activePeriodDraftStart && dateKey === activePeriodDraftStart) classes.push("is-draft");
+  return classes.join(" ");
+}
+
+function renderDatabasePeriodCalendar() {
+  if (!databasePeriodCalendar || !activePeriodPickerKey) return;
+  const group = DATABASE_PERIOD_GROUPS.find((item) => item.key === activePeriodPickerKey);
+  const range = getPeriodGroupInputs(activePeriodPickerKey);
+  const monthDate = databasePeriodCalendarMonth || new Date();
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const leading = (firstDay.getDay() + 6) % 7;
+  const cells = [];
+  for (let index = 0; index < leading; index += 1) {
+    cells.push(`<span class="database-period-day is-empty"></span>`);
+  }
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateKey = databaseDateFromParts(year, month + 1, day);
+    cells.push(`
+      <button
+        class="database-period-day ${databasePeriodDayClass(dateKey, range)}"
+        type="button"
+        data-db-period-day="${dateKey}"
+      >${day}</button>
+    `);
+  }
+  const hint = activePeriodDraftStart
+    ? `已选开始 ${formatDatabaseShortDate(activePeriodDraftStart)}，再点结束日期`
+    : "点击开始日期，再点击结束日期";
+  databasePeriodCalendar.innerHTML = `
+    <div class="database-period-calendar-head">
+      <button type="button" data-db-period-calendar-prev aria-label="上个月">‹</button>
+      <strong>${year}年${month + 1}月</strong>
+      <button type="button" data-db-period-calendar-next aria-label="下个月">›</button>
+    </div>
+    <div class="database-period-calendar-meta">
+      <span>${escapeDatabaseText(group?.label || "")}</span>
+      <small>${escapeDatabaseText(hint)}</small>
+    </div>
+    <div class="database-period-weekdays">
+      ${["一", "二", "三", "四", "五", "六", "日"].map((day) => `<span>${day}</span>`).join("")}
+    </div>
+    <div class="database-period-days">${cells.join("")}</div>
+  `;
+}
+
+function selectDatabasePeriodDay(dateKey) {
+  if (!activePeriodPickerKey) return;
+  const current = getPeriodGroupInputs(activePeriodPickerKey);
+  if (!activePeriodDraftStart || (current.start_date && current.end_date)) {
+    setPeriodGroupInputs(activePeriodPickerKey, dateKey, "");
+    activePeriodDraftStart = dateKey;
+    updatePeriodGroupButton(activePeriodPickerKey);
+    renderDatabasePeriodCalendar();
+    return;
+  }
+  const startDate = activePeriodDraftStart <= dateKey ? activePeriodDraftStart : dateKey;
+  const endDate = activePeriodDraftStart <= dateKey ? dateKey : activePeriodDraftStart;
+  setPeriodGroupInputs(activePeriodPickerKey, startDate, endDate);
+  updatePeriodGroupButton(activePeriodPickerKey);
+  closeDatabasePeriodCalendar();
 }
 
 function completionHistoryValue(row, dateText) {
@@ -1157,6 +1369,7 @@ function renderDatabase(data) {
   if (databaseGmvRenewalMonth) databaseGmvRenewalMonth.textContent = formatDatabaseMoney(data.gmv?.renewal?.month_total);
   if (databaseGmvReferralMonth) databaseGmvReferralMonth.textContent = formatDatabaseMoney(data.gmv?.referral?.month_total);
   if (databaseUpdatedAt) databaseUpdatedAt.textContent = `统计月份：${data.month}，统计日期：${data.date}`;
+  renderPerformancePeriods(data);
 
   if (databaseCompletionUploadPanel) {
     databaseCompletionUploadPanel.classList.toggle("is-hidden", !data.permissions?.can_upload_completion && !data.completion?.can_upload);
@@ -1194,6 +1407,26 @@ async function loadDatabaseSummary() {
     setDatabaseMessage("");
   } finally {
     if (databaseRefreshButton) databaseRefreshButton.disabled = false;
+  }
+}
+
+async function savePerformancePeriods() {
+  if (!databasePeriodSaveButton || !databaseMonthInput || !databaseDateInput) return;
+  databasePeriodSaveButton.disabled = true;
+  setDatabaseMessage("正在保存绩效周期...");
+  try {
+    await databaseApiRequest("/api/database/performance-periods", {
+      method: "PUT",
+      body: JSON.stringify({
+        month: databaseMonthInput.value,
+        date: databaseDateInput.value,
+        periods: collectPerformancePeriods(),
+      }),
+    });
+    await loadDatabaseSummary();
+    setDatabaseMessage("绩效周期已保存，统计已按新周期刷新。");
+  } finally {
+    databasePeriodSaveButton.disabled = false;
   }
 }
 
@@ -1264,6 +1497,47 @@ function initDatabase() {
   databaseGmvCancelButton?.addEventListener("click", () => setGmvEditMode(false));
   databaseGmvSaveButton?.addEventListener("click", () => {
     saveGmvAdjustments().catch((error) => setDatabaseMessage(error.message, true));
+  });
+  databasePeriodSaveButton?.addEventListener("click", () => {
+    savePerformancePeriods().catch((error) => setDatabaseMessage(error.message, true));
+  });
+  databasePeriodHead?.addEventListener("click", (event) => {
+    if (event.target.closest("button")) return;
+    setDatabasePeriodPanel(!databasePeriodPanelOpen);
+  });
+  databasePeriodHead?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    setDatabasePeriodPanel(!databasePeriodPanelOpen);
+  });
+  databasePeriodBody?.addEventListener("click", (event) => {
+    const pickerButton = event.target.closest("[data-db-period-picker]");
+    if (pickerButton) {
+      openDatabasePeriodCalendar(pickerButton.dataset.dbPeriodPicker);
+      return;
+    }
+    if (event.target.closest("[data-db-period-calendar-prev]")) {
+      databasePeriodCalendarMonth = new Date(
+        databasePeriodCalendarMonth.getFullYear(),
+        databasePeriodCalendarMonth.getMonth() - 1,
+        1
+      );
+      renderDatabasePeriodCalendar();
+      return;
+    }
+    if (event.target.closest("[data-db-period-calendar-next]")) {
+      databasePeriodCalendarMonth = new Date(
+        databasePeriodCalendarMonth.getFullYear(),
+        databasePeriodCalendarMonth.getMonth() + 1,
+        1
+      );
+      renderDatabasePeriodCalendar();
+      return;
+    }
+    const dayButton = event.target.closest("[data-db-period-day]");
+    if (dayButton) {
+      selectDatabasePeriodDay(dayButton.dataset.dbPeriodDay);
+    }
   });
   databaseCompletionUploadButton?.addEventListener("click", () => {
     syncCompletionUploadDate();

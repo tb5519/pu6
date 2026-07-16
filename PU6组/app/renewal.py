@@ -1178,6 +1178,55 @@ def project_today_followup_count(project, source_class=None):
     return total
 
 
+def renewal_intent_summary(project, source_class=None):
+    summary = {
+        "student_count": 0,
+        "completion_over_60_count": 0,
+        "status_counts": {status: 0 for status in FOLLOWUP_STATUSES},
+        "priority_counts": {priority: 0 for priority in FOLLOWUP_PRIORITIES},
+        "enrolled_count": 0,
+    }
+    followups = project.get("student_followups") if isinstance(project.get("student_followups"), dict) else {}
+    month_key = renewal_completion_month_key()
+
+    if source_class:
+        for student in source_class.get("students", []):
+            student_id = str(student.get("id") or "")
+            if not student_id:
+                continue
+            summary["student_count"] += 1
+            try:
+                average_completion = float(calculate_monthly_completion(get_student_weeks(student, month_key)) or 0)
+            except (TypeError, ValueError):
+                average_completion = 0
+            if average_completion >= 60:
+                summary["completion_over_60_count"] += 1
+            record = followups.get(student_id) if isinstance(followups.get(student_id), dict) else {}
+            status = normalize_followup_status(record.get("status"))
+            priority = normalize_followup_priority(record.get("priority"))
+            if status:
+                summary["status_counts"][status] += 1
+            if priority:
+                summary["priority_counts"][priority] += 1
+            if bool(record.get("enrolled")):
+                summary["enrolled_count"] += 1
+        return summary
+
+    for record in followups.values():
+        if not isinstance(record, dict):
+            continue
+        summary["student_count"] += 1
+        status = normalize_followup_status(record.get("status"))
+        priority = normalize_followup_priority(record.get("priority"))
+        if status:
+            summary["status_counts"][status] += 1
+        if priority:
+            summary["priority_counts"][priority] += 1
+        if bool(record.get("enrolled")):
+            summary["enrolled_count"] += 1
+    return summary
+
+
 def serialize_project(project, classes_by_id):
     source_class = classes_by_id.get(project.get("class_id"))
     source_count = source_class_student_count(source_class)
@@ -1218,7 +1267,7 @@ def serialize_project(project, classes_by_id):
     student_count = int(output.get("student_count") or 0)
     enrolled_count = len(enrolled_student_ids(project, source_class))
     month_enrolled_count = len(month_enrolled_student_ids(project, source_class))
-    target_count = project_month_target(project)
+    target_count = None if output["stage"] == RENEWAL_STAGES[0] else project_month_target(project)
     output["enrolled_count"] = enrolled_count
     output["month_enrolled_count"] = month_enrolled_count
     output["renewal_rate"] = round(enrolled_count / student_count * 100, 2) if student_count else None
@@ -1227,6 +1276,7 @@ def serialize_project(project, classes_by_id):
     output["target_progress_rate"] = round(month_enrolled_count / target_count * 100, 2) if target_count else None
     output["target_month"] = current_period_label()
     output["today_followup_count"] = project_today_followup_count(project, source_class)
+    output["intent_summary"] = renewal_intent_summary(project, source_class)
     output.update(leader_plan_counts(project, source_class))
     return output
 
@@ -1499,7 +1549,8 @@ def update_project(project_id):
     if "target_count" in payload:
         if not can_manage_accounts():
             return jsonify({"error": "只有管理员可以设置续费目标。"}), 403
-        set_project_month_target(project, payload.get("target_count"))
+        if normalize_stage(project.get("stage")) != RENEWAL_STAGES[0]:
+            set_project_month_target(project, payload.get("target_count"))
     project["updated_at"] = now_iso()
     save_store(store)
     return jsonify(build_payload())
