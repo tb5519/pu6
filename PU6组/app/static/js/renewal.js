@@ -12,6 +12,11 @@ const renewalGoalMonth = document.querySelector("#renewal-goalMonth");
 const renewalGoalSummary = document.querySelector("#renewal-goalSummary");
 const renewalGoalRows = document.querySelector("#renewal-goalRows");
 const renewalIntentOverview = document.querySelector("#renewal-intentOverview");
+const renewalFollowupOverview = document.querySelector("#renewal-followupOverview");
+const renewalSectionHub = document.querySelector("#renewal-sectionHub");
+const renewalSectionToolbar = document.querySelector("#renewal-sectionToolbar");
+const renewalSectionBack = document.querySelector("#renewal-sectionBack");
+const renewalSectionTitle = document.querySelector("#renewal-sectionTitle");
 const renewalMenuButton = document.querySelector('.side-menu-item[data-module="续费"]');
 const renewalMenuBadge = document.querySelector("#renewal-menuBadge");
 const renewalAddPanel = document.querySelector(".renewal-add-shell");
@@ -22,6 +27,7 @@ const renewalDetailMeta = document.querySelector("#renewal-detailMeta");
 const renewalDetailSummary = document.querySelector("#renewal-detailSummary");
 const renewalStudentList = document.querySelector("#renewal-studentList");
 const renewalWeekSelect = document.querySelector("#renewal-weekSelect");
+const renewalModule = document.querySelector('[data-module-panel="续费"]');
 
 const RENEWAL_PREP_STAGE = "铺垫阶段";
 const RENEWAL_STAGE_DESCRIPTIONS = {
@@ -43,12 +49,13 @@ const RENEWAL_WEEK_STORAGE_KEY = "pu6RenewalSelectedWeek";
 const RENEWAL_MESSAGE_TALK_TYPE = "留言推荐";
 const RENEWAL_ALL_TEACHERS = "__all_teachers__";
 const RENEWAL_RATE_TIERS = [0.3, 0.35, 0.4, 0.45, 0.5];
-const RENEWAL_WEEKS = [
+const DEFAULT_RENEWAL_WEEKS = [
   { key: "1", label: "第一周" },
   { key: "2", label: "第二周" },
   { key: "3", label: "第三周" },
   { key: "4", label: "第四周" },
 ];
+const RENEWAL_WEEK_LABELS = ["第一周", "第二周", "第三周", "第四周", "第五周", "第六周", "第七周", "第八周"];
 
 function isRenewalFourWeekStage(projectOrStage) {
   const stage = typeof projectOrStage === "string" ? projectOrStage : projectOrStage?.stage;
@@ -58,6 +65,22 @@ function isRenewalFourWeekStage(projectOrStage) {
 function isRenewalSingleFollowupStage(projectOrStage) {
   const stage = typeof projectOrStage === "string" ? projectOrStage : projectOrStage?.stage;
   return stage === RENEWAL_CLOSING_STAGE;
+}
+
+function renewalWeekOptions(project = null) {
+  const projectOptions = Array.isArray(project?.followup_week_options) ? project.followup_week_options : [];
+  const dataOptions = Array.isArray(renewalData?.followup_week_options) ? renewalData.followup_week_options : [];
+  const options = projectOptions.length ? projectOptions : dataOptions;
+  const normalized = options
+    .map((week, index) => {
+      const key = String(week?.key || index + 1);
+      return {
+        key,
+        label: String(week?.label || RENEWAL_WEEK_LABELS[Number(key) - 1] || `第${key}周`),
+      };
+    })
+    .filter((week) => week.key);
+  return normalized.length ? normalized : DEFAULT_RENEWAL_WEEKS;
 }
 
 let renewalData = null;
@@ -71,6 +94,10 @@ let renewalSelectedTeacherId = RENEWAL_ALL_TEACHERS;
 let renewalTeacherPanelExpanded = false;
 let renewalGoalPanelExpanded = false;
 let renewalIntentOverviewExpanded = false;
+let renewalFollowupOverviewExpanded = true;
+let renewalOverviewDate = todayRenewalDateValue();
+let renewalFollowupExpandedClasses = new Set();
+let renewalActiveSection = "home";
 let renewalActiveNoteContext = null;
 let renewalNoteHideTimer = null;
 let renewalNoteEditorModal = null;
@@ -217,6 +244,130 @@ function renderRenewalTeacherPanel() {
     `,
     ...teachers.map(renderRenewalTeacherCard),
   ].join("");
+}
+
+function renewalSectionLabel(section) {
+  const labels = {
+    followup: "今日跟进",
+    goals: "本月目标",
+    projects: "续费班级",
+    intent: "意向看板",
+    teachers: "老师跟进",
+  };
+  return labels[section] || "续费项目";
+}
+
+function renewalHubGoalSummary(projects = []) {
+  const targetProjects = renewalTargetProjects(projects);
+  const summary = renewalGoalSummaryFor(targetProjects);
+  if (!targetProjects.length) {
+    return { value: "未设置", meta: "进入后设置本月目标", tone: "muted" };
+  }
+  const gap = summary.target_gap;
+  return {
+    value: gap === null ? "未设置" : gap > 0 ? `还差${gap}` : "已达成",
+    meta: `目标 ${summary.target_count || "-"} · 已报 ${summary.month_enrolled_count}`,
+    tone: gap > 0 || gap === null ? "warning" : "success",
+  };
+}
+
+function renewalHubIntentSummary(projects = []) {
+  const keyCount = projects.reduce((sum, project) => {
+    const summary = renewalIntentSummary(project);
+    return sum + renewalIntentCount(summary, "priority", "重点跟进") + renewalIntentCount(summary, "priority", "高意向");
+  }, 0);
+  return {
+    value: keyCount,
+    meta: "重点/高意向学员",
+    tone: keyCount ? "warning" : "muted",
+  };
+}
+
+function renewalHubCards(projects = []) {
+  const overview = renewalOverviewForActiveTeacher();
+  const goal = renewalHubGoalSummary(projects);
+  const intentProjects = renewalData?.can_manage_all ? renewalData.projects || [] : projects;
+  const intent = renewalHubIntentSummary(intentProjects);
+  const teacherCount = (renewalData?.teacher_overview || []).length;
+  const cards = [
+    {
+      section: "followup",
+      title: "今日跟进",
+      value: Number(overview.student_count || 0),
+      meta: `${Number(overview.project_count || 0)} 个班级 · ${Number(overview.teacher_count || 0)} 位老师`,
+      tone: Number(overview.student_count || 0) ? "success" : "muted",
+    },
+    {
+      section: "goals",
+      title: "本月目标",
+      value: goal.value,
+      meta: goal.meta,
+      tone: goal.tone,
+    },
+    {
+      section: "projects",
+      title: "续费班级",
+      value: projects.length,
+      meta: "添加班级、进入跟进、移动阶段",
+      tone: projects.length ? "default" : "muted",
+    },
+  ];
+  if (renewalData?.can_manage_all) {
+    cards.push(
+      {
+        section: "intent",
+        title: "意向看板",
+        value: intent.value,
+        meta: intent.meta,
+        tone: intent.tone,
+      },
+      {
+        section: "teachers",
+        title: "老师跟进",
+        value: teacherCount,
+        meta: "按老师查看续费项目",
+        tone: teacherCount ? "default" : "muted",
+      }
+    );
+  }
+  return cards.filter((card) => card.section !== "teachers");
+}
+
+function renderRenewalSectionHub(projects = []) {
+  if (!renewalSectionHub) return;
+  renewalSectionHub.innerHTML = renewalHubCards(projects).map((card) => `
+    <button class="renewal-hub-card is-${escapeRenewalText(card.tone)}" type="button" data-renewal-section="${escapeRenewalText(card.section)}">
+      <span>${escapeRenewalText(card.title)}</span>
+      <strong>${escapeRenewalText(card.value)}</strong>
+      <small>${escapeRenewalText(card.meta)}</small>
+    </button>
+  `).join("");
+}
+
+function setRenewalSection(section) {
+  renewalActiveSection = section || "home";
+  if (renewalActiveSection === "goals") renewalGoalPanelExpanded = true;
+  if (renewalActiveSection === "intent") renewalIntentOverviewExpanded = true;
+  if (renewalActiveSection === "followup") renewalFollowupOverviewExpanded = true;
+  if (renewalActiveSection === "teachers") renewalTeacherPanelExpanded = true;
+  if (renewalData) renderRenewal(renewalData);
+}
+
+function applyRenewalSectionVisibility() {
+  const allProjects = renewalData?.projects || [];
+  const visibleProjects = renewalProjectsForActiveTeacher(renewalData?.projects || []);
+  const isDetail = !renewalDetailView?.classList.contains("is-hidden");
+  const isHome = renewalActiveSection === "home" && !isDetail;
+  const targetProjects = renewalTargetProjects(visibleProjects);
+  renewalSectionHub?.classList.toggle("is-hidden", !isHome);
+  renewalSectionToolbar?.classList.toggle("is-hidden", isHome || isDetail);
+  if (renewalSectionTitle) renewalSectionTitle.textContent = renewalSectionLabel(renewalActiveSection);
+  renewalAddPanel?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "projects");
+  renewalTeacherPanel?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "projects" || !renewalData?.can_manage_all);
+  renewalFollowupOverview?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "followup" || !visibleProjects.length);
+  renewalGoalPanel?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "goals" || !targetProjects.length);
+  renewalIntentOverview?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "intent" || !(renewalData?.can_manage_all && allProjects.length));
+  renewalStageBoard?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "projects");
 }
 
 function renderRenewalFollowupOptions(activeStatus) {
@@ -589,8 +740,9 @@ function renderRenewalWeekSelect(project) {
   picker?.classList.toggle("is-hidden", !shouldShow);
   renewalWeekSelect.disabled = !shouldShow;
   if (!shouldShow) return;
-  const activeWeekKey = getRenewalSelectedWeekKey();
-  renewalWeekSelect.innerHTML = RENEWAL_WEEKS.map((week) => `
+  const weeks = renewalWeekOptions(project);
+  const activeWeekKey = getRenewalSelectedWeekKey(project);
+  renewalWeekSelect.innerHTML = weeks.map((week) => `
     <option value="${escapeRenewalText(week.key)}"${week.key === activeWeekKey ? " selected" : ""}>
       ${escapeRenewalText(week.label)}
     </option>
@@ -615,6 +767,31 @@ function renewalTargetValue(project) {
   if (project?.target_count === null || project?.target_count === undefined || project?.target_count === "") return "";
   const number = Number(project.target_count);
   return Number.isNaN(number) ? "" : String(Math.max(0, Math.trunc(number)));
+}
+
+function renewalManualEnrolledValue(project) {
+  if (project?.manual_enrolled_count === null || project?.manual_enrolled_count === undefined || project?.manual_enrolled_count === "") return "";
+  const number = Number(project.manual_enrolled_count);
+  return Number.isNaN(number) ? "" : String(Math.max(0, Math.trunc(number)));
+}
+
+function renderRenewalEnrolledMetric(project, disabledAttr = "", tagName = "div") {
+  const enrolledCount = Number(project?.enrolled_count || 0);
+  const isOverridden = Boolean(project?.enrolled_count_overridden);
+  const projectId = escapeRenewalText(project?.id || "");
+  const tag = tagName === "article" ? "article" : "div";
+  return `
+    <${tag} class="renewal-editable-metric${isOverridden ? " is-overridden" : ""}" title="双击编辑已报名人数">
+      <span>已报名 / 续报率</span>
+      <strong
+        tabindex="${disabledAttr ? "-1" : "0"}"
+        data-renewal-enrolled-count="${projectId}"
+        data-renewal-enrolled-value="${escapeRenewalText(String(enrolledCount))}"
+        data-renewal-enrolled-manual="${escapeRenewalText(renewalManualEnrolledValue(project))}"
+      >${enrolledCount} 人</strong>
+      <small>${escapeRenewalText(formatRenewalRate(project?.renewal_rate))}</small>
+    </${tag}>
+  `;
 }
 
 function renewalTargetGapText(project) {
@@ -731,9 +908,26 @@ function renderRenewalDetailIntentCard(project) {
   `;
 }
 
+function renewalIntentOverviewProjects(projects = []) {
+  return [...projects].sort((first, second) => {
+    const firstTeacher = first.teacher_name || first.teacher_id || "";
+    const secondTeacher = second.teacher_name || second.teacher_id || "";
+    const teacherOrder = firstTeacher.localeCompare(secondTeacher, "zh-Hans-CN");
+    if (teacherOrder) return teacherOrder;
+    const classOrder = String(first.class_name || "").localeCompare(String(second.class_name || ""), "zh-Hans-CN");
+    if (classOrder) return classOrder;
+    return String(first.stage || "").localeCompare(String(second.stage || ""), "zh-Hans-CN");
+  });
+}
+
+function renewalIntentTeacherKey(project) {
+  return project?.teacher_id || project?.teacher_name || "-";
+}
+
 function renderRenewalIntentOverview(projects = []) {
   if (!renewalIntentOverview) return;
-  const shouldShow = Boolean(renewalData?.can_manage_all && projects.length);
+  const overviewProjects = renewalIntentOverviewProjects(projects);
+  const shouldShow = Boolean(renewalData?.can_manage_all && overviewProjects.length);
   renewalIntentOverview.classList.toggle("is-hidden", !shouldShow);
   renewalIntentOverview.classList.toggle("is-collapsed", !renewalIntentOverviewExpanded);
   if (!shouldShow) {
@@ -741,13 +935,27 @@ function renderRenewalIntentOverview(projects = []) {
     return;
   }
 
-  const activeTeacher = getRenewalSelectedTeacher();
-  const titleSuffix = activeTeacher ? activeTeacher.teacher_name || activeTeacher.teacher_id : "全部老师";
+  const teacherCount = new Set(overviewProjects.map(renewalIntentTeacherKey)).size;
+  const titleSuffix = `${teacherCount} 位老师 · ${overviewProjects.length} 个续费班级`;
+  let previousTeacherKey = "";
+  const rowsHtml = overviewProjects.map((project) => {
+    const teacherKey = renewalIntentTeacherKey(project);
+    const isGroupStart = teacherKey !== previousTeacherKey;
+    previousTeacherKey = teacherKey;
+    return `
+      <tr class="${isGroupStart ? "is-group-start" : ""}">
+        <td class="renewal-intent-teacher-cell">${escapeRenewalText(project.teacher_name || "-")}</td>
+        <td>${escapeRenewalText(project.class_name || "-")}</td>
+        <td>${escapeRenewalText(project.stage || "-")}</td>
+        <td>${renderRenewalIntentStats(project, "table")}</td>
+      </tr>
+    `;
+  }).join("");
   renewalIntentOverview.innerHTML = `
     <div class="renewal-intent-overview-head">
       <div>
         <h2>续费意向看板</h2>
-        <span>${escapeRenewalText(titleSuffix)} · ${projects.length} 个续费班级</span>
+        <span>${escapeRenewalText(titleSuffix)}</span>
       </div>
     </div>
     <div class="renewal-intent-overview-body${renewalIntentOverviewExpanded ? "" : " is-hidden"}">
@@ -762,14 +970,7 @@ function renderRenewalIntentOverview(projects = []) {
             </tr>
           </thead>
           <tbody>
-            ${projects.map((project) => `
-              <tr>
-                <td>${escapeRenewalText(project.teacher_name || "-")}</td>
-                <td>${escapeRenewalText(project.class_name || "-")}</td>
-                <td>${escapeRenewalText(project.stage || "-")}</td>
-                <td>${renderRenewalIntentStats(project, "table")}</td>
-              </tr>
-            `).join("")}
+            ${rowsHtml}
           </tbody>
         </table>
       </div>
@@ -784,38 +985,232 @@ function todayRenewalDateValue() {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-function getRenewalCurrentWeekKey(date = new Date()) {
-  const day = Number(date.getDate()) || 1;
-  const weekIndex = Math.min(RENEWAL_WEEKS.length, Math.max(1, Math.ceil(day / 7)));
+function renewalOverviewForActiveTeacher() {
+  const overview = renewalData?.followup_overview || {
+    date: renewalOverviewDate || todayRenewalDateValue(),
+    date_label: "",
+    teacher_count: 0,
+    project_count: 0,
+    student_count: 0,
+    teachers: [],
+  };
+  const teachers = Array.isArray(overview.teachers) ? overview.teachers : [];
+  if (!renewalData?.can_manage_all || renewalSelectedTeacherId === RENEWAL_ALL_TEACHERS) {
+    return { ...overview, teachers };
+  }
+  const filteredTeachers = teachers.filter((teacher) => teacher.teacher_id === renewalSelectedTeacherId);
+  const rows = filteredTeachers.flatMap((teacher) => teacher.rows || []);
+  return {
+    ...overview,
+    teachers: filteredTeachers,
+    teacher_count: filteredTeachers.filter((teacher) => Number(teacher.student_count || 0) > 0).length,
+    project_count: new Set(rows.map((row) => row.project_id).filter(Boolean)).size,
+    student_count: rows.length,
+  };
+}
+
+function renewalOverviewSummaryText(overview) {
+  const dateLabel = overview?.date_label || overview?.date || "今日";
+  const teacherCount = Number(overview?.teacher_count || 0);
+  const projectCount = Number(overview?.project_count || 0);
+  const studentCount = Number(overview?.student_count || 0);
+  return `${dateLabel} · ${teacherCount} 位老师 · ${projectCount} 个班级 · ${studentCount} 人`;
+}
+
+function renderRenewalFollowupRow(row) {
+  const methods = Array.isArray(row.methods) && row.methods.length ? row.methods.join("、") : "已记录";
+  const sourceText = Array.isArray(row.sources) && row.sources.length ? row.sources.join("、") : "";
+  const content = String(row.note || "").trim() || (methods === "已记录" ? sourceText || "已跟进" : `${methods}跟进`);
+  const meta = [
+    row.stage || "",
+    sourceText,
+    row.latest_time || "",
+  ].filter(Boolean).join(" · ");
+  return `
+    <button
+      class="renewal-followup-student"
+      type="button"
+      data-renewal-followup-open="${escapeRenewalText(row.project_id || "")}"
+      title="${escapeRenewalAttr(meta || "点击进入该续费班级")}"
+    >
+      <strong>${escapeRenewalText(row.student_name || "未命名学员")}</strong>
+      <em>${escapeRenewalText(content)}</em>
+      <small>${escapeRenewalText(row.latest_time ? row.latest_time.slice(5) : "")}</small>
+    </button>
+  `;
+}
+
+function renewalFollowupClassGroups(rows = []) {
+  const groups = [];
+  const groupMap = new Map();
+  rows.forEach((row) => {
+    const key = row.project_id || row.class_name || "unknown";
+    if (!groupMap.has(key)) {
+      const group = {
+        project_id: row.project_id || "",
+        class_name: row.class_name || "-",
+        stage: row.stage || "",
+        rows: [],
+      };
+      groupMap.set(key, group);
+      groups.push(group);
+    }
+    groupMap.get(key).rows.push(row);
+  });
+  return groups;
+}
+
+function renderRenewalFollowupClassGroup(group) {
+  const groupKey = group.project_id || group.class_name || "";
+  const isOpen = renewalFollowupExpandedClasses.has(groupKey);
+  return `
+    <section class="renewal-followup-class-group${isOpen ? " is-open" : ""}">
+      <button
+        class="renewal-followup-class-head"
+        type="button"
+        data-renewal-followup-class-toggle="${escapeRenewalAttr(groupKey)}"
+        aria-expanded="${isOpen ? "true" : "false"}"
+      >
+        <strong>${escapeRenewalText(group.class_name || "-")}</strong>
+        <span>${escapeRenewalText(group.stage || "")}</span>
+        <em>${Number(group.rows?.length || 0)} 人</em>
+      </button>
+      <div class="renewal-followup-student-list${isOpen ? "" : " is-hidden"}">
+        ${(group.rows || []).map(renderRenewalFollowupRow).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderRenewalFollowupTeacher(teacher) {
+  const rows = Array.isArray(teacher.rows) ? teacher.rows : [];
+  const classCount = new Set(rows.map((row) => row.project_id).filter(Boolean)).size;
+  const pendingPlans = Number(teacher.pending_leader_plan_count || 0);
+  const classGroups = renewalFollowupClassGroups(rows);
+  return `
+    <article class="renewal-followup-teacher${rows.length ? "" : " is-empty"}">
+      <div class="renewal-followup-teacher-head">
+        <strong>${escapeRenewalText(teacher.teacher_name || teacher.teacher_id || "未命名老师")}</strong>
+        <span>跟进 ${rows.length} 人</span>
+        <span>涉及 ${classCount} 班</span>
+        ${pendingPlans ? `<span class="has-pending">盘单待跟进 ${pendingPlans}</span>` : ""}
+      </div>
+      ${rows.length
+        ? `<div class="renewal-followup-class-list">${classGroups.map(renderRenewalFollowupClassGroup).join("")}</div>`
+        : `<div class="renewal-followup-empty">当天暂无跟进记录</div>`
+      }
+    </article>
+  `;
+}
+
+function renderRenewalFollowupOverview() {
+  if (!renewalFollowupOverview) return;
+  const projects = renewalProjectsForActiveTeacher(renewalData?.projects || []);
+  const shouldShow = Boolean(projects.length);
+  renewalFollowupOverview.classList.toggle("is-hidden", !shouldShow);
+  renewalFollowupOverview.classList.toggle("is-collapsed", !renewalFollowupOverviewExpanded);
+  if (!shouldShow) {
+    renewalFollowupOverview.innerHTML = "";
+    return;
+  }
+  const overview = renewalOverviewForActiveTeacher();
+  const activeTeacher = getRenewalSelectedTeacher();
+  const titleSuffix = activeTeacher ? activeTeacher.teacher_name || activeTeacher.teacher_id : "全部老师";
+  const teachers = Array.isArray(overview.teachers) ? overview.teachers : [];
+  renewalFollowupOverview.innerHTML = `
+    <div class="renewal-followup-overview-head">
+      <div>
+        <h2>续费跟进看板</h2>
+        <span>${escapeRenewalText(titleSuffix)} · ${escapeRenewalText(renewalOverviewSummaryText(overview))}</span>
+      </div>
+      <label class="renewal-followup-date-picker">
+        <span>日期</span>
+        <input
+          type="date"
+          value="${escapeRenewalText(renewalOverviewDate || overview.date || todayRenewalDateValue())}"
+          data-renewal-overview-date
+        >
+      </label>
+    </div>
+    <div class="renewal-followup-overview-body${renewalFollowupOverviewExpanded ? "" : " is-hidden"}">
+      ${teachers.length
+        ? teachers.map(renderRenewalFollowupTeacher).join("")
+        : `<div class="empty-state compact-empty">暂无续费班级。</div>`
+      }
+    </div>
+  `;
+}
+
+function parseRenewalDateValue(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+function getRenewalCurrentWeekKey(project = null, date = new Date()) {
+  const weeks = renewalWeekOptions(project);
+  const periodStart = parseRenewalDateValue(renewalData?.followup_period?.start_date);
+  let weekIndex = 1;
+  if (periodStart) {
+    const currentDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.floor((currentDate - periodStart) / 86400000);
+    weekIndex = diffDays >= 0 ? Math.floor(diffDays / 7) + 1 : 1;
+  } else {
+    const day = Number(date.getDate()) || 1;
+    weekIndex = Math.ceil(day / 7);
+  }
+  weekIndex = Math.min(weeks.length, Math.max(1, weekIndex));
   return String(weekIndex);
 }
 
-function isValidRenewalWeekKey(weekKey) {
-  return RENEWAL_WEEKS.some((week) => week.key === String(weekKey));
+function isValidRenewalWeekKey(weekKey, project = null) {
+  return renewalWeekOptions(project).some((week) => week.key === String(weekKey));
 }
 
-function getSavedRenewalWeekKey() {
+function renewalWeekPeriodSignature() {
+  const period = renewalData?.followup_period || {};
+  return `${period.start_date || ""}|${period.end_date || ""}`;
+}
+
+function getSavedRenewalWeekKey(project = null) {
   try {
-    const savedWeek = window.localStorage?.getItem(RENEWAL_WEEK_STORAGE_KEY);
-    if (isValidRenewalWeekKey(savedWeek)) return savedWeek;
+    const rawValue = window.localStorage?.getItem(RENEWAL_WEEK_STORAGE_KEY);
+    let savedWeek = rawValue;
+    let savedPeriod = "";
+    try {
+      const parsed = JSON.parse(rawValue || "");
+      if (parsed && typeof parsed === "object") {
+        savedWeek = parsed.week;
+        savedPeriod = parsed.period || "";
+      }
+    } catch (error) {
+      savedPeriod = "";
+    }
+    const currentPeriod = renewalWeekPeriodSignature();
+    if (currentPeriod && savedPeriod && savedPeriod !== currentPeriod) return getRenewalCurrentWeekKey(project);
+    if (currentPeriod && !savedPeriod && renewalData?.followup_period?.is_custom) return getRenewalCurrentWeekKey(project);
+    if (isValidRenewalWeekKey(savedWeek, project)) return savedWeek;
   } catch (error) {
     // Ignore storage issues and fall back to the date-based default.
   }
-  return getRenewalCurrentWeekKey();
+  return getRenewalCurrentWeekKey(project);
 }
 
-function getRenewalSelectedWeekKey() {
-  if (!isValidRenewalWeekKey(renewalSelectedWeekKey)) {
-    renewalSelectedWeekKey = getSavedRenewalWeekKey();
+function getRenewalSelectedWeekKey(project = null) {
+  if (!isValidRenewalWeekKey(renewalSelectedWeekKey, project)) {
+    renewalSelectedWeekKey = getSavedRenewalWeekKey(project);
   }
   return renewalSelectedWeekKey;
 }
 
-function setRenewalSelectedWeekKey(weekKey) {
-  const nextWeekKey = isValidRenewalWeekKey(weekKey) ? String(weekKey) : getRenewalCurrentWeekKey();
+function setRenewalSelectedWeekKey(weekKey, project = null) {
+  const nextWeekKey = isValidRenewalWeekKey(weekKey, project) ? String(weekKey) : getRenewalCurrentWeekKey(project);
   renewalSelectedWeekKey = nextWeekKey;
   try {
-    window.localStorage?.setItem(RENEWAL_WEEK_STORAGE_KEY, nextWeekKey);
+    window.localStorage?.setItem(RENEWAL_WEEK_STORAGE_KEY, JSON.stringify({
+      week: nextWeekKey,
+      period: renewalWeekPeriodSignature(),
+    }));
   } catch (error) {
     // The selector should still work even if the browser blocks storage.
   }
@@ -1588,14 +1983,7 @@ function renderRenewalProjectCard(project) {
           <strong>${Number(project.student_count || 0)}</strong>
           <small>完课当前 ${Number(project.source_student_count || 0)} 人</small>
         </div>
-        <div>
-          <span>已报名</span>
-          <strong>${Number(project.enrolled_count || 0)}</strong>
-        </div>
-        <div>
-          <span>续报率</span>
-          <strong>${escapeRenewalText(formatRenewalRate(project.renewal_rate))}</strong>
-        </div>
+        ${renderRenewalEnrolledMetric(project, disabledAttr)}
         ${renderRenewalProjectTarget(project, disabledAttr)}
       </div>
       <div class="renewal-card-actions">
@@ -1638,9 +2026,12 @@ function renderRenewal(data) {
   updateRenewalMenuBadge(data);
   renderRenewalTeacherPanel();
   renderRenewalClassOptions(data.available_classes || []);
+  renderRenewalFollowupOverview();
   renderRenewalGoalPanel(visibleProjects);
-  renderRenewalIntentOverview(visibleProjects);
+  renderRenewalIntentOverview(data.projects || []);
   renderRenewalBoard(visibleProjects);
+  renderRenewalSectionHub(visibleProjects);
+  applyRenewalSectionVisibility();
 }
 
 function renewalPendingLeaderPlanCount(projects = []) {
@@ -1663,15 +2054,23 @@ function refreshRenewalShellFromData(data) {
   updateRenewalMenuBadge(data);
   renderRenewalClassOptions(renewalData.available_classes || []);
   const visibleProjects = renewalProjectsForActiveTeacher(renewalData.projects || []);
+  renderRenewalFollowupOverview();
   renderRenewalGoalPanel(visibleProjects);
-  renderRenewalIntentOverview(visibleProjects);
+  renderRenewalIntentOverview(renewalData.projects || []);
   renderRenewalBoard(visibleProjects);
+  renderRenewalSectionHub(visibleProjects);
+  applyRenewalSectionVisibility();
   if (renewalDetailView?.classList.contains("is-hidden")) {
     renderRenewalTeacherPanel();
+    applyRenewalSectionVisibility();
   } else {
     renewalTeacherPanel?.classList.add("is-hidden");
+    renewalFollowupOverview?.classList.add("is-hidden");
     renewalGoalPanel?.classList.add("is-hidden");
     renewalIntentOverview?.classList.add("is-hidden");
+    renewalStageBoard?.classList.add("is-hidden");
+    renewalSectionHub?.classList.add("is-hidden");
+    renewalSectionToolbar?.classList.add("is-hidden");
   }
 }
 
@@ -1680,7 +2079,10 @@ function showRenewalDetail(shouldShow) {
   renewalAddPanel?.classList.toggle("is-hidden", shouldShow);
   renewalTeacherPanel?.classList.toggle("is-hidden", shouldShow || !renewalData?.can_manage_all);
   renewalGoalPanel?.classList.toggle("is-hidden", shouldShow || !renewalTargetProjects(visibleProjects).length);
-  renewalIntentOverview?.classList.toggle("is-hidden", shouldShow || !(renewalData?.can_manage_all && visibleProjects.length));
+  renewalIntentOverview?.classList.toggle("is-hidden", shouldShow || !(renewalData?.can_manage_all && (renewalData?.projects || []).length));
+  renewalFollowupOverview?.classList.toggle("is-hidden", shouldShow || renewalActiveSection !== "followup");
+  renewalSectionHub?.classList.toggle("is-hidden", shouldShow || renewalActiveSection !== "home");
+  renewalSectionToolbar?.classList.toggle("is-hidden", shouldShow || renewalActiveSection === "home");
   renewalStageBoard?.classList.toggle("is-hidden", shouldShow);
   renewalDetailView?.classList.toggle("is-hidden", !shouldShow);
   if (!shouldShow) {
@@ -1689,7 +2091,10 @@ function showRenewalDetail(shouldShow) {
     renderRenewalWeekSelect(null);
     renderRenewalTeacherPanel();
     renderRenewalGoalPanel(visibleProjects);
-    renderRenewalIntentOverview(visibleProjects);
+    renderRenewalIntentOverview(renewalData?.projects || []);
+    renderRenewalFollowupOverview();
+    renderRenewalSectionHub(visibleProjects);
+    applyRenewalSectionVisibility();
   }
 }
 
@@ -1777,10 +2182,11 @@ function shouldShowRenewalLeaderPlanColumn(project, students) {
 }
 
 function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
-  const currentWeekKey = getRenewalSelectedWeekKey();
+  const weeks = renewalWeekOptions(project);
+  const currentWeekKey = getRenewalSelectedWeekKey(project);
   const completionLabel = project.completion_label || "上月完课";
   const showLeaderPlanColumn = shouldShowRenewalLeaderPlanColumn(project, students);
-  const firstMonthColumnCount = 4 + 1 + (showLeaderPlanColumn ? 1 : 0) + 3 + (RENEWAL_WEEKS.length - 1) + 1;
+  const firstMonthColumnCount = 4 + 1 + (showLeaderPlanColumn ? 1 : 0) + 3 + (weeks.length - 1) + 1;
   const followupFilter = renderRenewalFollowupDateFilter(project, students);
   const enrolledStudents = students.filter((student) => student.enrolled);
   const visibleStudents = renewalShowEnrolledStudents
@@ -1805,7 +2211,7 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
           <th class="renewal-sticky-group" colspan="4">基础信息</th>
           <th class="renewal-sticky-col renewal-sticky-blocker" rowspan="2">当前卡点</th>
           ${showLeaderPlanColumn ? `<th class="renewal-leader-plan-head" rowspan="2">盘单</th>` : ""}
-          ${RENEWAL_WEEKS.map((week) => `
+          ${weeks.map((week) => `
             ${week.key === currentWeekKey
               ? `
                 <th class="renewal-week-current-head" colspan="3">${escapeRenewalText(week.label)}</th>
@@ -1820,7 +2226,7 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
           <th class="renewal-sticky-col renewal-sticky-account">学习账号</th>
           <th class="renewal-sticky-col renewal-sticky-average">${escapeRenewalText(completionLabel)}</th>
           <th class="renewal-sticky-col renewal-sticky-intention">铺垫情况</th>
-          ${RENEWAL_WEEKS.map((week) => week.key === currentWeekKey ? `
+          ${weeks.map((week) => week.key === currentWeekKey ? `
             <th>跟进时间</th>
             <th>跟进方式</th>
             <th>跟进次数</th>
@@ -1848,7 +2254,7 @@ function renderRenewalFirstMonthStudentTable(project, students, disabledAttr) {
               </select>
             </td>
             ${showLeaderPlanColumn ? renderRenewalLeaderPlanCell(project, student, disabledAttr) : ""}
-            ${RENEWAL_WEEKS.map((week) => renderRenewalWeekCells(project, student, week, currentWeekKey, disabledAttr)).join("")}
+            ${weeks.map((week) => renderRenewalWeekCells(project, student, week, currentWeekKey, disabledAttr)).join("")}
           </tr>
         `).join("") : `
           <tr>
@@ -2001,14 +2407,7 @@ function renderRenewalDetail(project) {
         <small>续报率按这里作为分母；完课班级当前 ${Number(project.source_student_count || 0)} 人</small>
         ${countNoteEditor}
       </article>
-      <article>
-        <span>已报名</span>
-        <strong>${Number(project.enrolled_count || 0)}</strong>
-      </article>
-      <article>
-        <span>续报率</span>
-        <strong>${escapeRenewalText(formatRenewalRate(project.renewal_rate))}</strong>
-      </article>
+      ${renderRenewalEnrolledMetric(project, disabledAttr, "article")}
       ${targetSummaryCard}
       ${planSummaryCard}
       ${renderRenewalDetailIntentCard(project)}
@@ -2047,7 +2446,10 @@ async function loadRenewal() {
   if (!renewalStageBoard) return;
   setRenewalMessage("正在读取续费项目...");
   try {
-    const data = await renewalApiRequest("/api/renewal");
+    const params = new URLSearchParams();
+    params.set("followup_date", renewalOverviewDate || todayRenewalDateValue());
+    const data = await renewalApiRequest(`/api/renewal?${params.toString()}`);
+    renewalOverviewDate = data?.followup_overview?.date || renewalOverviewDate || todayRenewalDateValue();
     renderRenewal(data);
     const pendingPlans = renewalPendingLeaderPlanCount(data.projects || []);
     setRenewalMessage(!data.can_manage_all && pendingPlans ? `你有 ${pendingPlans} 条待处理盘单，进入班级后点击完成即可收起。` : "");
@@ -2093,7 +2495,7 @@ async function updateRenewalProject(projectId, payload, successMessage) {
 }
 
 async function saveRenewalProjectSettings(projectId, payload, successMessage = "续费设置已保存。") {
-  if (!projectId) return;
+  if (!projectId) return false;
   setRenewalMessage("正在保存续费设置...");
   try {
     const data = await renewalApiRequest(`/api/renewal/projects/${encodeURIComponent(projectId)}`, {
@@ -2107,8 +2509,10 @@ async function saveRenewalProjectSettings(projectId, payload, successMessage = "
       showRenewalDetail(true);
     }
     setRenewalMessage(successMessage);
+    return true;
   } catch (error) {
     setRenewalMessage(error.message, true);
+    return false;
   }
 }
 
@@ -2249,6 +2653,80 @@ function saveRenewalTargetCount(targetInput) {
   ).finally(() => {
     targetInput.disabled = false;
   });
+}
+
+function startRenewalEnrolledCountEdit(target) {
+  if (!target || target.dataset.editing === "true") return;
+  const projectId = target.dataset.renewalEnrolledCount || "";
+  if (!projectId) return;
+  const project = findRenewalProject(projectId) || (renewalActiveDetailData?.id === projectId ? renewalActiveDetailData : null);
+  if (!project?.can_edit) {
+    setRenewalMessage("这个班级只有所属老师或管理员可以修正已报名人数。", true);
+    return;
+  }
+  target.dataset.editing = "true";
+  const previousHtml = target.innerHTML;
+  const manualValue = String(target.dataset.renewalEnrolledManual || "");
+  const displayValue = String(target.dataset.renewalEnrolledValue || "");
+  const input = document.createElement("input");
+  input.className = "renewal-inline-count-input";
+  input.type = "number";
+  input.min = "0";
+  input.max = "9999";
+  input.step = "1";
+  input.value = manualValue || displayValue;
+  input.setAttribute("aria-label", "编辑已报名人数");
+  target.innerHTML = "";
+  target.appendChild(input);
+
+  let committed = false;
+  const cancel = () => {
+    if (committed) return;
+    committed = true;
+    target.innerHTML = previousHtml;
+    delete target.dataset.editing;
+  };
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    const rawValue = String(input.value || "").trim();
+    const nextCount = rawValue === "" ? "" : Math.max(0, Math.min(9999, Number.parseInt(rawValue, 10) || 0));
+    input.disabled = true;
+    saveRenewalProjectSettings(
+      projectId,
+      { manual_enrolled_count: nextCount },
+      rawValue === "" ? "已恢复按学员勾选统计报名人数。" : "已报名人数已更新。"
+    ).then((saved) => {
+      if (!saved) {
+        target.innerHTML = previousHtml;
+        delete target.dataset.editing;
+      }
+    });
+  };
+  input.addEventListener("blur", commit);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      input.blur();
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancel();
+    }
+  });
+  input.focus();
+  input.select();
+}
+
+function activateRenewalEnrolledCount(event, allowClick = false) {
+  const enrolledCount = event.target.closest("[data-renewal-enrolled-count]");
+  if (!enrolledCount) return false;
+  if (!allowClick && event.type === "click") return false;
+  if (event.type === "keydown" && event.key !== "Enter" && event.key !== "F2") return false;
+  event.preventDefault();
+  event.stopPropagation();
+  startRenewalEnrolledCountEdit(enrolledCount);
+  return true;
 }
 
 async function createRenewalBlockerOption(option) {
@@ -2429,8 +2907,23 @@ function initRenewal() {
   if (!renewalStageBoard) return;
   renewalAddForm?.addEventListener("submit", addRenewalProject);
   renewalMenuButton?.addEventListener("click", () => {
+    renewalActiveSection = "home";
     showRenewalDetail(false);
     loadRenewal();
+  });
+  renewalSectionHub?.addEventListener("click", (event) => {
+    const sectionButton = event.target.closest("[data-renewal-section]");
+    if (!sectionButton) return;
+    setRenewalSection(sectionButton.dataset.renewalSection || "home");
+  });
+  renewalModule?.addEventListener("dblclick", (event) => {
+    activateRenewalEnrolledCount(event);
+  });
+  renewalModule?.addEventListener("keydown", (event) => {
+    activateRenewalEnrolledCount(event);
+  });
+  renewalSectionBack?.addEventListener("click", () => {
+    setRenewalSection("home");
   });
   renewalBackButton?.addEventListener("click", () => {
     showRenewalDetail(false);
@@ -2450,6 +2943,37 @@ function initRenewal() {
     renewalTeacherPanelExpanded = !renewalTeacherPanelExpanded;
     renderRenewalTeacherPanel();
   });
+  renewalFollowupOverview?.addEventListener("click", (event) => {
+    const classToggle = event.target.closest("[data-renewal-followup-class-toggle]");
+    if (classToggle) {
+      const classKey = classToggle.dataset.renewalFollowupClassToggle || "";
+      if (classKey) {
+        if (renewalFollowupExpandedClasses.has(classKey)) {
+          renewalFollowupExpandedClasses.delete(classKey);
+        } else {
+          renewalFollowupExpandedClasses.add(classKey);
+        }
+        renderRenewalFollowupOverview();
+      }
+      return;
+    }
+    const openButton = event.target.closest("[data-renewal-followup-open]");
+    if (openButton) {
+      const projectId = openButton.dataset.renewalFollowupOpen;
+      if (projectId) openRenewalProject(projectId);
+      return;
+    }
+    if (isRenewalInteractiveClick(event.target) || !event.target.closest(".renewal-followup-overview-head")) return;
+    renewalFollowupOverviewExpanded = !renewalFollowupOverviewExpanded;
+    renderRenewalFollowupOverview();
+  });
+  renewalFollowupOverview?.addEventListener("change", (event) => {
+    const dateInput = event.target.closest("[data-renewal-overview-date]");
+    if (!dateInput) return;
+    renewalOverviewDate = dateInput.value || todayRenewalDateValue();
+    renewalFollowupExpandedClasses = new Set();
+    loadRenewal();
+  });
   renewalGoalPanel?.addEventListener("change", (event) => {
     const targetInput = event.target.closest("[data-renewal-target-count]");
     if (targetInput) saveRenewalTargetCount(targetInput);
@@ -2463,7 +2987,7 @@ function initRenewal() {
   renewalIntentOverview?.addEventListener("click", (event) => {
     if (isRenewalInteractiveClick(event.target) || !event.target.closest(".renewal-intent-overview-head")) return;
     renewalIntentOverviewExpanded = !renewalIntentOverviewExpanded;
-    renderRenewalIntentOverview(renewalProjectsForActiveTeacher(renewalData?.projects || []));
+    renderRenewalIntentOverview(renewalData?.projects || []);
   });
   renewalGoalPanel?.addEventListener("keydown", (event) => {
     const targetInput = event.target.closest("[data-renewal-target-count]");
@@ -2473,7 +2997,7 @@ function initRenewal() {
     }
   });
   renewalWeekSelect?.addEventListener("change", () => {
-    setRenewalSelectedWeekKey(renewalWeekSelect.value);
+    setRenewalSelectedWeekKey(renewalWeekSelect.value, renewalActiveDetailData);
     renewalFollowupDateFilter = "";
     if (renewalActiveDetailData) {
       renderRenewalDetail(renewalActiveDetailData);
@@ -2504,6 +3028,18 @@ function initRenewal() {
       saveRenewalStudentCountNote(countNoteInput);
     }
   });
+  renewalDetailSummary?.addEventListener("dblclick", (event) => {
+    const enrolledCount = event.target.closest("[data-renewal-enrolled-count]");
+    if (!enrolledCount) return;
+    event.preventDefault();
+    startRenewalEnrolledCountEdit(enrolledCount);
+  });
+  renewalDetailSummary?.addEventListener("keydown", (event) => {
+    const enrolledCount = event.target.closest("[data-renewal-enrolled-count]");
+    if (!enrolledCount || (event.key !== "Enter" && event.key !== "F2")) return;
+    event.preventDefault();
+    startRenewalEnrolledCountEdit(enrolledCount);
+  });
   renewalStageBoard.addEventListener("dragstart", handleRenewalDragStart);
   renewalStageBoard.addEventListener("dragend", handleRenewalDragEnd);
   renewalStageBoard.addEventListener("dragover", handleRenewalDragOver);
@@ -2523,11 +3059,23 @@ function initRenewal() {
     }
   });
   renewalStageBoard.addEventListener("keydown", (event) => {
+    const enrolledCount = event.target.closest("[data-renewal-enrolled-count]");
+    if (enrolledCount && (event.key === "Enter" || event.key === "F2")) {
+      event.preventDefault();
+      startRenewalEnrolledCountEdit(enrolledCount);
+      return;
+    }
     const targetInput = event.target.closest("[data-renewal-target-count]");
     if (targetInput && event.key === "Enter") {
       event.preventDefault();
       targetInput.blur();
     }
+  });
+  renewalStageBoard.addEventListener("dblclick", (event) => {
+    const enrolledCount = event.target.closest("[data-renewal-enrolled-count]");
+    if (!enrolledCount) return;
+    event.preventDefault();
+    startRenewalEnrolledCountEdit(enrolledCount);
   });
   renewalStageBoard.addEventListener("click", (event) => {
     const openButton = event.target.closest("[data-renewal-open]");

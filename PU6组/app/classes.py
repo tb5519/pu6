@@ -100,6 +100,16 @@ ACCOUNT_COLUMNS = {
     "userid",
     "id",
 }
+LEARNING_BOOKS = {
+    "upper": "上册",
+    "lower": "下册",
+}
+LEARNING_ASSESSMENT_TYPES = {
+    "unit": "单元检测",
+    "stage": "阶段测试",
+}
+LEARNING_SCORE_KEYWORDS = {"分数", "得分", "成绩", "均分", "平均分", "score"}
+LEARNING_SCORE_EXCLUDE_KEYWORDS = {"完成率", "完成度", "完课率", "完课度", "已完成", "已发放", "完成/发放"}
 
 
 def classes_file():
@@ -1607,6 +1617,161 @@ def parse_completion(value):
     return max(0, min(100, round(rate, 2)))
 
 
+def parse_chinese_number(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    simple = {
+        "一": 1,
+        "二": 2,
+        "两": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+        "十": 10,
+    }
+    if text in simple:
+        return simple[text]
+    if text.startswith("十") and len(text) == 2:
+        tail = simple.get(text[1:])
+        return 10 + tail if tail else None
+    if "十" in text:
+        head, tail = text.split("十", 1)
+        head_value = simple.get(head, 1 if not head else None)
+        tail_value = simple.get(tail, 0 if not tail else None)
+        if head_value is not None and tail_value is not None:
+            return head_value * 10 + tail_value
+    return None
+
+
+def parse_assessment_score(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        score = float(value)
+    else:
+        text = str(value).strip()
+        if not text:
+            return None
+        match = re.search(r"-?\d+(?:\.\d+)?", text)
+        if not match:
+            return None
+        try:
+            score = float(match.group(0))
+        except ValueError:
+            return None
+    if 0 <= score <= 1:
+        score *= 100
+    if score < 0 or score > 100:
+        return None
+    return round(score, 2)
+
+
+def is_learning_score_header(header):
+    text = str(header or "")
+    normalized = normalize_header(text)
+    if any(normalize_header(keyword) in normalized for keyword in LEARNING_SCORE_EXCLUDE_KEYWORDS):
+        return False
+    return any(normalize_header(keyword) in normalized for keyword in LEARNING_SCORE_KEYWORDS)
+
+
+def parse_learning_assessment_header(header):
+    text = str(header or "").strip()
+    if not text:
+        return None
+    normalized = normalize_header(text)
+    is_unit_test = "单元检测" in text or "单元测试" in text or ("unit" in normalized and "检测" in text)
+    is_stage_test = "阶段测试" in text or "阶段检测" in text or "阶段测评" in text or "阶段测" in text
+    if not is_unit_test and not is_stage_test:
+        return None
+    if not is_learning_score_header(text):
+        if any(normalize_header(keyword) in normalized for keyword in LEARNING_SCORE_EXCLUDE_KEYWORDS):
+            return None
+
+    book = ""
+    compact_text = re.sub(r"\s+", "", text).lower()
+    if "下册" in text or "下半册" in text:
+        book = "lower"
+    elif "上册" in text or "上半册" in text:
+        book = "upper"
+
+    if re.search(r"\bpu\s*2\b", text, flags=re.IGNORECASE) or "pu2" in compact_text:
+        book = "lower"
+    elif re.search(r"\bpu\s*1\b", text, flags=re.IGNORECASE) or "pu1" in compact_text:
+        book = "upper"
+
+    unit_number = None
+    unit_patterns = [
+        r"unit\s*([0-9]{1,2})",
+        r"\bu\s*([0-9]{1,2})\b",
+        r"第\s*([0-9一二两三四五六七八九十]{1,3})\s*单元",
+        r"([0-9一二两三四五六七八九十]{1,3})\s*单元",
+    ]
+    for pattern in unit_patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if not match:
+            continue
+        unit_number = parse_chinese_number(match.group(1))
+        if unit_number:
+            break
+
+    if unit_number is not None:
+        if unit_number < 1 or unit_number > 18:
+            return None
+        if unit_number > 9:
+            global_unit = unit_number
+            local_unit = unit_number - 9
+            book = "lower"
+        else:
+            local_unit = unit_number
+            book = book or "upper"
+            global_unit = unit_number + 9 if book == "lower" else unit_number
+        stage_index = max(1, min(3, ((local_unit - 1) // 3) + 1))
+    else:
+        global_unit = None
+        local_unit = None
+        stage_index = None
+
+    if is_stage_test and stage_index is None:
+        stage_match = re.search(r"第?\s*([0-9一二两三四五六七八九十])\s*(?:次|阶段)", text)
+        if stage_match:
+            stage_index = parse_chinese_number(stage_match.group(1))
+        if stage_index is None:
+            stage_index = 1
+        stage_index = max(1, min(3, stage_index))
+        book = book or "upper"
+
+    if is_unit_test and local_unit is None:
+        return None
+
+    assessment_type = "stage" if is_stage_test else "unit"
+    return {
+        "type": assessment_type,
+        "type_label": LEARNING_ASSESSMENT_TYPES[assessment_type],
+        "book": book or "upper",
+        "book_label": LEARNING_BOOKS.get(book or "upper", "上册"),
+        "unit": local_unit,
+        "global_unit": global_unit,
+        "stage": stage_index,
+        "label": text[:120],
+    }
+
+
+def pick_learning_assessment_columns(headers):
+    columns = {}
+    for index, header in enumerate(headers):
+        meta = parse_learning_assessment_header(header)
+        if meta:
+            columns[index] = meta
+    return columns
+
+
 def row_value(row, index):
     if index is None or index >= len(row):
         return ""
@@ -1625,6 +1790,8 @@ def rows_to_students(rows, period=None):
     account_index = indexes.get("account")
     day_columns = indexes.get("days", {})
     date_columns = indexes.get("dates", {})
+    headers = header.get("headers", []) if header else []
+    assessment_columns = pick_learning_assessment_columns(headers)
     mapped_date_columns = {}
     if date_columns and period:
         for date_key, column_index in date_columns.items():
@@ -1636,9 +1803,9 @@ def rows_to_students(rows, period=None):
         raise ValueError(missing_column_error("学员姓名", "学员姓名、学生姓名、孩子姓名、姓名", rows))
     if account_index is None:
         raise ValueError(missing_column_error("学员账号", "学员账号、学生账号、账号、学号、ID", rows))
-    if date_columns and not mapped_date_columns:
+    if date_columns and not mapped_date_columns and not assessment_columns:
         raise ValueError("表格里识别到了日期列，但这些日期不在当前绩效周期内，请先检查绩效周期或表格日期。")
-    if not day_columns and not mapped_date_columns:
+    if not day_columns and not mapped_date_columns and not assessment_columns:
         raise ValueError(missing_column_error("Day1-Day6", "第一天当日完成度、第二天当日完成度、Day1、Day2", rows))
 
     students = []
@@ -1652,6 +1819,18 @@ def rows_to_students(rows, period=None):
             "account": account,
             "updated_at": now_iso(),
         }
+        assessments = []
+        for column_index, meta in assessment_columns.items():
+            value = row[column_index] if column_index < len(row) else None
+            score = parse_assessment_score(value)
+            if score is None:
+                continue
+            assessments.append({
+                **meta,
+                "score": score,
+            })
+        if assessments:
+            student["assessments"] = assessments
         if mapped_date_columns:
             day_count = parse_activity_int(period.get("days_per_week"), DAY_COUNT, 1, MAX_DAY_COUNT)
             weeks = {}
@@ -1728,12 +1907,133 @@ def normalize_identity(value):
     return str(value or "").strip().lower()
 
 
+def learning_assessment_key(item):
+    assessment_type = str(item.get("type") or "unit")
+    book = str(item.get("book") or "upper")
+    if assessment_type == "stage":
+        return f"{assessment_type}:{book}:{item.get('stage') or ''}"
+    return f"{assessment_type}:{book}:{item.get('unit') or ''}"
+
+
+def assessment_label_has_pu(label, number):
+    text = str(label or "")
+    compact = re.sub(r"\s+", "", text).lower()
+    return bool(re.search(rf"\bpu\s*{number}\b", text, flags=re.IGNORECASE) or f"pu{number}" in compact)
+
+
+def corrected_learning_assessment_stale_key(item):
+    if item.get("type") != "unit" or not item.get("unit"):
+        return ""
+    if item.get("book") == "lower" and assessment_label_has_pu(item.get("label"), 2):
+        stale = dict(item)
+        stale["book"] = "upper"
+        stale["global_unit"] = item.get("unit")
+        return learning_assessment_key(stale)
+    if item.get("book") == "upper" and assessment_label_has_pu(item.get("label"), 1):
+        stale = dict(item)
+        stale["book"] = "lower"
+        stale["global_unit"] = (item.get("unit") or 0) + 9
+        return learning_assessment_key(stale)
+    return ""
+
+
+def normalize_learning_assessment(item, month_key, updated_at):
+    if not isinstance(item, dict):
+        return None
+    score = parse_assessment_score(item.get("score"))
+    if score is None:
+        return None
+    assessment_type = str(item.get("type") or "unit")
+    if assessment_type not in LEARNING_ASSESSMENT_TYPES:
+        assessment_type = "unit"
+    book = str(item.get("book") or "upper")
+    if book not in LEARNING_BOOKS:
+        book = "upper"
+    try:
+        unit = int(item.get("unit")) if item.get("unit") not in (None, "") else None
+    except (TypeError, ValueError):
+        unit = None
+    try:
+        global_unit = int(item.get("global_unit")) if item.get("global_unit") not in (None, "") else None
+    except (TypeError, ValueError):
+        global_unit = None
+    try:
+        stage = int(item.get("stage")) if item.get("stage") not in (None, "") else None
+    except (TypeError, ValueError):
+        stage = None
+    if assessment_type == "unit":
+        if unit is None or unit < 1 or unit > 9:
+            return None
+        if global_unit is None:
+            global_unit = unit + 9 if book == "lower" else unit
+        stage = max(1, min(3, ((unit - 1) // 3) + 1))
+    else:
+        stage = max(1, min(3, stage or 1))
+    return {
+        "type": assessment_type,
+        "type_label": LEARNING_ASSESSMENT_TYPES[assessment_type],
+        "book": book,
+        "book_label": LEARNING_BOOKS[book],
+        "unit": unit,
+        "global_unit": global_unit,
+        "stage": stage,
+        "score": score,
+        "label": str(item.get("label") or LEARNING_ASSESSMENT_TYPES[assessment_type]).strip()[:120],
+        "month": month_key,
+        "updated_at": updated_at,
+    }
+
+
+def merge_learning_assessments(student, imported_assessments, month_key, updated_at):
+    if not imported_assessments:
+        return 0
+    existing = [
+        item
+        for item in student.get("learning_assessments", [])
+        if isinstance(item, dict)
+    ]
+    lookup = {learning_assessment_key(item): item for item in existing}
+    changed = 0
+    for imported in imported_assessments:
+        normalized = normalize_learning_assessment(imported, month_key, updated_at)
+        if not normalized:
+            continue
+        key = learning_assessment_key(normalized)
+        stale_key = corrected_learning_assessment_stale_key(normalized)
+        if stale_key and stale_key != key and stale_key in lookup:
+            lookup.pop(stale_key, None)
+            changed += 1
+        previous = lookup.get(key)
+        if previous != normalized:
+            lookup[key] = normalized
+            changed += 1
+    if changed:
+        student["learning_assessments"] = sorted(
+            lookup.values(),
+            key=lambda item: (
+                item.get("book", ""),
+                item.get("type", ""),
+                item.get("unit") or 99,
+                item.get("stage") or 99,
+            ),
+        )
+    return changed
+
+
 def sync_students_from_upload(target_class, imported_students, week_number, active_activity=None, completion_period=None):
     students = target_class.setdefault("students", [])
     period_rule = completion_period or activity_period_rule(active_activity)
     days_per_week = period_rule.get("days_per_week", DAY_COUNT)
     week_count = period_rule.get("week_count", DEFAULT_WEEK_COUNT)
     auto_weeked = any(imported.get("weeks") for imported in imported_students)
+    imported_week_keys = set()
+    for imported in imported_students:
+        if imported.get("weeks"):
+            for imported_week, imported_values in imported["weeks"].items():
+                if any(value is not None for value in imported_values):
+                    imported_week_keys.add(str(imported_week))
+        elif imported.get("days") and any(value is not None for value in imported["days"].values()):
+            imported_week_keys.add(str(week_number))
     existing_by_account = {
         normalize_identity(get_student_account(student)): student
         for student in students
@@ -1749,6 +2049,7 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
     updated_at = now_iso()
     updated = 0
     created = 0
+    assessment_updated = 0
     matched_student_ids = set()
     synced_students = []
 
@@ -1775,7 +2076,8 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
             }
             created += 1
 
-        current["name"] = imported.get("name", current.get("name", "")).strip()
+        if not current.get("name_locked"):
+            current["name"] = imported.get("name", current.get("name", "")).strip()
         current["account"] = imported.get("account", current.get("account", "")).strip()
         current["updated_at"] = updated_at
 
@@ -1794,6 +2096,12 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
                 if 0 <= day_index < len(week_values):
                     week_values[day_index] = value
             month_data["weeks"][week_number] = week_values
+        assessment_updated += merge_learning_assessments(
+            current,
+            imported.get("assessments", []),
+            month_key,
+            updated_at,
+        )
 
         if normalize_identity(current.get("account")):
             existing_by_account[normalize_identity(current.get("account"))] = current
@@ -1811,7 +2119,9 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
         "updated": updated,
         "removed": removed,
         "renewal_removed": renewal_removed,
+        "assessment_updated": assessment_updated,
         "week": week_number,
+        "imported_weeks": sorted(imported_week_keys, key=lambda value: int(value)),
         "auto_weeks": auto_weeked,
         "period": period_rule,
     }
@@ -2342,6 +2652,7 @@ def update_student(class_id, student_id):
 
     updated_at = now_iso()
     student["name"] = name
+    student["name_locked"] = True
     student["updated_at"] = updated_at
     item["updated_at"] = updated_at
     save_store(store)

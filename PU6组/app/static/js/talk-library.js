@@ -390,9 +390,10 @@ const talkStorageKey = "pu6_talktracks_v2";
 const talkDailyMessageStorageKey = "pu6_talk_daily_message_recommendation";
 const talkStorageVersionKey = "pu6_talktracks_version";
 const talkStorageVersion = "20260612-renewal-message-recommend";
-const talkCategories = ["续费", "转介绍", "学情", "挽单"];
+const talkCategories = ["续费", "转介绍", "学情", "挽单", "其他"];
 const removedTalkCategories = ["催课"];
 const defaultTalkCategory = "续费";
+const sharedTalkCategory = "其他";
 const renewalTalkTypes = ["问答话术", "留言推荐"];
 const defaultRenewalTalkType = renewalTalkTypes[0];
 const renewalMessageTalkType = renewalTalkTypes[1];
@@ -401,6 +402,7 @@ const talkCategoryDetails = {
   转介绍: "老带新邀约、家长推荐、报名转化沟通",
   学情: "学习反馈、阶段总结、家长沟通跟进",
   挽单: "异议处理、流失挽回、信任修复",
+  其他: "老师共建常见问题、临时场景、可复用回复",
 };
 const learningTalkCategory = "学情";
 const learningCallSceneSuffix = "|沟通框架";
@@ -528,6 +530,10 @@ const talkMaterialList = document.querySelector("#tl-materialList");
 const talkMaterialStatus = document.querySelector("#tl-materialStatus");
 const talkMaterialSearch = document.querySelector("#tl-materialSearch");
 let talkMaterials = [];
+
+function canEditSelectedTalkCategory() {
+  return canManageTalk || selectedTalkCategory === sharedTalkCategory;
+}
 
 function currentCategoryTracks() {
   return talkState.tracks
@@ -1039,6 +1045,7 @@ function renderTalkCategoryCards() {
 function setTalkCategory(category) {
   selectedTalkCategory = talkCategories.includes(category) ? category : defaultTalkCategory;
   const learningMode = isLearningCategory();
+  const canEditCategory = canEditSelectedTalkCategory();
 
   talkCategoryButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.talkCategory === selectedTalkCategory);
@@ -1058,6 +1065,8 @@ function setTalkCategory(category) {
   if (detailDescription) {
     detailDescription.textContent = learningMode
       ? "选择通话类型后，直接查看对应的问题探需、输出内容和需要传达的教育观念。"
+      : selectedTalkCategory === sharedTalkCategory
+        ? "老师可以新增常见问题，全组可见并可搜索复制。"
       : canManageTalk
         ? "当前专题内支持导入、维护、匹配和复制话术。"
         : "当前专题内支持输入问题、匹配推荐话术并复制使用。";
@@ -1069,14 +1078,15 @@ function setTalkCategory(category) {
 
   syncTalkTypeField();
   syncRenewalTalkModeUi();
+  talkTool?.classList.toggle("viewer-mode", learningMode || !canEditCategory);
   talkTool?.classList.toggle("is-learning-guide", learningMode);
   talkSearchPanel?.classList.toggle("is-hidden", learningMode);
-  talkAdminPanel?.classList.toggle("is-hidden", learningMode);
-  talkHeaderActions?.classList.toggle("is-hidden", learningMode);
+  talkAdminPanel?.classList.toggle("is-hidden", learningMode || !canEditCategory);
+  talkHeaderActions?.classList.toggle("is-hidden", learningMode || !canManageTalk);
   if (learningMode) ensureLearningCallGuide();
   learningCallGuide?.classList.toggle("is-hidden", !learningMode);
 
-  if (canManageTalk) renderLibrary();
+  if (canEditCategory) renderLibrary();
   if (learningMode) {
     renderLearningCallGuide();
   } else {
@@ -1109,6 +1119,8 @@ function serverTrackToLocalTrack(track) {
   const type = String(track.type || track.类型 || "").trim();
   return normalizeTrack({
     __server_id: String(track.id || ""),
+    __can_delete: Boolean(track.can_delete),
+    __created_by: String(track.created_by || "").trim(),
     分类: talkCategories.includes(category) ? category : defaultTalkCategory,
     ...(type ? { 类型: type } : {}),
     场景: String(track.scene || track.场景 || track.example || "").trim(),
@@ -1169,7 +1181,7 @@ async function loadServerTalkTracks() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "话术读取失败，请刷新重试。");
     mergeServerTalkTracks(payload.tracks || []);
-    if (canManageTalk) renderLibrary();
+    if (canEditSelectedTalkCategory()) renderLibrary();
     renderResults();
   } catch (error) {
     if (tl("matchStatus")) tl("matchStatus").textContent = error.message;
@@ -1182,7 +1194,7 @@ function applyServerTalkPayload(payload = {}) {
   } else if (payload.track) {
     mergeServerTalkTracks([payload.track]);
   }
-  if (canManageTalk) renderLibrary();
+  if (canEditSelectedTalkCategory()) renderLibrary();
   renderResults();
 }
 
@@ -1337,13 +1349,13 @@ function escapeHtml(value) {
 }
 
 function renderLibrary() {
-  if (!canManageTalk || !tl("libraryStatus") || !tl("library")) return;
+  if (!canEditSelectedTalkCategory() || !tl("libraryStatus") || !tl("library")) return;
 
   const tracks = currentCategoryTracks();
   tl("libraryStatus").textContent = `${tracks.length} 条话术`;
 
   if (!tracks.length) {
-    tl("library").innerHTML = `<div class="empty-state compact-empty">当前分类暂无话术，可以新增或导入 CSV。</div>`;
+    tl("library").innerHTML = `<div class="empty-state compact-empty">${selectedTalkCategory === sharedTalkCategory ? "当前分类暂无话术，老师可以新增常见问题。" : "当前分类暂无话术，可以新增或导入 CSV。"}</div>`;
     return;
   }
 
@@ -1355,7 +1367,7 @@ function renderLibrary() {
           ${track.分类 === defaultTalkCategory ? `<em>${escapeHtml(getRenewalTrackType(track))}</em>` : ""}
         </div>
         <span>${escapeHtml(track.关键词 || "")}</span>
-        <button type="button" data-delete-talk="${index}">删除</button>
+        ${track.__can_delete || (!track.__server_id && canManageTalk) ? `<button type="button" data-delete-talk="${index}">删除</button>` : ""}
       </article>
     `)
     .join("");
@@ -1581,7 +1593,7 @@ function renderResults() {
 }
 
 async function addTrack() {
-  if (!canManageTalk) return;
+  if (!canEditSelectedTalkCategory()) return;
 
   const keywords = tl("keywords").value.trim();
   const example = tl("example").value.trim();
@@ -1620,7 +1632,9 @@ async function addTrack() {
     ["keywords", "example", "talktrack"].forEach((id) => {
       tl(id).value = "";
     });
-    if (tl("libraryStatus")) tl("libraryStatus").textContent = "话术已保存，组员刷新后可使用。";
+    if (tl("libraryStatus")) tl("libraryStatus").textContent = selectedTalkCategory === sharedTalkCategory
+      ? "已保存，大家刷新后可使用。"
+      : "话术已保存，组员刷新后可使用。";
   } catch (error) {
     if (tl("libraryStatus")) tl("libraryStatus").textContent = error.message;
   } finally {
@@ -1682,7 +1696,6 @@ function initTalkLibrary() {
       }
     });
 
-    tl("addTrack")?.addEventListener("click", addTrack);
     talkMaterialForm?.addEventListener("submit", uploadTalkMaterial);
 
     tl("fileInput")?.addEventListener("change", async (event) => {
@@ -1729,6 +1742,8 @@ function initTalkLibrary() {
       }
     });
   }
+
+  tl("addTrack")?.addEventListener("click", addTrack);
 
   talkMaterialSearch?.addEventListener("input", renderTalkMaterials);
 

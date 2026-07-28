@@ -15,7 +15,7 @@ INSTANCE_JSON_DEFAULTS = {
     "COMPLETION_REMINDER_ACTIONS_FILE": {"records": []},
     "COMPLETION_REMINDER_PLANS_FILE": {"plans": {}},
     "DAILY_REPORT_FILE": {"reports": {}},
-    "DATABASE_SETTINGS_FILE": {"learning": {"classes": {}, "teachers": {}}, "gmv": {}},
+    "DATABASE_SETTINGS_FILE": {"learning": {"classes": {}, "teachers": {}}, "learning_coaching": {"guides": {}, "stage_guides": {}, "appointments": {}, "rounds": []}, "gmv": {}},
     "MONTHLY_ARCHIVES_FILE": {"archives": {}, "current_period": {}},
     "RENEWAL_PROJECTS_FILE": {"projects": [], "blocker_options": []},
     "TALK_LIBRARY_FILE": {"learning_calls": {}, "materials": []},
@@ -74,6 +74,7 @@ def create_app():
     from app.classes import classes_bp
     from app.database import database_bp
     from app.daily import daily_bp
+    from app.learning_coaching import learning_coaching_bp
     from app.renewal import renewal_bp
     from app.routes import main_bp
     from app.talk_library import talk_library_bp
@@ -84,6 +85,7 @@ def create_app():
     app.register_blueprint(classes_bp)
     app.register_blueprint(database_bp)
     app.register_blueprint(daily_bp)
+    app.register_blueprint(learning_coaching_bp)
     app.register_blueprint(renewal_bp)
     app.register_blueprint(talk_library_bp)
     app.register_blueprint(videos_bp)

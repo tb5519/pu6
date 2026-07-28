@@ -982,6 +982,44 @@ function normalizeWeeks(weeks = {}) {
   }, {});
 }
 
+function hasWeekCompletionData(students = [], week) {
+  return students.some((student) => {
+    const weeks = normalizeWeeks(student.weeks);
+    return (weeks[String(week)] || []).some((rate) => rate !== null && rate !== undefined && rate !== "");
+  });
+}
+
+function completionWeeksWithData(students = activeClass?.students || []) {
+  return activeWeekKeys().filter((week) => hasWeekCompletionData(students, week));
+}
+
+function setSelectedCompletionWeek(week) {
+  const value = String(week || "");
+  if (!value || !activeWeekKeys().includes(value)) return;
+  if (classWeekSelect) classWeekSelect.value = value;
+  if (classImageWeekSelect) classImageWeekSelect.value = value;
+}
+
+function preferredUploadWeek(result = {}, students = activeClass?.students || []) {
+  const importedWeeks = Array.isArray(result.imported_weeks)
+    ? result.imported_weeks.map((week) => String(week)).filter((week) => activeWeekKeys().includes(week))
+    : [];
+  if (importedWeeks.length) return importedWeeks[importedWeeks.length - 1];
+  const dataWeeks = completionWeeksWithData(students);
+  if (dataWeeks.length) return dataWeeks[dataWeeks.length - 1];
+  return String(result.week || selectedImageWeek());
+}
+
+function uploadWeekSummary(result = {}) {
+  const importedWeeks = Array.isArray(result.imported_weeks)
+    ? result.imported_weeks.map((week) => String(week)).filter(Boolean)
+    : [];
+  if (importedWeeks.length > 1) {
+    return importedWeeks.map(weekLabel).join("、");
+  }
+  return weekLabel(importedWeeks[0] || result.week || classWeekSelect?.value || "1");
+}
+
 function renderMonthlyCell(rate) {
   const width = rate === null || rate === undefined ? 0 : Number(rate);
   return `
@@ -1723,11 +1761,22 @@ function generateCompletionImage() {
   }
   rememberImageWeekNumber(classImageWeekNumber?.value || "");
 
-  const week = selectedImageWeek();
+  let week = selectedImageWeek();
+  const requestedWeek = week;
   const students = activeClass.students || [];
   if (!students.length) {
     setDetailMessage("当前班级暂无学员，无法生成完课表。", true);
     return;
+  }
+  if (!hasWeekCompletionData(students, week)) {
+    const fallbackWeek = completionWeeksWithData(students).pop();
+    if (!fallbackWeek) {
+      setDetailMessage("当前班级还没有可生成的完课数据，请先上传含完成度的表格。", true);
+      return;
+    }
+    week = fallbackWeek;
+    setSelectedCompletionWeek(week);
+    setDetailMessage(`所选${weekLabel(requestedWeek)}暂无数据，已自动切换到${weekLabel(week)}生成。`);
   }
 
   const nameWidth = 190;
@@ -3077,7 +3126,10 @@ function bindReminderCategoryFilters() {
 }
 
 async function completeReminderArrangement() {
-  if (!activeReminderClass || !activeReminderArrangement) return;
+  if (!activeReminderClass || !activeReminderArrangement) {
+    setReminderDetailMessage("当前催课安排还没有读取完成，请稍后再点一次。", true);
+    return;
+  }
   const { classData, localClass, rows, recoveryRecords, cycleActionRecords = [] } = activeReminderArrangement;
   const task = activeReminderClass.task_label || "催课";
   const needRows = reminderRowsForCurrentAction(rows, cycleActionRecords);
@@ -3130,9 +3182,9 @@ function bindReminderArrangementActions() {
   bindReminderPhoneCallInputs();
   bindReminderRemarkInputs();
   const button = reminderArrangementBody?.querySelector("[data-reminder-complete-action]");
-  button?.addEventListener("click", () => {
+  if (button) button.onclick = () => {
     completeReminderArrangement().catch((error) => setReminderDetailMessage(error.message, true));
-  });
+  };
 }
 
 function renderReminderArrangementError(message) {
@@ -4024,7 +4076,7 @@ async function uploadStudents(file) {
     classImageWeekNumber?.focus();
     return;
   }
-  setDetailMessage(`正在导入 ${file.name} 到${weekLabel(week)}...`);
+  setDetailMessage(`正在导入 ${file.name}，如果表格带日期会自动按绩效周期分周...`);
   const formData = new FormData();
   formData.append("file", file);
   formData.append("week", week);
@@ -4036,16 +4088,16 @@ async function uploadStudents(file) {
   activeClass = data.class;
   updateWeekSelectOptions();
   syncCompletionPeriodControls();
+  const uploadWeek = preferredUploadWeek(data.result || {}, activeClass.students || []);
+  setSelectedCompletionWeek(uploadWeek);
   renderStudents();
   await loadClasses();
   if (classGenerateImage?.checked) {
-    if (classImageWeekSelect) {
-      classImageWeekSelect.value = week;
-    }
     generateCompletionImage();
   } else {
+    const summary = uploadWeekSummary(data.result || {});
     setDetailMessage(
-      `已同步到${weekLabel(week)}：新增 ${data.result.created} 人，更新 ${data.result.updated} 人，移除 ${data.result.removed} 人。`
+      `已同步到${summary}：新增 ${data.result.created} 人，更新 ${data.result.updated} 人，移除 ${data.result.removed} 人。图片数据周已切到${weekLabel(uploadWeek)}。`
     );
   }
 }

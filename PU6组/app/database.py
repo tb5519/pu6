@@ -326,8 +326,14 @@ def load_database_settings():
     learning = settings.setdefault("learning", {})
     learning.setdefault("classes", {})
     learning.setdefault("teachers", {})
+    learning_coaching = settings.setdefault("learning_coaching", {})
+    learning_coaching.setdefault("guides", {})
+    learning_coaching.setdefault("stage_guides", {})
+    learning_coaching.setdefault("appointments", {})
+    learning_coaching.setdefault("rounds", [])
     settings.setdefault("gmv", {})
     settings.setdefault("performance_periods", {})
+    settings.setdefault("closing_renewal", {})
     return settings
 
 
@@ -1614,6 +1620,181 @@ def build_renewal_summary(month_key, report_date, completion_teachers):
 
 
 RENEWAL_RATE_TARGETS = [0.3, 0.35, 0.4, 0.45, 0.5]
+RENEWAL_RATE_PREP_STAGE = "铺垫阶段"
+
+
+def class_term_label(class_name):
+    match = re.search(r"(\d+)\s*期", str(class_name or ""))
+    return f"{match.group(1)}期" if match else ""
+
+
+def month_label(month_key):
+    try:
+        return f"{int(str(month_key)[5:7])}月"
+    except (TypeError, ValueError):
+        return str(month_key or "")
+
+
+def normalize_month_or_blank(value):
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return ""
+    try:
+        return datetime.strptime(raw_value, "%Y-%m").strftime("%Y-%m")
+    except ValueError:
+        return ""
+
+
+def add_months(month_key, offset):
+    base = normalize_month_or_blank(month_key) or datetime.now().strftime("%Y-%m")
+    year, month = [int(part) for part in base.split("-")]
+    month_index = (year * 12 + month - 1) + int(offset or 0)
+    next_year = month_index // 12
+    next_month = month_index % 12 + 1
+    return f"{next_year}-{next_month:02d}"
+
+
+def normalize_closing_months(value, fallback_month):
+    raw_values = value if isinstance(value, list) else str(value or "").split(",")
+    months = []
+    seen = set()
+    for item in raw_values:
+        month_key = normalize_month_or_blank(item)
+        if month_key and month_key not in seen:
+            months.append(month_key)
+            seen.add(month_key)
+    if months:
+        return months
+    fallback = normalize_month_or_blank(fallback_month) or datetime.now().strftime("%Y-%m")
+    return [add_months(fallback, -1), fallback, add_months(fallback, 1)]
+
+
+def closing_month_range_label(months):
+    valid_months = [normalize_month_or_blank(month) for month in months if normalize_month_or_blank(month)]
+    if not valid_months:
+        return "-"
+    if len(valid_months) == 1:
+        return month_label(valid_months[0])
+    start = valid_months[0]
+    end = valid_months[-1]
+    if start[:4] == end[:4]:
+        return f"{int(start[5:7])}-{int(end[5:7])}月"
+    return f"{int(start[:4])}年{int(start[5:7])}月-{int(end[:4])}年{int(end[5:7])}月"
+
+
+def infer_renewal_closing_month(week_number, report_date):
+    try:
+        week = int(week_number or 0)
+        base_date = datetime.strptime(str(report_date or "")[:10], "%Y-%m-%d")
+    except (TypeError, ValueError):
+        return ""
+    if week <= 0:
+        return ""
+    weeks_until_closing = max(0, 54 - week)
+    return (base_date + timedelta(weeks=weeks_until_closing)).strftime("%Y-%m")
+
+
+def normalize_optional_count(value):
+    if value is None or value == "":
+        return None
+    return rounded_metric(parse_float(value, 0))
+
+
+def renewal_rate_class_key(row_or_id):
+    if isinstance(row_or_id, dict):
+        return str(
+            row_or_id.get("class_id")
+            or row_or_id.get("project_id")
+            or f"{row_or_id.get('teacher_id', '')}|{row_or_id.get('class_name', '')}|{row_or_id.get('week_number', '')}"
+        ).strip()
+    return str(row_or_id or "").strip()
+
+
+def closing_renewal_month_settings(settings, month_key):
+    closing = settings.setdefault("closing_renewal", {})
+    month_settings = closing.setdefault(month_key, {})
+    class_ids = [
+        renewal_rate_class_key(class_id)
+        for class_id in month_settings.get("class_ids", [])
+        if renewal_rate_class_key(class_id)
+    ]
+    overrides = month_settings.get("overrides") if isinstance(month_settings.get("overrides"), dict) else {}
+    month_settings["class_ids"] = class_ids
+    month_settings["overrides"] = overrides
+    return month_settings
+
+
+def normalize_closing_renewal_settings(class_ids, overrides):
+    normalized_ids = []
+    seen_ids = set()
+    for class_id in class_ids if isinstance(class_ids, list) else []:
+        class_key = renewal_rate_class_key(class_id)
+        if class_key and class_key not in seen_ids:
+            normalized_ids.append(class_key)
+            seen_ids.add(class_key)
+
+    normalized_overrides = {}
+    if isinstance(overrides, dict):
+        for class_id, raw_values in overrides.items():
+            class_key = renewal_rate_class_key(class_id)
+            if not class_key or (seen_ids and class_key not in seen_ids) or not isinstance(raw_values, dict):
+                continue
+            entry = {}
+            enrolled_count = normalize_optional_count(raw_values.get("enrolled_count"))
+            history_count = normalize_optional_count(raw_values.get("history_count"))
+            month_new_count = normalize_optional_count(raw_values.get("month_new_count"))
+            if history_count is not None:
+                entry["history_count"] = history_count
+            elif enrolled_count is not None:
+                entry["enrolled_count"] = enrolled_count
+            if month_new_count is not None:
+                entry["month_new_count"] = month_new_count
+            if entry:
+                normalized_overrides[class_key] = entry
+
+    return {
+        "class_ids": normalized_ids,
+        "overrides": normalized_overrides,
+    }
+
+
+def enrollment_date_key(record):
+    if not isinstance(record, dict) or not record.get("enrolled"):
+        return ""
+    enrolled_at = str(record.get("enrolled_at") or "").strip()
+    if len(enrolled_at) >= 10:
+        return enrolled_at[:10]
+    return ""
+
+
+def renewal_rate_enrollment_counts(project, source_class, period):
+    if not isinstance(project, dict):
+        return 0, 0
+    valid_ids = {
+        str(student.get("id"))
+        for student in (source_class or {}).get("students", [])
+        if str(student.get("id") or "").strip()
+    }
+    enrolled_ids = set()
+    month_enrolled_ids = set()
+    followups = project.get("student_followups") if isinstance(project.get("student_followups"), dict) else {}
+    for student_id, record in followups.items():
+        student_key = str(student_id or "").strip()
+        if not student_key or (valid_ids and student_key not in valid_ids):
+            continue
+        if isinstance(record, dict) and record.get("enrolled"):
+            enrolled_ids.add(student_key)
+            enrolled_date = enrollment_date_key(record)
+            if enrolled_date and date_in_performance_period(enrolled_date, period):
+                month_enrolled_ids.add(student_key)
+    for student_id in project.get("enrolled_student_ids", []):
+        student_key = str(student_id or "").strip()
+        if not student_key or student_key in followups:
+            continue
+        if valid_ids and student_key not in valid_ids:
+            continue
+        enrolled_ids.add(student_key)
+    return len(enrolled_ids), len(month_enrolled_ids & enrolled_ids)
 
 
 def renewal_rate_enrolled_count(project, source_class):
@@ -1643,7 +1824,12 @@ def renewal_rate_enrolled_count(project, source_class):
 
 
 def renewal_rate_student_count(project, source_class):
-    source_count = len(source_class.get("students", []) if isinstance(source_class.get("students"), list) else [])
+    source_students = (source_class or {}).get("students", [])
+    source_count = len(source_students if isinstance(source_students, list) else [])
+    if not source_count and isinstance(project, dict):
+        snapshot_students = project.get("student_snapshot")
+        if isinstance(snapshot_students, list):
+            source_count = len(snapshot_students)
     if isinstance(project, dict) and project.get("locked_student_count") not in (None, ""):
         return normalize_locked_student_count(project.get("locked_student_count"), source_count)
     return source_count
@@ -1672,38 +1858,98 @@ def renewal_rate_gap(student_count, enrolled_count):
     }
 
 
-def build_renewal_rate_summary(month_key, report_date):
+def build_renewal_rate_summary(month_key, report_date, closing_months=None):
     class_store = load_json(classes_file(), {"classes": []})
     project_store = load_json(renewal_projects_file(), {"projects": []})
-    projects_by_class_id = {
-        str(project.get("class_id") or ""): project
-        for project in project_store.get("projects", [])
-        if str(project.get("class_id") or "").strip()
+    classes_by_id = {
+        str(item.get("id") or "").strip(): item
+        for item in class_store.get("classes", [])
+        if isinstance(item, dict) and str(item.get("id") or "").strip()
     }
+    settings = load_database_settings()
+    closing_month_keys = normalize_closing_months(closing_months, month_key)
+    visible_closing_months = set(closing_month_keys)
     rows = []
-    for item in class_store.get("classes", []):
-        if not isinstance(item, dict):
+    for project in project_store.get("projects", []):
+        if not isinstance(project, dict):
             continue
-        week_number = current_title_week_number(item)
-        if not week_number or week_number <= COMPLETION_DATABASE_WEEK_LIMIT:
+        stage = str(project.get("stage") or RENEWAL_RATE_PREP_STAGE).strip() or RENEWAL_RATE_PREP_STAGE
+        if stage == RENEWAL_RATE_PREP_STAGE:
             continue
-        class_id = str(item.get("id") or "").strip()
-        project = projects_by_class_id.get(class_id, {})
-        teacher_id = class_teacher_id(item)
-        student_count = renewal_rate_student_count(project, item)
-        enrolled_count = renewal_rate_enrolled_count(project, item)
+        source_class = classes_by_id.get(str(project.get("class_id") or "").strip())
+        class_id = str(project.get("class_id") or ((source_class or {}).get("id")) or "").strip()
+        project_id = str(project.get("id") or "").strip()
+        class_name = (
+            (source_class or {}).get("name")
+            or project.get("class_name")
+            or project.get("name")
+            or ""
+        )
+        teacher_id = (
+            normalize_teacher_id(project.get("teacher_id"))
+            or (class_teacher_id(source_class) if source_class else "")
+            or teacher_id_for_username(project.get("owner"))
+        )
+        week_number = current_title_week_number(source_class) if source_class else None
+        project_closing_month = infer_renewal_closing_month(week_number, report_date)
+        student_count = renewal_rate_student_count(project, source_class)
+        period_month = project_closing_month or month_key
+        period_report_date = report_date if str(report_date or "").startswith(f"{period_month}-") else month_end_date(period_month)
+        row_renewal_period = performance_period_for("renewal", period_month, period_report_date, settings)
+        system_enrolled_count, system_month_new_count = renewal_rate_enrollment_counts(project, source_class, row_renewal_period)
+        manual_project_enrolled = normalize_optional_count(project.get("manual_enrolled_count"))
+        if manual_project_enrolled is not None:
+            system_enrolled_count = manual_project_enrolled
+        system_history_count = max(0, rounded_metric(system_enrolled_count - system_month_new_count))
+        class_key = renewal_rate_class_key({
+            "class_id": class_id,
+            "project_id": project_id,
+            "teacher_id": teacher_id,
+            "class_name": class_name,
+            "week_number": week_number,
+        })
+        project_closing_settings = closing_renewal_month_settings(settings, project_closing_month) if project_closing_month else {"overrides": {}}
+        closing_overrides = project_closing_settings.get("overrides", {})
+        override = closing_overrides.get(class_key, {}) if isinstance(closing_overrides.get(class_key), dict) else {}
+        enrolled_override = normalize_optional_count(override.get("enrolled_count"))
+        history_override = normalize_optional_count(override.get("history_count"))
+        month_new_override = normalize_optional_count(override.get("month_new_count"))
+        month_new_count = month_new_override if month_new_override is not None else system_month_new_count
+        if history_override is not None:
+            history_count = history_override
+        elif enrolled_override is not None:
+            history_count = max(0, rounded_metric(enrolled_override - month_new_count))
+        else:
+            history_count = system_history_count
+        enrolled_count = rounded_metric(history_count + month_new_count)
         renewal_rate = round(enrolled_count / student_count * 100, 2) if student_count else None
         gap = renewal_rate_gap(student_count, enrolled_count)
         rows.append({
             "class_id": class_id,
-            "class_name": item.get("name", ""),
+            "project_id": project_id,
+            "class_name": class_name,
+            "term_label": class_term_label(class_name),
             "teacher_id": teacher_id,
             "teacher_name": teacher_label(teacher_id) or "未分配",
+            "stage": stage,
+            "class_missing": source_class is None,
             "week_number": week_number,
-            "week_label": f"W{week_number}",
+            "week_label": f"W{week_number}" if week_number else "-",
+            "closing_month": project_closing_month,
+            "closing_month_label": month_label(project_closing_month) if project_closing_month else "-",
+            "closing_selected": project_closing_month in visible_closing_months,
+            "class_key": class_key,
             "student_count": student_count,
+            "system_enrolled_count": system_enrolled_count,
+            "system_history_count": system_history_count,
+            "system_month_new_count": system_month_new_count,
             "enrolled_count": enrolled_count,
+            "month_new_count": month_new_count,
+            "history_count": history_count,
             "renewal_rate": renewal_rate,
+            "enrolled_count_overridden": enrolled_override is not None,
+            "history_count_overridden": history_override is not None or enrolled_override is not None,
+            "month_new_count_overridden": month_new_override is not None,
             **gap,
         })
     rows.sort(key=lambda row: (
@@ -1711,12 +1957,134 @@ def build_renewal_rate_summary(month_key, report_date):
         row.get("teacher_name") or "",
         row.get("class_name") or "",
     ))
+
+    grouped_rows = {}
+    for row in rows:
+        group_key = (
+            row.get("closing_month") or "",
+            row.get("teacher_id") or row.get("teacher_name") or "unknown",
+        )
+        entry = grouped_rows.setdefault(group_key, {
+            "closing_month": row.get("closing_month") or "",
+            "closing_month_label": row.get("closing_month_label") or "-",
+            "teacher_id": row.get("teacher_id") or "",
+            "teacher_name": row.get("teacher_name") or "未分配",
+            "class_count": 0,
+            "class_names": [],
+            "class_name": "",
+            "class_name_summary": "",
+            "term_labels": [],
+            "term_label": "",
+            "week_numbers": [],
+            "week_label": "",
+            "stages": [],
+            "stage": "",
+            "student_count": 0,
+            "enrolled_count": 0,
+            "month_new_count": 0,
+            "history_count": 0,
+            "renewal_rate": None,
+        })
+        entry["class_count"] += 1
+        if row.get("class_name") and row.get("class_name") not in entry["class_names"]:
+            entry["class_names"].append(row.get("class_name"))
+        if row.get("term_label") and row.get("term_label") not in entry["term_labels"]:
+            entry["term_labels"].append(row.get("term_label"))
+        if row.get("week_number") and row.get("week_number") not in entry["week_numbers"]:
+            entry["week_numbers"].append(row.get("week_number"))
+        if row.get("stage") and row.get("stage") not in entry["stages"]:
+            entry["stages"].append(row.get("stage"))
+        entry["student_count"] = rounded_metric(entry["student_count"] + row.get("student_count", 0))
+        entry["enrolled_count"] = rounded_metric(entry["enrolled_count"] + row.get("enrolled_count", 0))
+        entry["month_new_count"] = rounded_metric(entry["month_new_count"] + row.get("month_new_count", 0))
+        entry["history_count"] = rounded_metric(entry["history_count"] + row.get("history_count", 0))
+
+    renewal_group_rows = []
+    for entry in grouped_rows.values():
+        class_names = entry.get("class_names", [])
+        week_numbers = sorted(entry.get("week_numbers", []))
+        entry["class_name"] = "、".join(class_names)
+        entry["class_name_summary"] = "、".join(class_names) or "-"
+        entry["term_label"] = "、".join(entry.get("term_labels", [])) or "-"
+        entry["week_label"] = "、".join(f"W{week}" for week in week_numbers) if week_numbers else "-"
+        entry["stage"] = "、".join(entry.get("stages", [])) or "-"
+        entry["renewal_rate"] = round(entry["enrolled_count"] / entry["student_count"] * 100, 2) if entry["student_count"] else None
+        entry.update(renewal_rate_gap(entry["student_count"], entry["enrolled_count"]))
+        renewal_group_rows.append(entry)
+    renewal_group_rows.sort(key=lambda row: (
+        row.get("closing_month") or "9999-99",
+        row.get("teacher_name") or "",
+        row.get("teacher_id") or "",
+    ))
+
+    selected_rows = [row for row in rows if row.get("closing_selected")]
+
+    def aggregate_closing_rows(summary_rows):
+        student_count = rounded_metric(sum(row["student_count"] for row in summary_rows))
+        enrolled_count = rounded_metric(sum(row["enrolled_count"] for row in summary_rows))
+        month_new_count = rounded_metric(sum(row["month_new_count"] for row in summary_rows))
+        history_count = rounded_metric(sum(row["history_count"] for row in summary_rows))
+        return {
+            "class_count": len(summary_rows),
+            "student_count": student_count,
+            "enrolled_count": enrolled_count,
+            "month_new_count": month_new_count,
+            "history_count": history_count,
+            "renewal_rate": round(enrolled_count / student_count * 100, 2) if student_count else None,
+        }
+
+    def aggregate_teacher_rows(summary_rows):
+        teacher_rows = {}
+        for row in summary_rows:
+            teacher_id = row.get("teacher_id") or row.get("teacher_name") or "unknown"
+            entry = teacher_rows.setdefault(teacher_id, {
+                "teacher_id": teacher_id,
+                "teacher_name": row.get("teacher_name") or "未分配",
+                "class_count": 0,
+                "student_count": 0,
+                "enrolled_count": 0,
+                "month_new_count": 0,
+                "history_count": 0,
+                "renewal_rate": None,
+            })
+            entry["class_count"] += 1
+            entry["student_count"] = rounded_metric(entry["student_count"] + row.get("student_count", 0))
+            entry["enrolled_count"] = rounded_metric(entry["enrolled_count"] + row.get("enrolled_count", 0))
+            entry["month_new_count"] = rounded_metric(entry["month_new_count"] + row.get("month_new_count", 0))
+            entry["history_count"] = rounded_metric(entry["history_count"] + row.get("history_count", 0))
+        for entry in teacher_rows.values():
+            entry["renewal_rate"] = round(entry["enrolled_count"] / entry["student_count"] * 100, 2) if entry["student_count"] else None
+        return sorted(
+            teacher_rows.values(),
+            key=lambda row: (row.get("teacher_name") or "", row.get("teacher_id") or ""),
+        )
+
+    closing_totals = aggregate_closing_rows(selected_rows)
+    closing_teacher_rows = aggregate_teacher_rows(selected_rows)
+    closing_month_groups = []
+    for closing_month in closing_month_keys:
+        month_rows = [row for row in selected_rows if row.get("closing_month") == closing_month]
+        closing_month_groups.append({
+            "month": closing_month,
+            "month_label": month_label(closing_month),
+            **aggregate_closing_rows(month_rows),
+            "teacher_rows": aggregate_teacher_rows(month_rows),
+        })
     return {
         "target_rate": RENEWAL_RATE_TARGETS[0],
         "jump_targets": RENEWAL_RATE_TARGETS[1:],
+        "can_edit": can_manage_gmv(),
         "class_count": len(rows),
         "student_count": sum(row["student_count"] for row in rows),
         "enrolled_count": sum(row["enrolled_count"] for row in rows),
+        "group_rows": renewal_group_rows,
+        "closing": {
+            "months": closing_month_keys,
+            "month_label": closing_month_range_label(closing_month_keys),
+            **closing_totals,
+            "teacher_rows": closing_teacher_rows,
+            "month_groups": closing_month_groups,
+        },
         "rows": rows,
     }
 
@@ -2697,9 +3065,53 @@ def append_rows_to_manual_reminder_schedule(group, rows):
             if placed:
                 break
 
+        if not placed:
+            fallback_days = [
+                day for day in schedule
+                if str(day.get("key") or "") in REMINDER_DAY_KEYS
+            ]
+            if not fallback_days:
+                continue
+            fallback_days.sort(
+                key=lambda day: (
+                    reminder_schedule_task_count(day),
+                    REMINDER_DAY_KEYS.index(str(day.get("key") or "")),
+                )
+            )
+            day = fallback_days[0]
+            day_key = str(day.get("key") or "")
+            day.setdefault("new_classes", []).append({**row})
+            recovery_day_key = REMINDER_RECOVERY_TARGET_BY_ORIGIN.get(day_key)
+            recovery_day = reminder_schedule_day(schedule, recovery_day_key) if recovery_day_key else None
+            if recovery_day:
+                recovery_day.setdefault("recover_classes", []).append({**row, "recover_from": day_key})
+            changed = True
+
     if changed:
         refresh_group_schedule_count(group)
     return changed
+
+
+def append_unscheduled_rows_to_manual_reminder_schedule(group, rows):
+    if not group.get("schedule_manually_adjusted"):
+        return False
+    schedule = group.get("schedule")
+    if not isinstance(schedule, list) or not schedule:
+        return False
+    deleted_signatures = {
+        str(signature)
+        for signature in group.get("schedule_deleted_signatures", [])
+        if str(signature or "").strip()
+    }
+    missing_rows = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        signature = reminder_schedule_row_signature(row)
+        if signature in deleted_signatures or reminder_schedule_has_row(schedule, row):
+            continue
+        missing_rows.append(row)
+    return append_rows_to_manual_reminder_schedule(group, missing_rows)
 
 
 def reminder_schedule_unique_count(schedule):
@@ -2869,6 +3281,8 @@ def reconcile_weekly_reminder_plan(plan):
         })
 
         schedule_manually_adjusted = bool(group.get("schedule_manually_adjusted"))
+        if schedule_manually_adjusted and append_unscheduled_rows_to_manual_reminder_schedule(group, schedule_rows):
+            changed = True
         rebuilt_schedule = group.get("schedule", []) if schedule_manually_adjusted else build_reminder_schedule(schedule_rows)
         next_values = {
             "priorities": priority_rows,
@@ -2936,10 +3350,8 @@ def build_reminder_schedule(schedule_rows, action_records=None):
         )
     ])
     fill_rows = regular_rows + renewal_rows + activity_rows + high_frequency_rows
-    fill_cursor = 0
 
     def fill_daily_rows(existing_rows, target_count, excluded_signatures=None):
-        nonlocal fill_cursor
         excluded_signatures = excluded_signatures or set()
         preferred_rows = [
             row
@@ -2947,34 +3359,35 @@ def build_reminder_schedule(schedule_rows, action_records=None):
             if reminder_schedule_row_signature(row) not in excluded_signatures
         ]
         selected = []
-        if preferred_rows:
-            attempts = 0
-            max_attempts = max(len(preferred_rows) * 2, target_count)
-            while len(selected) < target_count and attempts < max_attempts:
-                row = preferred_rows[fill_cursor % len(preferred_rows)]
-                fill_cursor += 1
-                attempts += 1
+        selected_signatures = set()
+
+        def append_candidates(candidates, only_unscheduled=False):
+            for row in dedupe(candidates):
                 signature = reminder_schedule_row_signature(row)
-                if any(reminder_schedule_row_signature(item) == signature for item in selected):
+                if signature in excluded_signatures or signature in selected_signatures:
+                    continue
+                if only_unscheduled and signature in scheduled_once_signatures:
                     continue
                 selected.append(row)
-        if len(selected) >= target_count or not fill_rows:
+                selected_signatures.add(signature)
+                if len(selected) >= target_count:
+                    return True
+            return False
+
+        if target_count <= 0:
             return selected
 
-        attempts = 0
-        max_attempts = max(len(fill_rows) * 2, target_count)
-        while len(selected) < target_count and attempts < max_attempts:
-            row = fill_rows[fill_cursor % len(fill_rows)]
-            fill_cursor += 1
-            attempts += 1
-            signature = reminder_schedule_row_signature(row)
-            if signature in excluded_signatures:
-                continue
-            if any(reminder_schedule_row_signature(item) == signature for item in selected):
-                continue
-            selected.append(row)
+        for candidates, only_unscheduled in (
+            (preferred_rows, True),
+            (all_rows, True),
+            (preferred_rows, False),
+            (fill_rows, False),
+        ):
+            if append_candidates(candidates, only_unscheduled):
+                break
         return selected
 
+    scheduled_once_signatures = set()
     for item in REMINDER_WEEK_FLOW:
         recover_classes = buckets.get(item["recover_from"] or "", [])
         recover_classes = dedupe(recover_classes)[:REMINDER_DAILY_MAX_TASKS]
@@ -2995,6 +3408,7 @@ def build_reminder_schedule(schedule_rows, action_records=None):
         )
         if new_classes:
             buckets[item["key"]] = new_classes
+            scheduled_once_signatures.update(reminder_rows_signature_set(new_classes))
 
         output.append(
             {
@@ -3665,6 +4079,12 @@ def adjust_weekly_reminder_schedule(plan, payload):
         update_moved_recovery_records(row, day_key, target_day_key, row.get("recover_from", ""))
         message = f"已移动到{reminder_day_label(target_day_key)}。"
 
+    if action == "delete":
+        signature = reminder_schedule_row_signature(row)
+        deleted_signatures = group.setdefault("schedule_deleted_signatures", [])
+        if signature and signature not in deleted_signatures:
+            deleted_signatures.append(signature)
+
     now_text = datetime.now().isoformat(timespec="seconds")
     group["schedule_manually_adjusted"] = True
     group["schedule_adjusted_at"] = now_text
@@ -3881,6 +4301,35 @@ def update_performance_periods():
         "ok": True,
         "performance_periods": performance_periods_payload(month_key, report_date),
     })
+
+
+@database_bp.put("/closing-renewal")
+@login_required
+def update_closing_renewal():
+    if not can_manage_gmv():
+        return jsonify({"error": "只有文云Joanna账号可以设置结营班级续费看板。"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        month_key = normalize_month(payload.get("month"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    normalized = normalize_closing_renewal_settings(
+        payload.get("class_ids", []),
+        payload.get("overrides", {}),
+    )
+
+    with DATABASE_SETTINGS_LOCK:
+        settings = load_database_settings()
+        closing = settings.setdefault("closing_renewal", {})
+        if normalized["class_ids"] or normalized["overrides"]:
+            closing[month_key] = normalized
+        else:
+            closing.pop(month_key, None)
+        save_database_settings(settings)
+
+    return jsonify({"ok": True})
 
 
 @database_bp.post("/completion-upload")
@@ -4105,6 +4554,7 @@ def database_summary():
         report_date = current_date if current_date.startswith(f"{month_key}-") else month_end_date(month_key)
 
     completion = build_completion_summary(month_key, report_date, request.args.get("compare_date"))
+    closing_months = normalize_closing_months(request.args.get("closing_months"), month_key)
     completion_teachers = completion["teachers"]
     return jsonify(
         {
@@ -4115,13 +4565,14 @@ def database_summary():
             "completion": completion,
             "learning": build_learning_summary(month_key, report_date, completion),
             "renewal": build_renewal_summary(month_key, report_date, completion_teachers),
-            "renewal_rate": build_renewal_rate_summary(month_key, report_date),
+            "renewal_rate": build_renewal_rate_summary(month_key, report_date, closing_months),
             "referral": build_referral_summary(month_key, report_date, completion_teachers),
             "gmv": build_gmv_summary(month_key, report_date, completion_teachers),
             "completion_performance": build_completion_performance_summary(completion),
             "permissions": {
                 "can_upload_completion": can_upload_completion_data(),
                 "can_manage_gmv": can_manage_gmv(),
+                "can_manage_closing_renewal": can_manage_gmv(),
             },
             "updated_at": datetime.now().isoformat(timespec="seconds"),
         }

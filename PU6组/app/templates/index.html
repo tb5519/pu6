@@ -4,14 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260712-talk-daily-message') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260728-renewal-compact-edit') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/talk-library.js', v='20260712-talk-daily-message') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260712-reminder-last-month-scroll') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/talk-library.js', v='20260728-talk-other-shared') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260728-completion-image-auto-week') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260716-todo-targets') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260716-performance-periods') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260715-renewal-click-panels') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260727-learning-progress-name') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/database.js', v='20260728-renewal-editable-counts') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260728-renewal-dynamic-weeks') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
     {% endif %}
@@ -52,6 +53,10 @@
             <span class="menu-icon report-icon" aria-hidden="true"></span>
             <span>日报</span>
             <span id="dr-menuBadge" class="side-menu-badge is-hidden" aria-label="日报填写提醒"></span>
+          </button>
+          <button class="side-menu-item" type="button" data-module="学情辅导">
+            <span class="menu-icon coaching-icon" aria-hidden="true"></span>
+            <span>学情辅导</span>
           </button>
           <button class="side-menu-item" type="button" data-module="数据库">
             <span class="menu-icon database-icon" aria-hidden="true"></span>
@@ -174,6 +179,11 @@
                   <strong>异议处理、流失挽回、信任修复</strong>
                   <em>进入专题</em>
                 </button>
+                <button class="talk-category-card" type="button" data-talk-category="其他">
+                  <span>其他</span>
+                  <strong>老师共建常见问题、临时场景、可复用回复</strong>
+                  <em>进入专题</em>
+                </button>
               </section>
 
               <section class="talk-material-panel talk-material-home" aria-label="话术素材库">
@@ -242,8 +252,7 @@
               class="talk-tool{% if not can_manage_talk_library %} viewer-mode{% endif %}"
               data-can-manage-talk="{{ 'true' if can_manage_talk_library else 'false' }}"
             >
-              {% if can_manage_talk_library %}
-                <aside class="talk-admin" aria-label="话术维护">
+                <aside class="talk-admin{% if not can_manage_talk_library %} is-hidden{% endif %}" aria-label="话术维护">
                   <section class="tool-panel">
                     <div class="panel-title-row">
                       <h2>新增话术</h2>
@@ -278,7 +287,6 @@
                     <div id="tl-library" class="talk-library-list"></div>
                   </section>
                 </aside>
-              {% endif %}
 
             <section class="talk-search" aria-label="话术推荐">
               <div class="search-card">
@@ -790,6 +798,171 @@
           </section>
         </section>
 
+        <section class="module-panel learning-coaching-module" data-module-panel="学情辅导">
+          <header class="module-head">
+            <div>
+              <span class="module-eyebrow">学情辅导</span>
+              <h1>单元检测辅导看板</h1>
+            </div>
+            <div class="module-actions">
+              <button id="lc-refreshButton" class="ghost-button compact-button" type="button">刷新</button>
+            </div>
+          </header>
+
+          <section class="learning-coaching-layout">
+            <aside class="learning-class-panel">
+              <div class="panel-title-row">
+                <div>
+                  <h2>辅导班级</h2>
+                  <span id="lc-classStatus" class="tool-status"></span>
+                </div>
+              </div>
+              <label class="learning-class-search" for="lc-classSearch">
+                <span>搜索班级</span>
+                <input id="lc-classSearch" type="search" placeholder="输入班级名或老师名">
+              </label>
+              <div id="lc-classList" class="learning-class-list"></div>
+            </aside>
+
+            <section class="learning-detail-panel">
+              <div id="lc-emptyState" class="empty-state">请选择左侧班级查看单元检测分数。</div>
+              <section id="lc-detail" class="learning-detail is-hidden">
+                <div class="learning-detail-head">
+                  <div>
+                    <span id="lc-classMeta" class="module-eyebrow"></span>
+                    <h2 id="lc-classTitle">班级名称</h2>
+                  </div>
+                  <div class="learning-detail-actions">
+                    <div id="lc-classBadges" class="learning-class-badges"></div>
+                    <button id="lc-uploadButton" class="primary-button compact-button" type="button">上传测试数据</button>
+                    <button id="lc-guideUploadButton" class="ghost-button compact-button is-hidden" type="button">上传辅导资料</button>
+                    <input id="lc-fileInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
+                    <input id="lc-guideUploadInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
+                  </div>
+                </div>
+                <div id="lc-uploadStatus" class="tool-note learning-upload-status"></div>
+                <section id="lc-roundPanel" class="learning-round-panel is-hidden">
+                  <button id="lc-roundToggle" class="learning-round-toggle" type="button">辅导周期设置</button>
+                  <div id="lc-roundBody" class="learning-round-body is-hidden">
+                    <div id="lc-roundRows" class="learning-round-rows"></div>
+                    <div class="learning-round-actions">
+                      <button id="lc-roundAdd" class="ghost-button compact-button" type="button">新增轮次</button>
+                      <button id="lc-roundSave" class="primary-button compact-button" type="button">保存周期</button>
+                      <span id="lc-roundStatus" class="tool-status"></span>
+                    </div>
+                  </div>
+                </section>
+                <section id="lc-todayPanel" class="learning-today-panel is-hidden">
+                  <div class="learning-today-head">
+                    <strong>今日需辅导</strong>
+                    <span id="lc-todayStatus" class="tool-status"></span>
+                  </div>
+                  <div id="lc-todayList" class="learning-today-list"></div>
+                </section>
+                <section id="lc-communicationCalendar" class="learning-calendar-panel is-hidden">
+                  <div class="learning-calendar-head">
+                    <strong>沟通日历</strong>
+                    <span id="lc-communicationCalendarStatus" class="tool-status"></span>
+                  </div>
+                  <div id="lc-communicationCalendarList" class="learning-calendar-list"></div>
+                </section>
+
+                <section class="learning-score-board">
+                  <div class="panel-title-row">
+                    <div>
+                      <h2 id="lc-selectedTitle">单元检测分数</h2>
+                      <span id="lc-selectedMeta" class="tool-status"></span>
+                    </div>
+                    <div id="lc-bookTabs" class="learning-book-tabs" role="tablist" aria-label="上下册"></div>
+                  </div>
+
+                  <div class="database-table-wrap compact">
+                    <table class="database-table learning-score-table learning-score-matrix">
+                      <thead id="lc-scoreHead">
+                        <tr>
+                          <th>学员姓名</th>
+                          <th>学员账号</th>
+                          <th>Unit1</th>
+                          <th>Unit2</th>
+                          <th>Unit3</th>
+                          <th class="learning-stage-col">阶段1</th>
+                          <th>Unit4</th>
+                          <th>Unit5</th>
+                          <th>Unit6</th>
+                          <th class="learning-stage-col">阶段2</th>
+                          <th>Unit7</th>
+                          <th>Unit8</th>
+                          <th>Unit9</th>
+                          <th class="learning-stage-col">阶段3</th>
+                        </tr>
+                      </thead>
+                      <tbody id="lc-scoreRows"></tbody>
+                    </table>
+                  </div>
+                  <div id="lc-scoreEmpty" class="empty-state compact-empty is-hidden">当前班级还没有提取到单元检测分数。</div>
+                </section>
+              </section>
+            </section>
+          </section>
+
+          <div id="lc-guideModal" class="learning-guide-modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="lc-guideTitle">
+            <div class="learning-guide-card">
+              <header class="learning-guide-head">
+                <div>
+                  <span id="lc-guideMeta" class="module-eyebrow">阶段辅导</span>
+                  <h2 id="lc-guideTitle">辅导重点</h2>
+                </div>
+                <button id="lc-guideClose" class="icon-button" type="button" aria-label="关闭">×</button>
+              </header>
+              <div id="lc-guideScoreSummary" class="learning-guide-summary"></div>
+              <div class="learning-guide-sections">
+                <section>
+                  <h3>重点单词</h3>
+                  <p id="lc-guideWordsText"></p>
+                  <textarea id="lc-guideWordsInput" class="is-hidden" placeholder="填写重点单词"></textarea>
+                </section>
+                <section>
+                  <h3>重点句型</h3>
+                  <p id="lc-guideSentencesText"></p>
+                  <textarea id="lc-guideSentencesInput" class="is-hidden" placeholder="填写重点句型"></textarea>
+                </section>
+                <section>
+                  <h3>重点语法</h3>
+                  <p id="lc-guideGrammarText"></p>
+                  <textarea id="lc-guideGrammarInput" class="is-hidden" placeholder="填写重点语法"></textarea>
+                </section>
+                <section>
+                  <h3>培优题目</h3>
+                  <p id="lc-guidePracticeText"></p>
+                  <textarea id="lc-guidePracticeInput" class="is-hidden" placeholder="填写培优题目"></textarea>
+                </section>
+                <section>
+                  <h3>答案</h3>
+                  <p id="lc-guideAnswerText"></p>
+                  <textarea id="lc-guideAnswerInput" class="is-hidden" placeholder="填写答案或解析"></textarea>
+                </section>
+              </div>
+              <section class="learning-appointment-panel">
+                <div class="learning-appointment-head">
+                  <h3>预约辅导</h3>
+                  <span id="lc-appointmentStatus" class="tool-status"></span>
+                </div>
+                <div class="learning-appointment-row">
+                  <label>
+                    <span>预约日期</span>
+                    <input id="lc-appointmentDate" type="date">
+                  </label>
+                  <button id="lc-appointmentSave" class="ghost-button compact-button" type="button">保存预约</button>
+                  <label class="learning-complete-check">
+                    <input id="lc-appointmentDone" type="checkbox">
+                    <span>已完成辅导</span>
+                  </label>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
         <section class="module-panel database-module" data-module-panel="数据库">
           <header class="module-head">
             <div>
@@ -1131,20 +1304,21 @@
               <div class="panel-title-row">
                 <div>
                   <h3>续费率数据</h3>
-                  <span class="tool-status">展示已进入续费期的班级，按 W 数从低到高排列</span>
+                  <span class="tool-status">来自续费项目跟进；续报首月及以后的班级会进入这里，结营月按 W54 自动判断</span>
                 </div>
               </div>
               <div class="database-table-wrap compact">
                 <table class="database-table renewal-rate-table">
                   <thead>
                     <tr>
-                      <th>结营统计</th>
+                      <th>结营月</th>
                       <th>老师</th>
-                      <th>班级名称</th>
+                      <th>结营班级</th>
                       <th>W数</th>
-                      <th>班级人数</th>
-                      <th>报名人数</th>
-                      <th>续费率</th>
+                      <th>阶段</th>
+                      <th>总人数</th>
+                      <th>总报名</th>
+                      <th>整体续费率</th>
                       <th>距离跳档还差</th>
                     </tr>
                   </thead>
@@ -1156,41 +1330,64 @@
               <div class="panel-title-row">
                 <div>
                   <h3>结营班级续费率看板</h3>
-                  <span class="tool-status">勾选上方班级后，总续报率 = 所选班级总报名人数 ÷ 所选班级总人数</span>
+                  <span class="tool-status">按 W54 自动汇总结营月；已续费人数和本月新增可由管理员修正</span>
                 </div>
+                <div id="db-closingRenewalRangeControls" class="closing-renewal-range-controls" aria-label="结营月范围"></div>
               </div>
               <div class="closing-renewal-summary">
                 <article>
-                  <span>已选班级</span>
+                  <span>结营月</span>
+                  <strong id="db-closingRenewalMonthLabel">-</strong>
+                </article>
+                <article>
+                  <span>结营班级</span>
                   <strong id="db-closingRenewalClassCount">0</strong>
                 </article>
                 <article>
-                  <span>总人数</span>
+                  <span>应续费人数</span>
                   <strong id="db-closingRenewalStudentCount">0</strong>
                 </article>
                 <article>
-                  <span>总报名人数</span>
+                  <span>已续费人数</span>
                   <strong id="db-closingRenewalEnrolledCount">0</strong>
                 </article>
                 <article>
-                  <span>总续报率</span>
+                  <span>续费率</span>
                   <strong id="db-closingRenewalRate">-</strong>
                 </article>
               </div>
-              <div class="database-table-wrap compact">
-                <table class="database-table closing-renewal-table">
-                  <thead>
-                    <tr>
-                      <th>老师</th>
-                      <th>班级名称</th>
-                      <th>W数</th>
-                      <th>班级人数</th>
-                      <th>报名人数</th>
-                      <th>续报率</th>
-                    </tr>
-                  </thead>
-                  <tbody id="db-closingRenewalRows"></tbody>
-                </table>
+              <div class="closing-renewal-layout">
+                <div class="database-table-wrap compact closing-renewal-teacher-wrap">
+                  <table class="database-table closing-renewal-table">
+                    <thead>
+                      <tr>
+                        <th>老师</th>
+                        <th>应续费人数</th>
+                        <th>已续费人数</th>
+                        <th>续费率</th>
+                      </tr>
+                    </thead>
+                    <tbody id="db-closingRenewalTeacherRows"></tbody>
+                  </table>
+                </div>
+                <div class="database-table-wrap compact closing-renewal-detail-wrap">
+                  <table class="database-table closing-renewal-table">
+                    <thead>
+                      <tr>
+                        <th>结营月</th>
+                        <th>期数</th>
+                        <th>班级</th>
+                        <th>应续费人数</th>
+                        <th>已续费人数</th>
+                        <th>班主任</th>
+                        <th>续费率</th>
+                        <th>历史续报</th>
+                        <th>本月新增</th>
+                      </tr>
+                    </thead>
+                    <tbody id="db-closingRenewalRows"></tbody>
+                  </table>
+                </div>
               </div>
             </section>
             <section class="database-block">
@@ -1325,6 +1522,15 @@
             </div>
           </header>
 
+          <section id="renewal-sectionHub" class="renewal-section-hub" aria-label="续费功能入口"></section>
+          <div id="renewal-sectionToolbar" class="renewal-section-toolbar is-hidden">
+            <button id="renewal-sectionBack" class="back-button" type="button">返回续费首页</button>
+            <div>
+              <span class="module-eyebrow">续费</span>
+              <h2 id="renewal-sectionTitle">续费项目</h2>
+            </div>
+          </div>
+
           <section id="renewal-teacherPanel" class="renewal-teacher-panel is-hidden" aria-label="管理员老师续费入口">
             <div class="renewal-teacher-panel-head">
               <div>
@@ -1337,6 +1543,8 @@
             </div>
             <div id="renewal-teacherList" class="renewal-teacher-list"></div>
           </section>
+
+          <section id="renewal-followupOverview" class="renewal-followup-overview is-hidden" aria-label="续费跟进看板"></section>
 
           <section id="renewal-goalPanel" class="renewal-goal-panel is-hidden" aria-label="本月续费目标">
             <div class="renewal-goal-head">
@@ -1377,7 +1585,7 @@
                 <button id="renewal-backButton" class="back-button" type="button">返回续费项目</button>
                 <span class="module-eyebrow">续费班级</span>
                 <h1 id="renewal-detailTitle">班级续费明细</h1>
-                <p id="renewal-detailMeta">记录每位学员的铺垫情况、报名状态和每周跟进，外层卡片会按“是否报名”自动同步已报名人数和续报率。</p>
+                <p id="renewal-detailMeta">记录每位学员的铺垫情况、报名状态和每周跟进，已报名人数可按学员勾选统计，也可双击手动修正。</p>
               </div>
             </header>
             <section id="renewal-detailSummary" class="renewal-detail-summary" aria-label="续费数据汇总"></section>
@@ -1390,10 +1598,7 @@
                 <label class="renewal-week-picker is-hidden">
                   <span>跟进周数</span>
                   <select id="renewal-weekSelect" aria-label="选择跟进周数">
-                    <option value="1">第一周</option>
-                    <option value="2">第二周</option>
-                    <option value="3">第三周</option>
-                    <option value="4">第四周</option>
+                    <option value="">加载周数...</option>
                   </select>
                 </label>
               </div>

@@ -15,7 +15,8 @@ LEARNING_CALL_TITLES = ["首通电话", "第二通电话", "第三通电话", "�
 LEARNING_SECTION_KEYS = ("probe", "output", "concept")
 TALK_MATERIAL_CATEGORIES = {"续费", "转介绍", "学情", "挽单"}
 TALK_MATERIAL_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
-TALK_TRACK_CATEGORIES = {"续费", "转介绍", "学情", "挽单"}
+TALK_TRACK_CATEGORIES = {"续费", "转介绍", "学情", "挽单", "其他"}
+SHARED_TALK_CATEGORIES = {"其他"}
 RENEWAL_TALK_TYPES = {"问答话术", "留言推荐"}
 
 
@@ -126,8 +127,24 @@ def public_talk_track(track):
         return None
     return {
         **item,
-        "can_delete": can_manage_accounts(),
+        "can_delete": can_delete_talk_track_item(item),
     }
+
+
+def can_create_talk_track_item(track):
+    if can_manage_accounts():
+        return True
+    item = normalize_talk_track(track)
+    return bool(item and item.get("category") in SHARED_TALK_CATEGORIES)
+
+
+def can_delete_talk_track_item(track):
+    if can_manage_accounts():
+        return True
+    item = normalize_talk_track(track)
+    if item is None or item.get("category") not in SHARED_TALK_CATEGORIES:
+        return False
+    return item.get("created_by") == str(g.user.get("username") or "")
 
 
 def normalized_talk_tracks(data):
@@ -216,13 +233,12 @@ def get_talk_tracks():
 @talk_library_bp.post("/tracks")
 @login_required
 def create_talk_track():
-    if not can_manage_accounts():
-        return jsonify({"error": "只有Joanna账号可以新增话术。"}), 403
-
     payload = request.get_json(silent=True) or {}
     track = normalize_talk_track(payload)
     if track is None:
         return jsonify({"error": "请填写话术内容。"}), 400
+    if not can_create_talk_track_item(track):
+        return jsonify({"error": "只有Joanna账号可以新增该专题话术。"}), 403
 
     now = datetime.now(timezone.utc).isoformat()
     track["id"] = uuid.uuid4().hex
@@ -282,14 +298,15 @@ def import_talk_tracks():
 @talk_library_bp.delete("/tracks/<track_id>")
 @login_required
 def delete_talk_track(track_id):
-    if not can_manage_accounts():
-        return jsonify({"error": "只有Joanna账号可以删除话术。"}), 403
-
     data = load_talk_library()
     tracks = normalized_talk_tracks(data)
-    next_tracks = [track for track in tracks if track.get("id") != track_id]
-    if len(next_tracks) == len(tracks):
+    target_track = next((track for track in tracks if track.get("id") == track_id), None)
+    if target_track is None:
         return jsonify({"error": "话术不存在。"}), 404
+    if not can_delete_talk_track_item(target_track):
+        return jsonify({"error": "只能删除自己添加的其他话术。"}), 403
+
+    next_tracks = [track for track in tracks if track.get("id") != track_id]
     data["tracks"] = next_tracks
     save_talk_library(data)
     return jsonify({"ok": True, "tracks": [public_talk_track(item) for item in normalized_talk_tracks(data)]})
