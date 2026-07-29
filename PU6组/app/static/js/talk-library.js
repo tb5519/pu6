@@ -1490,8 +1490,9 @@ function renderTalkMaterials() {
   const keyword = String(talkMaterialSearch?.value || "").trim().toLowerCase();
   const visibleMaterials = keyword
     ? talkMaterials.filter((material) => [
-      material.title,
+      material.keyword,
       material.keywords,
+      material.content,
       material.original_filename,
     ].join(" ").toLowerCase().includes(keyword))
     : talkMaterials;
@@ -1510,24 +1511,28 @@ function renderTalkMaterials() {
   }
 
   talkMaterialList.innerHTML = visibleMaterials
-    .map((material) => `
-      <article class="talk-material-card">
-        <a class="talk-material-image" href="${escapeHtml(material.url)}" target="_blank" rel="noopener">
-          <img src="${escapeHtml(material.url)}" alt="${escapeHtml(material.title || "素材")}">
-        </a>
-        <div class="talk-material-body">
-          <div class="talk-material-head">
-            <strong>${escapeHtml(material.title || "素材")}</strong>
-            ${material.can_delete ? `<button class="talk-material-delete" type="button" data-delete-material="${escapeHtml(material.id)}" title="删除素材" aria-label="删除素材">−</button>` : ""}
+    .map((material) => {
+      const materialKeyword = String(material.keyword || material.keywords || material.title || "素材").trim();
+      const content = String(material.content || material.note || "").trim();
+      return `
+        <article class="talk-material-card">
+          <div class="talk-material-body">
+            <div class="talk-material-head">
+              <strong>${escapeHtml(materialKeyword)}</strong>
+              ${material.can_delete ? `<button class="talk-material-delete" type="button" data-delete-material="${escapeHtml(material.id)}" title="删除素材" aria-label="删除素材">−</button>` : ""}
+            </div>
+            <p>${escapeHtml(content || "未填写话术内容")}</p>
+            <a class="talk-material-image" href="${escapeHtml(material.url)}" target="_blank" rel="noopener">
+              <img src="${escapeHtml(material.url)}" alt="${escapeHtml(materialKeyword)}">
+            </a>
+            <div class="talk-material-actions">
+              <a class="ghost-button compact-button" href="${escapeHtml(material.url)}" target="_blank" rel="noopener">打开原图</a>
+              <a class="primary-button compact-button" href="${escapeHtml(material.url)}" download>下载使用</a>
+            </div>
           </div>
-          ${material.keywords ? `<span>${escapeHtml(material.keywords)}</span>` : ""}
-          <div class="talk-material-actions">
-            <a class="ghost-button compact-button" href="${escapeHtml(material.url)}" target="_blank" rel="noopener">打开原图</a>
-            <a class="primary-button compact-button" href="${escapeHtml(material.url)}" download>下载使用</a>
-          </div>
-        </div>
-      </article>
-    `)
+        </article>
+      `;
+    })
     .join("");
 
   talkMaterialList.querySelectorAll("[data-delete-material]").forEach((button) => {

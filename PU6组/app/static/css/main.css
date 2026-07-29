@@ -2281,7 +2281,7 @@ input {
 
 .talk-material-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
   gap: 10px;
   align-items: end;
   margin-top: 10px;
@@ -2301,12 +2301,11 @@ input {
 }
 
 .talk-material-search input,
-.talk-material-form input {
+.talk-material-form input,
+.talk-material-form textarea {
   min-width: 0;
-  height: 38px;
   border: 1px solid #d8cdf4;
   border-radius: 8px;
-  padding: 0 10px;
   color: #191143;
   background: #fff;
   font: inherit;
@@ -2315,12 +2314,27 @@ input {
   outline: 0;
 }
 
+.talk-material-search input,
+.talk-material-form input {
+  height: 38px;
+  padding: 0 10px;
+}
+
+.talk-material-form textarea {
+  min-height: 38px;
+  max-height: 92px;
+  resize: vertical;
+  padding: 9px 10px;
+  line-height: 1.45;
+}
+
 .talk-material-form input[type="file"] {
   padding: 8px 10px;
 }
 
 .talk-material-search input:focus,
-.talk-material-form input:focus {
+.talk-material-form input:focus,
+.talk-material-form textarea:focus {
   border-color: #7f4af3;
   box-shadow: 0 0 0 4px rgba(127, 74, 243, 0.12);
 }
@@ -2408,6 +2422,13 @@ input {
   font-size: 12px;
   font-weight: 800;
   line-height: 1.45;
+}
+
+.talk-material-body p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .talk-material-actions {

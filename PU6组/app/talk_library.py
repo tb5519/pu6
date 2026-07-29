@@ -421,14 +421,19 @@ def normalize_material(material):
     filename = str(material.get("filename") or "").strip()
     if not material_id or not filename:
         return None
-    title = str(material.get("title") or "").strip() or str(material.get("original_filename") or "").strip() or "素材"
+    legacy_title = str(material.get("title") or "").strip()
+    keyword = first_text(material.get("keyword"), material.get("关键词"), material.get("keywords"), legacy_title)
+    title = keyword or str(material.get("original_filename") or "").strip() or "素材"
     category = normalize_material_category(material.get("category"))
+    content = first_text(material.get("content"), material.get("话术内容"), material.get("text"), material.get("note"), legacy_title)
     return {
         "id": material_id,
         "title": title[:80],
         "category": category,
-        "keywords": str(material.get("keywords") or "").strip()[:160],
-        "note": str(material.get("note") or "").strip()[:240],
+        "keyword": keyword[:160],
+        "keywords": keyword[:160],
+        "content": content[:1000],
+        "note": content[:1000],
         "filename": filename,
         "original_filename": str(material.get("original_filename") or "").strip(),
         "mime_type": str(material.get("mime_type") or "").strip(),
@@ -442,10 +447,17 @@ def public_material(material):
     item = normalize_material(material)
     if item is None:
         return None
+    url = f"/api/talk-library/materials/{item['id']}/file"
+    keyword = item["keyword"] or item["title"]
     return {
         **item,
         "can_delete": can_manage_accounts(),
-        "url": f"/api/talk-library/materials/{item['id']}/file",
+        "url": url,
+        "image_url": url,
+        "attachment_type": "image",
+        "keyword": keyword,
+        "scene": keyword,
+        "text": item["content"],
     }
 
 
@@ -900,6 +912,13 @@ def upload_talk_material():
     if extension not in TALK_MATERIAL_EXTENSIONS:
         return jsonify({"error": "目前仅支持 png、jpg、jpeg、webp、gif 图片素材。"}), 400
 
+    keyword = first_text(request.form.get("keyword"), request.form.get("keywords"), request.form.get("关键词"))
+    content = first_text(request.form.get("content"), request.form.get("话术内容"), request.form.get("text"), request.form.get("note"))
+    if not keyword:
+        return jsonify({"error": "请填写素材关键词。"}), 400
+    if not content:
+        return jsonify({"error": "请填写素材话术内容。"}), 400
+
     material_id = uuid.uuid4().hex
     filename = f"{material_id}{extension}"
     material_path = talk_material_dir()
@@ -909,10 +928,12 @@ def upload_talk_material():
 
     material = {
         "id": material_id,
-        "title": str(request.form.get("title") or "").strip()[:80] or Path(raw_filename).stem[:80] or "素材",
+        "title": keyword[:80],
         "category": "",
-        "keywords": str(request.form.get("keywords") or "").strip()[:160],
-        "note": "",
+        "keyword": keyword[:160],
+        "keywords": keyword[:160],
+        "content": content[:1000],
+        "note": content[:1000],
         "filename": filename,
         "original_filename": raw_filename[:160] or f"material{extension}",
         "mime_type": uploaded_file.mimetype or "",
