@@ -13,3 +13,6 @@ instance/**/*.bak
 instance/instance/
 instance/instance/**
 instance_bak*
+desktop/**/node_modules/
+desktop/**/dist/
+desktop/**/release/

@@ -1658,17 +1658,14 @@ input {
 
 .talk-category-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   grid-auto-rows: 1fr;
   gap: 16px;
   margin-bottom: 18px;
 }
 
 .talk-home-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
-  gap: 16px;
-  align-items: start;
+  display: block;
 }
 
 .talk-category-home .talk-category-grid {
@@ -2280,12 +2277,6 @@ input {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 16px 36px rgba(67, 45, 133, 0.08);
-}
-
-.talk-material-home {
-  margin-top: 0;
-  max-height: 620px;
-  overflow: hidden;
 }
 
 .talk-material-form {
@@ -7096,7 +7087,7 @@ input {
 
 .renewal-intent-overview-table {
   width: 100%;
-  min-width: 720px;
+  min-width: 1080px;
   border-collapse: collapse;
 }
 
@@ -7120,6 +7111,10 @@ input {
   font-weight: 950;
 }
 
+.renewal-intent-overview-table thead tr:nth-child(2) th {
+  top: 33px;
+}
+
 .renewal-intent-overview-table tr.is-group-start td {
   border-top: 2px solid #e4d8fa;
 }
@@ -7127,6 +7122,38 @@ input {
 .renewal-intent-teacher-cell {
   color: #24184f;
   font-weight: 950;
+}
+
+.renewal-intent-count-cell {
+  text-align: center;
+  color: #24184f;
+  font-weight: 950;
+}
+
+.renewal-intent-count-cell.is-positive {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.renewal-intent-count-cell.is-warm {
+  color: #92400e;
+  background: #fffbeb;
+}
+
+.renewal-intent-count-cell.is-danger {
+  color: #b91c1c;
+  background: #fff1f2;
+}
+
+.renewal-intent-count-cell.is-completion {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.renewal-intent-count-cell.is-muted,
+.renewal-intent-count-cell.is-muted-value {
+  color: #8b83a7;
+  background: #faf9ff;
 }
 
 .renewal-intent-stats {

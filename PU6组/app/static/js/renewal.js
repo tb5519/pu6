@@ -924,6 +924,15 @@ function renewalIntentTeacherKey(project) {
   return project?.teacher_id || project?.teacher_name || "-";
 }
 
+function renewalIntentOverviewCell(value, tone = "", muted = false) {
+  const displayValue = value === null || value === undefined || value === "" ? "-" : value;
+  return `<td class="renewal-intent-count-cell ${tone ? `is-${escapeRenewalText(tone)}` : ""}${muted ? " is-muted-value" : ""}">${escapeRenewalText(displayValue)}</td>`;
+}
+
+function renewalIntentOverviewMetric(project, type, key, fallbackKey = "") {
+  return renewalIntentCount(renewalIntentSummary(project), type, key, fallbackKey);
+}
+
 function renderRenewalIntentOverview(projects = []) {
   if (!renewalIntentOverview) return;
   const overviewProjects = renewalIntentOverviewProjects(projects);
@@ -942,12 +951,25 @@ function renderRenewalIntentOverview(projects = []) {
     const teacherKey = renewalIntentTeacherKey(project);
     const isGroupStart = teacherKey !== previousTeacherKey;
     previousTeacherKey = teacherKey;
+    const summary = renewalIntentSummary(project);
+    const isPrepStage = project.stage === RENEWAL_PREP_STAGE;
     return `
       <tr class="${isGroupStart ? "is-group-start" : ""}">
         <td class="renewal-intent-teacher-cell">${escapeRenewalText(project.teacher_name || "-")}</td>
         <td>${escapeRenewalText(project.class_name || "-")}</td>
         <td>${escapeRenewalText(project.stage || "-")}</td>
-        <td>${renderRenewalIntentStats(project, "table")}</td>
+        ${renewalIntentOverviewCell(summary.student_count || project.student_count || 0)}
+        ${renewalIntentOverviewCell(isPrepStage ? summary.completion_over_60_count || 0 : "-", "completion", !isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? renewalIntentOverviewMetric(project, "status", "愿意继续学") : "-", "positive", !isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? renewalIntentOverviewMetric(project, "status", "需要考虑") : "-", "warm", !isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? renewalIntentOverviewMetric(project, "status", "拒绝") : "-", "danger", !isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? renewalIntentOverviewMetric(project, "status", "未接听") : "-", "muted", !isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? "-" : renewalIntentOverviewMetric(project, "priority", "重点跟进"), "danger", isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? "-" : renewalIntentOverviewMetric(project, "priority", "高意向"), "positive", isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? "-" : renewalIntentOverviewMetric(project, "priority", "可继续沟通", "可持续跟进"), "warm", isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? "-" : Number(project.month_enrolled_count || 0), "completion", isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? "-" : summary.enrolled_count || project.enrolled_count || 0, "completion", isPrepStage)}
+        ${renewalIntentOverviewCell(isPrepStage ? "-" : formatRenewalRate(project.renewal_rate), "completion", isPrepStage)}
       </tr>
     `;
   }).join("");
@@ -963,10 +985,25 @@ function renderRenewalIntentOverview(projects = []) {
         <table class="renewal-intent-overview-table">
           <thead>
             <tr>
-              <th>老师</th>
-              <th>班级</th>
-              <th>阶段</th>
-              <th>数据</th>
+              <th rowspan="2">老师</th>
+              <th rowspan="2">班级</th>
+              <th rowspan="2">阶段</th>
+              <th rowspan="2">人数</th>
+              <th colspan="5">铺垫阶段</th>
+              <th colspan="6">续费阶段</th>
+            </tr>
+            <tr>
+              <th>完课60%+</th>
+              <th>愿意</th>
+              <th>考虑</th>
+              <th>拒绝</th>
+              <th>未接听</th>
+              <th>重点</th>
+              <th>高意向</th>
+              <th>可继续</th>
+              <th>本月新增</th>
+              <th>总报名</th>
+              <th>续费率</th>
             </tr>
           </thead>
           <tbody>

@@ -552,16 +552,12 @@ def enrollment_date_key(record):
 def month_enrolled_student_ids(project, source_class=None, month_key=None):
     start_key = month_key or current_period_start_key()
     end_key = today_key()
-    ids = {
+    return {
         str(student_id)
         for student_id, record in (project.get("student_followups") or {}).items()
         for enrolled_date in [enrollment_date_key(record)]
         if enrolled_date and start_key <= enrolled_date <= end_key
     }
-    if source_class:
-        valid_ids = {str(student.get("id")) for student in source_class.get("students", []) if student.get("id")}
-        ids = ids & valid_ids
-    return ids
 
 
 def set_project_month_target(project, value, month_key=None):
@@ -586,7 +582,7 @@ def ensure_project_student_count_lock(project, source_class):
             project["student_count_note"] = ""
             return True
         return False
-    project["locked_student_count"] = source_class_student_count(source_class)
+    project["locked_student_count"] = source_class_student_count(source_class) or len(normalize_project_student_snapshot(project))
     project["student_count_note"] = str(project.get("student_count_note") or "").strip()[:300]
     return True
 
@@ -594,7 +590,7 @@ def ensure_project_student_count_lock(project, source_class):
 def project_student_count(project, source_class):
     return normalize_locked_student_count(
         project.get("locked_student_count"),
-        fallback=source_class_student_count(source_class),
+        fallback=source_class_student_count(source_class) or len(normalize_project_student_snapshot(project)),
     )
 
 
@@ -614,9 +610,6 @@ def enrolled_student_ids(project, source_class=None):
         for value in project.get("enrolled_student_ids", [])
         if str(value or "").strip() and str(value) not in followups
     )
-    if source_class:
-        valid_ids = {str(student.get("id")) for student in source_class.get("students", []) if student.get("id")}
-        ids = ids & valid_ids
     return ids
 
 
@@ -630,36 +623,7 @@ def project_manual_enrolled_count(project, student_count=None):
 
 
 def prune_project_followups(project, source_class):
-    if not source_class:
-        return False
-    valid_ids = {
-        str(student.get("id"))
-        for student in source_class.get("students", [])
-        if student.get("id")
-    }
-    changed = False
-
-    followups = project.get("student_followups")
-    if isinstance(followups, dict):
-        for student_id in list(followups.keys()):
-            if str(student_id) not in valid_ids:
-                followups.pop(student_id, None)
-                changed = True
-
-    enrolled_ids = project.get("enrolled_student_ids")
-    if isinstance(enrolled_ids, list):
-        next_enrolled_ids = [
-            student_id
-            for student_id in enrolled_ids
-            if str(student_id) in valid_ids
-        ]
-        if len(next_enrolled_ids) != len(enrolled_ids):
-            project["enrolled_student_ids"] = next_enrolled_ids
-            changed = True
-
-    if changed:
-        project["updated_at"] = now_iso()
-    return changed
+    return False
 
 
 def prune_store_followups(store, classes_by_id):
@@ -1264,14 +1228,9 @@ def serialize_source_class(item):
 
 
 def leader_plan_counts(project, source_class=None):
-    valid_ids = None
-    if source_class:
-        valid_ids = {str(student.get("id")) for student in source_class.get("students", []) if student.get("id")}
     total = 0
     pending = 0
     for student_id, record in (project.get("student_followups") or {}).items():
-        if valid_ids is not None and str(student_id) not in valid_ids:
-            continue
         if not isinstance(record, dict):
             continue
         has_plan = bool(
@@ -1463,13 +1422,8 @@ def renewal_followup_overview(projects, classes_by_id, target_date=None):
 
 
 def project_today_followup_count(project, source_class=None):
-    valid_ids = None
-    if source_class:
-        valid_ids = {str(student.get("id")) for student in source_class.get("students", []) if student.get("id")}
     total = 0
     for student_id, record in (project.get("student_followups") or {}).items():
-        if valid_ids is not None and str(student_id) not in valid_ids:
-            continue
         if followup_record_touched_today(record):
             total += 1
     return total
@@ -1526,21 +1480,47 @@ def normalize_project_student_snapshot(project):
 
 
 def ensure_project_student_snapshot(project, source_class):
+    current_snapshots = normalize_project_student_snapshot(project)
+    snapshots_by_id = {
+        str(item.get("id") or ""): dict(item)
+        for item in current_snapshots
+        if str(item.get("id") or "").strip()
+    }
+    ordered_ids = [str(item.get("id") or "") for item in current_snapshots if str(item.get("id") or "").strip()]
+    changed = "student_snapshot" not in project or project.get("student_snapshot") != current_snapshots
+
     if source_class:
-        snapshots = source_class_student_snapshots(source_class)
-        if project.get("student_snapshot") != snapshots:
-            project["student_snapshot"] = snapshots
-            project["snapshot_updated_at"] = now_iso()
-            return True
-        return False
-    if "student_snapshot" not in project:
-        project["student_snapshot"] = normalize_project_student_snapshot(project)
+        for source_snapshot in source_class_student_snapshots(source_class):
+            student_id = str(source_snapshot.get("id") or "").strip()
+            if not student_id:
+                continue
+            target = snapshots_by_id.get(student_id)
+            if target is None:
+                snapshots_by_id[student_id] = dict(source_snapshot)
+                ordered_ids.append(student_id)
+                changed = True
+                continue
+
+            for key in ("account", "average_completion"):
+                if target.get(key) != source_snapshot.get(key):
+                    target[key] = source_snapshot.get(key)
+                    changed = True
+            if not str(target.get("name") or "").strip() and str(source_snapshot.get("name") or "").strip():
+                target["name"] = source_snapshot.get("name")
+                changed = True
+
+    next_snapshots = [snapshots_by_id[student_id] for student_id in ordered_ids if student_id in snapshots_by_id]
+    if changed or project.get("student_snapshot") != next_snapshots:
+        project["student_snapshot"] = next_snapshots
+        project["snapshot_updated_at"] = now_iso()
         return True
     return False
 
 
 def project_student_rows(project, source_class=None):
-    rows = source_class_student_snapshots(source_class) if source_class else normalize_project_student_snapshot(project)
+    rows = normalize_project_student_snapshot(project)
+    if not rows and source_class:
+        rows = source_class_student_snapshots(source_class)
     seen = {str(item.get("id") or "") for item in rows if item.get("id")}
     for student_id, record in (project.get("student_followups") or {}).items():
         student_key = str(student_id or "").strip()

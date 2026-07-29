@@ -155,69 +155,20 @@
                 <h1>选择话术专题</h1>
                 <p>请先选择需要处理的专题，进入后再查看、维护和匹配对应话术。</p>
               </div>
+              {% if can_manage_talk_library %}
+                <div class="module-actions">
+                  <label class="file-button">
+                    统一导入 Excel/CSV
+                    <input id="tl-unifiedFileInput" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                  </label>
+                  <span id="tl-homeImportStatus" class="tool-status"></span>
+                </div>
+              {% endif %}
             </header>
 
             <section class="talk-home-grid">
               <section class="talk-category-grid" aria-label="话术分类">
-                <button class="talk-category-card" type="button" data-talk-category="续费">
-                  <span>续费</span>
-                  <strong>续报沟通、课程衔接、权益说明</strong>
-                  <em>进入专题</em>
-                </button>
-                <button class="talk-category-card" type="button" data-talk-category="转介绍">
-                  <span>转介绍</span>
-                  <strong>老带新邀约、家长推荐、报名转化沟通</strong>
-                  <em>进入专题</em>
-                </button>
-                <button class="talk-category-card" type="button" data-talk-category="学情">
-                  <span>学情</span>
-                  <strong>学习反馈、阶段总结、家长沟通跟进</strong>
-                  <em>进入专题</em>
-                </button>
-                <button class="talk-category-card" type="button" data-talk-category="挽单">
-                  <span>挽单</span>
-                  <strong>异议处理、流失挽回、信任修复</strong>
-                  <em>进入专题</em>
-                </button>
-                <button class="talk-category-card" type="button" data-talk-category="其他">
-                  <span>其他</span>
-                  <strong>老师共建常见问题、临时场景、可复用回复</strong>
-                  <em>进入专题</em>
-                </button>
-              </section>
-
-              <section class="talk-material-panel talk-material-home" aria-label="话术素材库">
-                <div class="panel-title-row">
-                  <div>
-                    <h2>素材库</h2>
-                    <span id="tl-materialStatus" class="tool-status">按关键词搜索家长好评、截图素材</span>
-                  </div>
-                </div>
-
-                <label class="talk-material-search" for="tl-materialSearch">
-                  <span>关键词搜索</span>
-                  <input id="tl-materialSearch" type="search" placeholder="输入好评、进步、坚持等关键词">
-                </label>
-
-                {% if can_manage_talk_library %}
-                <form id="tl-materialForm" class="talk-material-form">
-                  <label for="tl-materialTitle">
-                    <span>素材名称</span>
-                    <input id="tl-materialTitle" name="title" type="text" maxlength="80" placeholder="例如：家长好评截图">
-                  </label>
-                  <label for="tl-materialKeywords">
-                    <span>关键词</span>
-                    <input id="tl-materialKeywords" name="keywords" type="text" maxlength="160" placeholder="好评, 进步, 坚持">
-                  </label>
-                  <label for="tl-materialFile">
-                    <span>上传图片</span>
-                    <input id="tl-materialFile" name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-                  </label>
-                  <button class="primary-button compact-button" type="submit">上传素材</button>
-                </form>
-                {% endif %}
-
-                <div id="tl-materialList" class="talk-material-list"></div>
+                <div class="empty-state compact-empty">正在读取话术分类...</div>
               </section>
             </section>
           </section>
@@ -239,14 +190,48 @@
               {% if can_manage_talk_library %}
                 <div class="module-actions" data-talk-actions>
                   <label class="file-button">
-                    导入 CSV
-                    <input id="tl-fileInput" type="file" accept=".csv,text/csv">
+                    导入 Excel/CSV
+                    <input id="tl-fileInput" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
                   </label>
                   <button id="tl-loadSample" type="button">载入示例</button>
                   <button id="tl-clearData" type="button">清空当前分类</button>
                 </div>
               {% endif %}
             </header>
+
+            <section class="talk-material-panel is-hidden" data-talk-material-panel aria-label="话术素材库">
+              <div class="panel-title-row">
+                <div>
+                  <h2>素材库</h2>
+                  <span id="tl-materialStatus" class="tool-status">按关键词搜索家长好评、截图素材</span>
+                </div>
+              </div>
+
+              <label class="talk-material-search" for="tl-materialSearch">
+                <span>关键词搜索</span>
+                <input id="tl-materialSearch" type="search" placeholder="输入好评、进步、坚持等关键词">
+              </label>
+
+              {% if can_manage_talk_library %}
+              <form id="tl-materialForm" class="talk-material-form">
+                <label for="tl-materialTitle">
+                  <span>素材名称</span>
+                  <input id="tl-materialTitle" name="title" type="text" maxlength="80" placeholder="例如：家长好评截图">
+                </label>
+                <label for="tl-materialKeywords">
+                  <span>关键词</span>
+                  <input id="tl-materialKeywords" name="keywords" type="text" maxlength="160" placeholder="好评, 进步, 坚持">
+                </label>
+                <label for="tl-materialFile">
+                  <span>上传图片</span>
+                  <input id="tl-materialFile" name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                </label>
+                <button class="primary-button compact-button" type="submit">上传素材</button>
+              </form>
+              {% endif %}
+
+              <div id="tl-materialList" class="talk-material-list"></div>
+            </section>
 
             <div
               class="talk-tool{% if not can_manage_talk_library %} viewer-mode{% endif %}"
@@ -260,9 +245,9 @@
                     </div>
 
                     <label for="tl-keywords">关键词</label>
-                    <input id="tl-keywords" type="text" placeholder="没时间, 忙, 作业多">
+                    <input id="tl-keywords" type="text" placeholder="例如：课程衔接">
 
-                    <label class="talk-type-field" for="tl-trackType">
+                    <label class="talk-type-field is-hidden" for="tl-trackType">
                       <span>话术类型</span>
                       <select id="tl-trackType">
                         <option value="问答话术">问答话术</option>
@@ -270,11 +255,22 @@
                       </select>
                     </label>
 
-                    <label for="tl-example">问题示例</label>
-                    <input id="tl-example" type="text" placeholder="孩子没时间学怎么办 / 留言标题">
+                    <input id="tl-example" type="hidden">
 
-                    <label for="tl-talktrack">答案</label>
-                    <textarea id="tl-talktrack" placeholder="输入对应答案或留言内容"></textarea>
+                    <label for="tl-talktrack">话术内容</label>
+                    <textarea id="tl-talktrack" placeholder="输入双击后要插入企业微信聊天框的完整话术"></textarea>
+
+                    <label for="tl-priority">排序</label>
+                    <input id="tl-priority" type="number" inputmode="numeric" value="10" min="0" step="1">
+
+                    <label for="tl-status">状态</label>
+                    <select id="tl-status">
+                      <option value="启用">启用</option>
+                      <option value="停用">停用</option>
+                    </select>
+
+                    <label for="tl-noteField">备注</label>
+                    <textarea id="tl-noteField" placeholder="仅后台维护查看，不展示给老师"></textarea>
 
                     <button id="tl-addTrack" class="success-button" type="button">添加</button>
                   </section>
@@ -292,23 +288,20 @@
               <div class="search-card">
                 <div class="search-top">
                   <div>
-                    <h2 id="tl-searchTitle">续费问题匹配</h2>
+                    <h2 id="tl-searchTitle">续费话术搜索</h2>
                     <span id="tl-matchStatus" class="tool-status"></span>
                   </div>
                   <button id="tl-search" class="primary-button compact-button" type="button">匹配话术</button>
                 </div>
 
-                <div id="tl-renewalModeTabs" class="talk-mode-tabs is-hidden" aria-label="续费话术类型">
-                  <button class="is-active" type="button" data-talk-renewal-mode="问答话术">问答话术</button>
-                  <button type="button" data-talk-renewal-mode="留言推荐">留言推荐</button>
-                </div>
+                <div id="tl-renewalModeTabs" class="talk-mode-tabs is-hidden" aria-label="续费话术类型"></div>
                 <div id="tl-dailyMessageRecommend" class="talk-daily-message is-hidden"></div>
-                <textarea id="tl-question" class="question-input" placeholder="例如：家长说孩子最近作业多，没时间打卡，应该怎么回复？"></textarea>
+                <textarea id="tl-question" class="question-input" placeholder="输入关键词或使用场景，例如：课程衔接、没回复、作业多"></textarea>
                 <div id="tl-note" class="tool-note"></div>
               </div>
 
               <section class="result-section">
-                <h2 id="tl-resultTitle">续费推荐结果</h2>
+                <h2 id="tl-resultTitle">续费匹配结果</h2>
                 <div id="tl-results" class="talk-results"></div>
               </section>
             </section>

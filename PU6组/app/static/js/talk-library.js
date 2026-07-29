@@ -390,21 +390,26 @@ const talkStorageKey = "pu6_talktracks_v2";
 const talkDailyMessageStorageKey = "pu6_talk_daily_message_recommendation";
 const talkStorageVersionKey = "pu6_talktracks_version";
 const talkStorageVersion = "20260612-renewal-message-recommend";
-const talkCategories = ["续费", "转介绍", "学情", "挽单", "其他"];
-const removedTalkCategories = ["催课"];
+const talkCategories = ["参课", "催课", "答疑", "续费", "学情", "挽单", "转介绍", "素材库"];
+const removedTalkCategories = [];
+const talkCategoryAliases = { 其他: "答疑" };
 const defaultTalkCategory = "续费";
-const sharedTalkCategory = "其他";
+const sharedTalkCategory = "答疑";
 const renewalTalkTypes = ["问答话术", "留言推荐"];
 const defaultRenewalTalkType = renewalTalkTypes[0];
 const renewalMessageTalkType = renewalTalkTypes[1];
 const talkCategoryDetails = {
+  参课: "参课沟通、到课提醒、开课说明",
+  催课: "完课提醒、补课跟进、进度沟通",
+  答疑: "家长常见问题、课程答疑、学习建议",
   续费: "续报沟通、课程衔接、权益说明",
-  转介绍: "老带新邀约、家长推荐、报名转化沟通",
   学情: "学习反馈、阶段总结、家长沟通跟进",
   挽单: "异议处理、流失挽回、信任修复",
-  其他: "老师共建常见问题、临时场景、可复用回复",
+  转介绍: "老带新邀约、家长推荐、报名转化沟通",
+  素材库: "好评截图、家长反馈、可复用素材",
 };
 const learningTalkCategory = "学情";
+const materialTalkCategory = "素材库";
 const learningCallSceneSuffix = "|沟通框架";
 const learningCallTitles = ["首通电话", "第二通电话", "第三通电话", "第四通电话", "第五通电话"];
 const learningGuideSectionLabels = ["问题探需", "输出内容", "需要传达的教育理念"];
@@ -425,7 +430,8 @@ let selectedLearningCallTitle = learningCallTitles[0];
 let learningCallOverrides = {};
 
 function getTrackCategory(track) {
-  const category = String(track?.分类 || "").trim();
+  const rawCategory = String(track?.分类 || "").trim();
+  const category = talkCategoryAliases[rawCategory] || rawCategory;
   if (removedTalkCategories.includes(category)) return "";
   return talkCategories.includes(category) ? category : defaultTalkCategory;
 }
@@ -440,9 +446,18 @@ function getRenewalTrackType(track) {
 }
 
 function normalizeTrack(track) {
+  const keyword = String(track?.关键词 || track?.keyword || track?.keywords || track?.场景 || track?.scene || "").trim();
+  const content = String(track?.话术内容 || track?.content || track?.标准话术 || track?.text || track?.answer || "").trim();
   const normalized = {
     ...track,
     分类: getTrackCategory(track),
+    关键词: keyword,
+    场景: keyword || String(track?.场景 || track?.scene || "").trim(),
+    标准话术: content,
+    话术内容: content,
+    排序: Number(track?.排序 || track?.sort || track?.优先级 || track?.priority || 10) || 10,
+    状态: String(track?.状态 || track?.status || "启用").trim() || "启用",
+    备注: String(track?.备注 || track?.note || "").trim(),
   };
   if (normalized.分类 === defaultTalkCategory) {
     normalized.类型 = getRenewalTrackType(track);
@@ -523,6 +538,7 @@ const talkHeaderActions = document.querySelector("[data-talk-actions]");
 const talkTypeField = document.querySelector(".talk-type-field");
 const talkRenewalModeTabs = document.querySelector("#tl-renewalModeTabs");
 const talkDailyMessageRecommend = document.querySelector("#tl-dailyMessageRecommend");
+const talkMaterialPanel = document.querySelector("[data-talk-material-panel]");
 let learningCallGuide = document.querySelector("[data-learning-call-guide]");
 const canManageTalk = talkTool?.dataset.canManageTalk === "true";
 const talkMaterialForm = document.querySelector("#tl-materialForm");
@@ -645,10 +661,9 @@ function isLearningCategory() {
 
 function syncTalkTypeField() {
   if (!talkTypeField) return;
-  const shouldShow = selectedTalkCategory === defaultTalkCategory;
-  talkTypeField.classList.toggle("is-hidden", !shouldShow);
+  talkTypeField.classList.add("is-hidden");
   const trackTypeSelect = tl("trackType");
-  if (trackTypeSelect && !shouldShow) {
+  if (trackTypeSelect) {
     trackTypeSelect.value = defaultRenewalTalkType;
   }
 }
@@ -659,26 +674,20 @@ function currentRenewalTalkMode() {
 
 function syncRenewalTalkModeUi() {
   const isRenewal = selectedTalkCategory === defaultTalkCategory && !isLearningCategory();
-  talkRenewalModeTabs?.classList.toggle("is-hidden", !isRenewal);
+  talkRenewalModeTabs?.classList.add("is-hidden");
   talkRenewalModeTabs?.querySelectorAll("[data-talk-renewal-mode]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.talkRenewalMode === currentRenewalTalkMode());
   });
   const trackTypeSelect = tl("trackType");
   if (trackTypeSelect && isRenewal) {
-    trackTypeSelect.value = currentRenewalTalkMode();
+    trackTypeSelect.value = defaultRenewalTalkType;
   }
   const questionInput = tl("question");
   const exampleInput = tl("example");
   const answerInput = tl("talktrack");
-  if (isRenewal && currentRenewalTalkMode() === renewalMessageTalkType) {
-    if (questionInput) questionInput.placeholder = "输入班级情况或关键词，例如：高意向、没回复、课程衔接、权益提醒";
-    if (exampleInput) exampleInput.placeholder = "例如：高意向班级统一留言 / 未回复家长提醒";
-    if (answerInput) answerInput.placeholder = "输入可直接发给家长的统一留言内容";
-  } else {
-    if (questionInput) questionInput.placeholder = "例如：家长说孩子最近作业多，没时间打卡，应该怎么回复？";
-    if (exampleInput) exampleInput.placeholder = "孩子没时间学怎么办 / 留言标题";
-    if (answerInput) answerInput.placeholder = "输入对应答案或留言内容";
-  }
+  if (questionInput) questionInput.placeholder = "输入关键词或使用场景，例如：课程衔接、没回复、作业多";
+  if (exampleInput) exampleInput.placeholder = "关键词";
+  if (answerInput) answerInput.placeholder = "输入可直接发给家长的完整话术内容";
   renderDailyMessageRecommendation();
 }
 
@@ -1040,11 +1049,44 @@ function renderTalkCategoryCards() {
     `)
     .join("");
   talkCategoryButtons = document.querySelectorAll("[data-talk-category]");
+  talkCategoryButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      showTalkDetail(button.dataset.talkCategory);
+    });
+  });
+}
+
+async function loadTalkCategories() {
+  try {
+    const response = await fetch("/api/talk-library/categories");
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "分类读取失败，请刷新重试。");
+    const categories = (payload.categories || [])
+      .map((category) => ({
+        name: String(category.name || "").trim(),
+        note: String(category.note || "").trim(),
+      }))
+      .filter((category) => category.name);
+    if (!categories.length) return;
+    talkCategories.splice(0, talkCategories.length, ...categories.map((category) => category.name));
+    categories.forEach((category) => {
+      if (category.note) talkCategoryDetails[category.name] = category.note;
+    });
+    if (!talkCategories.includes(selectedTalkCategory)) {
+      selectedTalkCategory = talkCategories.includes(defaultTalkCategory)
+        ? defaultTalkCategory
+        : talkCategories[0];
+    }
+    renderTalkCategoryCards();
+  } catch (error) {
+    if (tl("libraryStatus")) tl("libraryStatus").textContent = error.message;
+  }
 }
 
 function setTalkCategory(category) {
   selectedTalkCategory = talkCategories.includes(category) ? category : defaultTalkCategory;
   const learningMode = isLearningCategory();
+  const materialMode = selectedTalkCategory === materialTalkCategory;
   const canEditCategory = canEditSelectedTalkCategory();
 
   talkCategoryButtons.forEach((button) => {
@@ -1061,10 +1103,12 @@ function setTalkCategory(category) {
 
   if (categoryLabel) categoryLabel.textContent = selectedTalkCategory;
   if (detailTitle) detailTitle.textContent = selectedTalkCategory;
-  if (detailSuffix) detailSuffix.textContent = learningMode ? "电话手册" : "话术专题";
+  if (detailSuffix) detailSuffix.textContent = learningMode ? "电话手册" : materialMode ? "" : "话术专题";
   if (detailDescription) {
     detailDescription.textContent = learningMode
       ? "选择通话类型后，直接查看对应的问题探需、输出内容和需要传达的教育观念。"
+      : materialMode
+        ? "按关键词搜索家长好评、截图素材，选择后复制或下载使用。"
       : selectedTalkCategory === sharedTalkCategory
         ? "老师可以新增常见问题，全组可见并可搜索复制。"
       : canManageTalk
@@ -1073,19 +1117,25 @@ function setTalkCategory(category) {
   }
   if (libraryTitle) libraryTitle.textContent = `${selectedTalkCategory}话术库`;
   const renewalMessageMode = selectedTalkCategory === defaultTalkCategory && currentRenewalTalkMode() === renewalMessageTalkType;
-  if (searchTitle) searchTitle.textContent = renewalMessageMode ? "续费留言话术搜索" : `${selectedTalkCategory}问题匹配`;
-  if (resultTitle) resultTitle.textContent = renewalMessageMode ? "续费留言推荐结果" : `${selectedTalkCategory}推荐结果`;
+  if (searchTitle) searchTitle.textContent = `${selectedTalkCategory}话术搜索`;
+  if (resultTitle) resultTitle.textContent = `${selectedTalkCategory}匹配结果`;
 
   syncTalkTypeField();
   syncRenewalTalkModeUi();
+  talkTool?.classList.toggle("is-hidden", materialMode);
   talkTool?.classList.toggle("viewer-mode", learningMode || !canEditCategory);
   talkTool?.classList.toggle("is-learning-guide", learningMode);
-  talkSearchPanel?.classList.toggle("is-hidden", learningMode);
-  talkAdminPanel?.classList.toggle("is-hidden", learningMode || !canEditCategory);
-  talkHeaderActions?.classList.toggle("is-hidden", learningMode || !canManageTalk);
+  talkSearchPanel?.classList.toggle("is-hidden", learningMode || materialMode);
+  talkAdminPanel?.classList.toggle("is-hidden", learningMode || materialMode || !canEditCategory);
+  talkHeaderActions?.classList.toggle("is-hidden", learningMode || materialMode || !canManageTalk);
+  talkMaterialPanel?.classList.toggle("is-hidden", !materialMode);
   if (learningMode) ensureLearningCallGuide();
-  learningCallGuide?.classList.toggle("is-hidden", !learningMode);
+  learningCallGuide?.classList.toggle("is-hidden", !learningMode || materialMode);
 
+  if (materialMode) {
+    renderTalkMaterials();
+    return;
+  }
   if (canEditCategory) renderLibrary();
   if (learningMode) {
     renderLearningCallGuide();
@@ -1117,17 +1167,23 @@ function saveTalkTracks() {
 function serverTrackToLocalTrack(track) {
   const category = String(track.category || track.分类 || defaultTalkCategory).trim();
   const type = String(track.type || track.类型 || "").trim();
+  const keyword = String(track.keyword || track.keywords || track.关键词 || track.scene || "").trim();
+  const content = String(track.content || track.text || track.话术内容 || track.标准话术 || "").trim();
   return normalizeTrack({
     __server_id: String(track.id || ""),
     __can_delete: Boolean(track.can_delete),
     __created_by: String(track.created_by || "").trim(),
     分类: talkCategories.includes(category) ? category : defaultTalkCategory,
     ...(type ? { 类型: type } : {}),
-    场景: String(track.scene || track.场景 || track.example || "").trim(),
-    关键词: String(track.keywords || track.关键词 || "").trim(),
+    场景: keyword,
+    关键词: keyword,
     问题示例: String(track.example || track.问题示例 || track.scene || "").trim(),
-    标准话术: String(track.text || track.标准话术 || "").trim(),
-    优先级: Number(track.priority || 10),
+    标准话术: content,
+    话术内容: content,
+    优先级: Number(track.sort || track.priority || 10),
+    排序: Number(track.sort || track.priority || 10),
+    状态: String(track.status || track.状态 || "启用").trim() || "启用",
+    备注: String(track.note || track.备注 || "").trim(),
   });
 }
 
@@ -1136,11 +1192,16 @@ function localTrackToServerPayload(track) {
   return {
     category: normalized.分类,
     type: normalized.分类 === defaultTalkCategory ? getRenewalTrackType(normalized) : "",
-    scene: normalized.场景 || normalized.问题示例 || normalized.关键词 || "",
+    keyword: normalized.关键词 || "",
     keywords: normalized.关键词 || "",
+    scene: normalized.关键词 || normalized.场景 || "",
     example: normalized.问题示例 || "",
-    text: normalized.标准话术 || "",
-    priority: Number(normalized.优先级 || 10),
+    content: normalized.标准话术 || normalized.话术内容 || "",
+    text: normalized.标准话术 || normalized.话术内容 || "",
+    sort: Number(normalized.排序 || normalized.优先级 || 10),
+    priority: Number(normalized.排序 || normalized.优先级 || 10),
+    status: normalized.状态 || "启用",
+    note: normalized.备注 || "",
   };
 }
 
@@ -1278,7 +1339,7 @@ function expandedKeywordHits(question, keywords) {
 
 function matchTracks(question) {
   return currentCategoryTracks()
-    .filter(({ track }) => selectedTalkCategory !== defaultTalkCategory || getRenewalTrackType(track) === currentRenewalTalkMode())
+    .filter(({ track }) => track.状态 !== "停用")
     .map(({ track }) => {
       const keywords = splitKeywords(track.关键词);
       const hits = expandedKeywordHits(question, keywords);
@@ -1355,7 +1416,7 @@ function renderLibrary() {
   tl("libraryStatus").textContent = `${tracks.length} 条话术`;
 
   if (!tracks.length) {
-    tl("library").innerHTML = `<div class="empty-state compact-empty">${selectedTalkCategory === sharedTalkCategory ? "当前分类暂无话术，老师可以新增常见问题。" : "当前分类暂无话术，可以新增或导入 CSV。"}</div>`;
+    tl("library").innerHTML = `<div class="empty-state compact-empty">${selectedTalkCategory === sharedTalkCategory ? "当前分类暂无话术，老师可以新增常见问题。" : "当前分类暂无话术，可以新增或导入 Excel/CSV。"}</div>`;
     return;
   }
 
@@ -1363,10 +1424,10 @@ function renderLibrary() {
     .map(({ track, index }) => `
       <article class="talk-library-item">
         <div class="talk-library-item-head">
-          <strong>${escapeHtml(track.场景 || "未分类")}</strong>
-          ${track.分类 === defaultTalkCategory ? `<em>${escapeHtml(getRenewalTrackType(track))}</em>` : ""}
+          <strong>${escapeHtml(track.关键词 || "未填写关键词")}</strong>
+          ${track.状态 === "停用" ? "<em>停用</em>" : ""}
         </div>
-        <span>${escapeHtml(track.关键词 || "")}</span>
+        <span>${escapeHtml(track.标准话术 || "")}</span>
         ${track.__can_delete || (!track.__server_id && canManageTalk) ? `<button type="button" data-delete-talk="${index}">删除</button>` : ""}
       </article>
     `)
@@ -1548,7 +1609,7 @@ function renderResults() {
 
   if (!question) {
     tl("matchStatus").textContent = "等待输入";
-    tl("results").innerHTML = `<div class="empty-state">${isRenewalMessageMode ? "输入关键词后显示留言话术" : "输入问题后显示推荐话术"}</div>`;
+    tl("results").innerHTML = `<div class="empty-state">输入关键词后显示推荐话术</div>`;
     return;
   }
 
@@ -1556,9 +1617,7 @@ function renderResults() {
   tl("matchStatus").textContent = matches.length ? `匹配到 ${matches.length} 条` : "未匹配";
 
   if (!matches.length) {
-    tl("note").textContent = isRenewalMessageMode
-      ? "没有明显匹配的留言话术，可以让Joanna补充关键词或新增一条留言。"
-      : "没有明显匹配项，可以补充关键词或新增一条话术。";
+    tl("note").textContent = "没有明显匹配项，可以补充关键词或新增一条话术。";
     tl("results").innerHTML = `<div class="empty-state">暂无匹配结果</div>`;
     return;
   }
@@ -1568,14 +1627,14 @@ function renderResults() {
       <article class="talk-result">
         <div class="result-top">
           <div>
-            <strong>${index + 1}. ${escapeHtml(track.场景 || "未分类")}</strong>
-            <span>${escapeHtml(track.问题示例 || "")}</span>
+            <strong>${index + 1}. ${escapeHtml(track.关键词 || "未填写关键词")}</strong>
+            <span>${escapeHtml(track.分类 || "")}</span>
           </div>
           <em>${Math.round(score)} 分</em>
         </div>
         <p>${escapeHtml(track.标准话术 || "")}</p>
         <div class="result-actions">
-          <button type="button" class="primary-button compact-button" data-copy-talk="${index}">${isRenewalMessageMode ? "复制留言" : "复制话术"}</button>
+          <button type="button" class="primary-button compact-button" data-copy-talk="${index}">复制话术</button>
           <div class="chips">
             ${hits.length ? hits.map((hit) => `<span>${escapeHtml(hit)}</span>`).join("") : `<span>相似匹配</span>`}
           </div>
@@ -1596,24 +1655,26 @@ async function addTrack() {
   if (!canEditSelectedTalkCategory()) return;
 
   const keywords = tl("keywords").value.trim();
-  const example = tl("example").value.trim();
+  const example = tl("example")?.value.trim() || "";
   const answer = tl("talktrack").value.trim();
-  const trackType = selectedTalkCategory === defaultTalkCategory
-    ? getRenewalTrackType({ 类型: tl("trackType")?.value })
-    : "";
+  const sort = Number(tl("priority")?.value || 10) || 10;
+  const status = tl("status")?.value || "启用";
+  const note = tl("noteField")?.value.trim() || "";
 
   const item = {
     分类: selectedTalkCategory,
-    ...(trackType ? { 类型: trackType } : {}),
-    场景: example || keywords || "新增话术",
+    场景: keywords || example || "新增话术",
     关键词: keywords,
     问题示例: example,
     标准话术: answer,
-    优先级: 10,
+    排序: sort,
+    优先级: sort,
+    状态: status,
+    备注: note,
   };
 
-  if (!item.标准话术) {
-    if (tl("libraryStatus")) tl("libraryStatus").textContent = "请先填写话术内容。";
+  if (!item.关键词 || !item.标准话术) {
+    if (tl("libraryStatus")) tl("libraryStatus").textContent = "请填写关键词和话术内容。";
     return;
   }
 
@@ -1629,9 +1690,11 @@ async function addTrack() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "保存失败，请稍后重试。");
     applyServerTalkPayload(payload);
-    ["keywords", "example", "talktrack"].forEach((id) => {
-      tl(id).value = "";
+    ["keywords", "example", "talktrack", "noteField"].forEach((id) => {
+      if (tl(id)) tl(id).value = "";
     });
+    if (tl("priority")) tl("priority").value = "10";
+    if (tl("status")) tl("status").value = "启用";
     if (tl("libraryStatus")) tl("libraryStatus").textContent = selectedTalkCategory === sharedTalkCategory
       ? "已保存，大家刷新后可使用。"
       : "话术已保存，组员刷新后可使用。";
@@ -1640,6 +1703,37 @@ async function addTrack() {
   } finally {
     if (addButton) addButton.disabled = false;
   }
+}
+
+async function importTalkTrackFile(file, options = {}) {
+  const {
+    category = "",
+    replaceCategory = false,
+    statusId = "libraryStatus",
+    successPrefix = "已导入",
+  } = options;
+  const statusNode = tl(statusId) || tl("libraryStatus");
+  if (statusNode) statusNode.textContent = "正在导入服务器...";
+
+  const formData = new FormData();
+  formData.append("file", file);
+  if (category) formData.append("category", category);
+  if (replaceCategory) formData.append("replace_category", "true");
+
+  const response = await fetch("/api/talk-library/tracks/import-file", {
+    method: "POST",
+    body: formData,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = Array.isArray(payload.invalid_rows) && payload.invalid_rows.length
+      ? `：第 ${payload.invalid_rows.slice(0, 3).map((row) => row.row).join("、")} 行需要检查`
+      : "";
+    throw new Error(`${payload.error || "导入失败，请稍后重试。"}${detail}`);
+  }
+  applyServerTalkPayload(payload);
+  if (statusNode) statusNode.textContent = `${successPrefix} ${Number(payload.imported_count || 0)} 条话术。`;
+  return payload;
 }
 
 function initTalkLibrary() {
@@ -1698,43 +1792,32 @@ function initTalkLibrary() {
 
     talkMaterialForm?.addEventListener("submit", uploadTalkMaterial);
 
+    tl("unifiedFileInput")?.addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        await importTalkTrackFile(file, {
+          replaceCategory: false,
+          statusId: "homeImportStatus",
+          successPrefix: "已统一导入",
+        });
+      } catch (error) {
+        if (tl("homeImportStatus")) tl("homeImportStatus").textContent = error.message;
+      } finally {
+        event.target.value = "";
+      }
+    });
+
     tl("fileInput")?.addEventListener("change", async (event) => {
       const file = event.target.files[0];
       if (!file) return;
 
-      const text = await file.text();
-      const rows = parseCsv(text);
-      const importedTracks = rows
-        .map((row) => normalizeTrack({
-          分类: row.分类 || row.category || selectedTalkCategory,
-          类型: row.类型 || row.type || row.话术类型 || defaultRenewalTalkType,
-          场景: row.场景 || row.scene || "",
-          关键词: row.关键词 || row.keywords || "",
-          问题示例: row.问题示例 || row.example || "",
-          标准话术: row.标准话术 || row.talktrack || row.answer || "",
-          优先级: Number(row.优先级 || row.priority || 0),
-        }))
-        .filter((track) => talkCategories.includes(track.分类));
-      if (!importedTracks.length) {
-        if (tl("libraryStatus")) tl("libraryStatus").textContent = "没有读取到可导入的话术。";
-        event.target.value = "";
-        return;
-      }
-      if (tl("libraryStatus")) tl("libraryStatus").textContent = "正在导入服务器...";
       try {
-        const response = await fetch("/api/talk-library/tracks/import", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            category: selectedTalkCategory,
-            replace_category: true,
-            tracks: importedTracks.map(localTrackToServerPayload),
-          }),
+        await importTalkTrackFile(file, {
+          category: selectedTalkCategory,
+          replaceCategory: true,
+          statusId: "libraryStatus",
         });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || "导入失败，请稍后重试。");
-        applyServerTalkPayload(payload);
-        if (tl("libraryStatus")) tl("libraryStatus").textContent = `已导入 ${Number(payload.imported_count || importedTracks.length)} 条话术。`;
       } catch (error) {
         if (tl("libraryStatus")) tl("libraryStatus").textContent = error.message;
       } finally {
@@ -1747,18 +1830,15 @@ function initTalkLibrary() {
 
   talkMaterialSearch?.addEventListener("input", renderTalkMaterials);
 
-  talkCategoryButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      showTalkDetail(button.dataset.talkCategory);
-    });
-  });
-
   talkBackButton?.addEventListener("click", showTalkHome);
   talkMenuButton?.addEventListener("click", showTalkHome);
 
-  setTalkCategory(selectedTalkCategory);
-  showTalkHome();
-  loadServerTalkTracks();
+  loadTalkCategories()
+    .finally(() => {
+      setTalkCategory(selectedTalkCategory);
+      showTalkHome();
+      loadServerTalkTracks();
+    });
   loadTalkMaterials();
   loadLearningCallOverrides();
 }

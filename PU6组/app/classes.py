@@ -353,48 +353,100 @@ def save_renewal_store(store):
         json.dump(store, file, ensure_ascii=False, indent=2)
 
 
-def prune_renewal_followups_for_class(class_id, valid_student_ids):
-    class_key = str(class_id or "").strip()
-    if not class_key:
-        return 0
+def renewal_snapshot_student(source_student, month_key=None):
+    if not isinstance(source_student, dict):
+        return None
+    student_id = str(source_student.get("id") or "").strip()
+    if not student_id:
+        return None
+    month = month_key or previous_month_key(current_month_key())
+    return {
+        "id": student_id,
+        "name": str(source_student.get("name") or "").strip(),
+        "account": str(source_student.get("account") or source_student.get("phone") or "").strip(),
+        "average_completion": calculate_monthly_completion(get_student_weeks(source_student, month)),
+    }
 
-    valid_ids = {str(student_id) for student_id in valid_student_ids if str(student_id or "").strip()}
+
+def normalize_renewal_student_snapshot(project):
+    raw_items = project.get("student_snapshot")
+    if not isinstance(raw_items, list):
+        raw_items = project.get("students_snapshot")
+    if not isinstance(raw_items, list):
+        return []
+    normalized = []
+    seen = set()
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        student_id = str(item.get("id") or item.get("student_id") or "").strip()
+        if not student_id or student_id in seen:
+            continue
+        seen.add(student_id)
+        normalized.append({
+            "id": student_id,
+            "name": str(item.get("name") or "").strip(),
+            "account": str(item.get("account") or item.get("phone") or "").strip(),
+            "average_completion": item.get("average_completion"),
+        })
+    return normalized
+
+
+def sync_renewal_snapshot_for_class(source_class):
+    class_key = str((source_class or {}).get("id") or "").strip()
+    if not class_key:
+        return False
     store = load_renewal_store()
-    removed_count = 0
     changed = False
 
     for project in store.get("projects", []):
         if str(project.get("class_id") or "").strip() != class_key:
             continue
 
-        project_changed = False
-        followups = project.get("student_followups")
-        if isinstance(followups, dict):
-            for student_id in list(followups.keys()):
-                if str(student_id) not in valid_ids:
-                    followups.pop(student_id, None)
-                    removed_count += 1
-                    changed = True
-                    project_changed = True
+        current_snapshots = normalize_renewal_student_snapshot(project)
+        snapshots_by_id = {
+            str(item.get("id") or ""): dict(item)
+            for item in current_snapshots
+            if str(item.get("id") or "").strip()
+        }
+        ordered_ids = [str(item.get("id") or "") for item in current_snapshots if str(item.get("id") or "").strip()]
+        project_changed = "student_snapshot" not in project or project.get("student_snapshot") != current_snapshots
 
-        enrolled_ids = project.get("enrolled_student_ids")
-        if isinstance(enrolled_ids, list):
-            next_enrolled_ids = [
-                student_id
-                for student_id in enrolled_ids
-                if str(student_id) in valid_ids
-            ]
-            if len(next_enrolled_ids) != len(enrolled_ids):
-                project["enrolled_student_ids"] = next_enrolled_ids
-                changed = True
+        for student in source_class.get("students", []):
+            snapshot = renewal_snapshot_student(student)
+            if not snapshot:
+                continue
+            student_id = snapshot["id"]
+            target = snapshots_by_id.get(student_id)
+            if target is None:
+                snapshots_by_id[student_id] = snapshot
+                ordered_ids.append(student_id)
+                project_changed = True
+                continue
+            for key in ("account", "average_completion"):
+                if target.get(key) != snapshot.get(key):
+                    target[key] = snapshot.get(key)
+                    project_changed = True
+            if not str(target.get("name") or "").strip() and snapshot.get("name"):
+                target["name"] = snapshot.get("name")
                 project_changed = True
 
-        if project_changed:
+        next_snapshots = [snapshots_by_id[student_id] for student_id in ordered_ids if student_id in snapshots_by_id]
+        if project_changed or project.get("student_snapshot") != next_snapshots:
+            project["student_snapshot"] = next_snapshots
+            project["snapshot_updated_at"] = now_iso()
+            if "locked_student_count" not in project:
+                project["locked_student_count"] = len(next_snapshots)
             project["updated_at"] = now_iso()
+            changed = True
 
     if changed:
         save_renewal_store(store)
-    return removed_count
+    return changed
+
+
+def prune_renewal_followups_for_class(class_id, valid_student_ids):
+    return 0
 
 
 def renewal_enrolled_student_ids(class_id):
@@ -2113,6 +2165,7 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
     removed = len([student for student in students if student.get("id") not in matched_student_ids])
     target_class["students"] = synced_students
     target_class["updated_at"] = updated_at
+    sync_renewal_snapshot_for_class(target_class)
     renewal_removed = prune_renewal_followups_for_class(target_class.get("id"), matched_student_ids)
     return {
         "created": created,
@@ -2576,6 +2629,13 @@ def get_class(class_id):
 @login_required
 def delete_class(class_id):
     store = load_store()
+    target_class = next(
+        (item for item in store["classes"] if item["id"] == class_id and item["owner"] == current_owner()),
+        None,
+    )
+    if target_class is None:
+        return jsonify({"error": "班级不存在。"}), 404
+    sync_renewal_snapshot_for_class(target_class)
     before = len(store["classes"])
     store["classes"] = [
         item
