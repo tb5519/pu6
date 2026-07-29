@@ -2,11 +2,13 @@ import csv
 import io
 import json
 import uuid
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Blueprint, current_app, g, jsonify, request, send_from_directory
 from openpyxl import load_workbook
+from openpyxl.utils.cell import coordinate_to_tuple
 from werkzeug.utils import secure_filename
 
 from app.auth import can_manage_accounts, login_required
@@ -16,8 +18,9 @@ talk_library_bp = Blueprint("talk_library", __name__, url_prefix="/api/talk-libr
 
 LEARNING_CALL_TITLES = ["首通电话", "第二通电话", "第三通电话", "第四通电话", "第五通电话"]
 LEARNING_SECTION_KEYS = ("probe", "output", "concept")
-DEFAULT_TALK_CATEGORY_NAMES = ["参课", "催课", "答疑", "续费", "学情", "挽单", "转介绍", "素材库"]
+DEFAULT_TALK_CATEGORY_NAMES = ["参课", "催课", "答疑", "续费", "学情", "挽单", "转介绍"]
 RETAINED_TALK_CATEGORY_NAMES = []
+HIDDEN_TALK_CATEGORY_NAMES = {"素材库"}
 TALK_CATEGORY_ALIASES = {"其他": "答疑"}
 DEFAULT_TALK_CATEGORY_DESCRIPTIONS = {
     "参课": "参课沟通与到课提醒",
@@ -27,11 +30,11 @@ DEFAULT_TALK_CATEGORY_DESCRIPTIONS = {
     "学情": "学情电话与学习反馈",
     "挽单": "退费挽留与风险沟通",
     "转介绍": "转介绍邀约与报名沟通",
-    "素材库": "截图、好评与图片素材",
 }
 TALK_TRACK_CATEGORIES = set(DEFAULT_TALK_CATEGORY_NAMES) | set(RETAINED_TALK_CATEGORY_NAMES)
 TALK_MATERIAL_CATEGORIES = TALK_TRACK_CATEGORIES
 TALK_MATERIAL_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+TALK_IMPORT_EXTENSIONS = {".xlsx", ".csv", ".zip"}
 SHARED_TALK_CATEGORIES = {"答疑"}
 RENEWAL_TALK_TYPES = {"问答话术", "留言推荐"}
 TALK_TRACK_STATUSES = {"启用", "停用"}
@@ -44,6 +47,174 @@ def talk_library_file():
 
 def talk_material_dir():
     return Path(current_app.config["TALK_MATERIAL_DIR"])
+
+
+def talk_track_image_url(track):
+    item = normalize_talk_track(track)
+    if item is None or not item.get("image_filename"):
+        return ""
+    return f"/api/talk-library/tracks/{item['id']}/image"
+
+
+def image_mime_type(extension):
+    return {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }.get(extension.lower(), "")
+
+
+def normalize_zip_member_path(value):
+    path = str(value or "").strip().replace("\\", "/")
+    while path.startswith("./"):
+        path = path[2:]
+    if not path or path.startswith("/") or "/../" in f"/{path}/" or path.endswith("/"):
+        return ""
+    return path
+
+
+def validate_talk_image_filename(filename):
+    raw_filename = str(filename or "").strip()
+    safe_filename = secure_filename(raw_filename)
+    extension = Path(raw_filename).suffix.lower() or Path(safe_filename).suffix.lower()
+    if extension not in TALK_MATERIAL_EXTENSIONS:
+        return "", "", ""
+    return raw_filename, safe_filename, extension
+
+
+def find_talk_track_image_source(image_sources, keyword, image_ref=""):
+    """Find a zip image by an old explicit path or the keyword-based filename."""
+    if not image_sources:
+        return "", None
+
+    explicit_ref = normalize_zip_member_path(image_ref)
+    if explicit_ref:
+        return explicit_ref, image_sources.get(explicit_ref) or image_sources.get(explicit_ref.lower())
+
+    normalized_keyword = str(keyword or "").strip().casefold()
+    if not normalized_keyword:
+        return "", None
+
+    candidates = {}
+    for image_source in image_sources.values():
+        source_path = normalize_zip_member_path(image_source.get("filename"))
+        if not source_path:
+            continue
+        source_name = Path(source_path).name
+        source_stem = Path(source_path).stem.strip().casefold()
+        source_full_name = source_name.strip().casefold()
+        if source_stem == normalized_keyword or source_full_name == normalized_keyword:
+            candidates[source_path.casefold()] = (source_path, image_source)
+
+    if not candidates:
+        return "", None
+    return sorted(candidates.values(), key=lambda item: item[0].casefold())[0]
+
+
+def embedded_talk_images_by_row(worksheet, headers):
+    image_column_indexes = {
+        index
+        for index, header in enumerate(headers)
+        if str(header or "").strip().casefold() in {"图片", "图片附件", "image", "image attachment"}
+    }
+    if not image_column_indexes:
+        content_column_indexes = {
+            index
+            for index, header in enumerate(headers)
+            if str(header or "").strip().casefold() in {"话术内容", "标准话术", "content", "text"}
+        }
+        # Excel/WPS images are often placed in an untitled column immediately after the text.
+        if content_column_indexes:
+            last_content_column = max(content_column_indexes)
+            image_column_indexes = set(range(last_content_column + 1, worksheet.max_column))
+    if not image_column_indexes:
+        return {}
+
+    images_by_row = {}
+    for image in getattr(worksheet, "_images", []):
+        anchor = getattr(image, "anchor", None)
+        anchor_from = getattr(anchor, "_from", None)
+        if anchor_from is not None:
+            row_index = int(anchor_from.row) - 1
+            column_index = int(anchor_from.col)
+        elif isinstance(anchor, str):
+            row_number, column_number = coordinate_to_tuple(anchor)
+            row_index = row_number - 2
+            column_index = column_number - 1
+        else:
+            continue
+        if row_index < 0 or column_index not in image_column_indexes or row_index in images_by_row:
+            continue
+
+        image_format = str(getattr(image, "format", "png") or "png").lower().lstrip(".")
+        extension = f".{image_format}"
+        try:
+            content = image._data()
+        except Exception:
+            continue
+        if not content:
+            continue
+        images_by_row[row_index] = {
+            "filename": f"图片_{row_index + 2}{extension}",
+            "content": content,
+        }
+    return images_by_row
+
+
+def build_track_image_filename(track_id, extension):
+    return f"track_{track_id}_{uuid.uuid4().hex}{extension}"
+
+
+def save_track_image_bytes(track_id, raw_filename, content):
+    raw_filename, _safe_filename, extension = validate_talk_image_filename(raw_filename)
+    if not raw_filename:
+        raise ValueError("图片格式仅支持 png、jpg、jpeg、webp、gif")
+    filename = build_track_image_filename(track_id, extension)
+    material_path = talk_material_dir()
+    material_path.mkdir(parents=True, exist_ok=True)
+    target_path = material_path / filename
+    target_path.write_bytes(content)
+    return {
+        "image_filename": filename,
+        "image_original_filename": raw_filename[:160] or f"image{extension}",
+        "image_mime_type": image_mime_type(extension),
+        "image_size": target_path.stat().st_size if target_path.exists() else len(content),
+        "image_uploaded_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def save_track_image_upload(track_id, uploaded_file):
+    raw_filename, _safe_filename, extension = validate_talk_image_filename(uploaded_file.filename)
+    if not raw_filename:
+        raise ValueError("图片格式仅支持 png、jpg、jpeg、webp、gif")
+    filename = build_track_image_filename(track_id, extension)
+    material_path = talk_material_dir()
+    material_path.mkdir(parents=True, exist_ok=True)
+    target_path = material_path / filename
+    uploaded_file.save(target_path)
+    return {
+        "image_filename": filename,
+        "image_original_filename": raw_filename[:160] or f"image{extension}",
+        "image_mime_type": uploaded_file.mimetype or image_mime_type(extension),
+        "image_size": target_path.stat().st_size if target_path.exists() else 0,
+        "image_uploaded_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def clear_track_image_fields(track):
+    for key in ("image_filename", "image_original_filename", "image_mime_type", "image_size", "image_uploaded_at"):
+        track[key] = "" if key != "image_size" else 0
+
+
+def remove_track_image_file(track):
+    filename = str(track.get("image_filename") or "").strip()
+    if not filename or not filename.startswith("track_"):
+        return
+    target_path = talk_material_dir() / filename
+    if target_path.exists():
+        target_path.unlink()
 
 
 def blank_talk_library_data():
@@ -110,7 +281,7 @@ def normalize_talk_category_item(category, fallback_sort=999):
         status = "启用"
         note = DEFAULT_TALK_CATEGORY_DESCRIPTIONS.get(name, "")
         category_id = ""
-    if not name:
+    if not name or name in HIDDEN_TALK_CATEGORY_NAMES:
         return None
     return {
         "id": category_id or uuid.uuid5(uuid.NAMESPACE_URL, f"pu6-talk-category:{name}").hex,
@@ -141,7 +312,9 @@ def normalize_talk_categories(data):
             continue
         category_name = canonical_talk_category_name(first_text(track.get("category"), track.get("分类")))
         if category_name and category_name not in categories_by_name:
-            categories_by_name[category_name] = normalize_talk_category_item(category_name, fallback_sort=900 + len(categories_by_name))
+            category = normalize_talk_category_item(category_name, fallback_sort=900 + len(categories_by_name))
+            if category:
+                categories_by_name[category_name] = category
 
     ordered = sorted(categories_by_name.values(), key=lambda item: (item.get("sort", 999), item.get("name", "")))
     return ordered
@@ -231,6 +404,8 @@ def public_learning_call(call):
 def normalize_talk_category(value, category_names=None, default="续费"):
     category = canonical_talk_category_name(value)
     known_categories = set(category_names or TALK_TRACK_CATEGORIES)
+    if category in HIDDEN_TALK_CATEGORY_NAMES:
+        return default
     return category if category in known_categories else default
 
 
@@ -278,6 +453,14 @@ def normalize_talk_track(track, category_names=None, require_fields=False):
     note = str(track.get("note") or track.get("备注") or "").strip()
     scene = first_text(track.get("scene"), track.get("场景"), keyword)
     example = first_text(track.get("example"), track.get("问题示例"))
+    image_filename = str(track.get("image_filename") or track.get("图片文件名") or "").strip()
+    image_original_filename = str(track.get("image_original_filename") or track.get("图片原文件名") or "").strip()
+    image_mime_type_value = str(track.get("image_mime_type") or track.get("图片类型") or "").strip()
+    image_uploaded_at = str(track.get("image_uploaded_at") or "").strip()
+    try:
+        image_size = int(track.get("image_size") or track.get("图片大小") or 0)
+    except (TypeError, ValueError):
+        image_size = 0
     output = {
         "id": track_id,
         "category": category,
@@ -292,6 +475,11 @@ def normalize_talk_track(track, category_names=None, require_fields=False):
         "priority": priority,
         "status": status,
         "note": note[:500],
+        "image_filename": image_filename,
+        "image_original_filename": image_original_filename,
+        "image_mime_type": image_mime_type_value,
+        "image_size": image_size,
+        "image_uploaded_at": image_uploaded_at,
         "created_by": str(track.get("created_by") or track.get("创建人") or "").strip(),
         "created_at": str(track.get("created_at") or "").strip(),
         "updated_at": str(track.get("updated_at") or "").strip(),
@@ -303,9 +491,12 @@ def public_talk_track(track):
     item = normalize_talk_track(track)
     if item is None:
         return None
+    image_url = talk_track_image_url(item)
     output = {
         **item,
         "can_delete": can_delete_talk_track_item(item),
+        "image_url": image_url,
+        "attachment_type": "image" if image_url else "",
     }
     if not can_manage_accounts():
         output.pop("note", None)
@@ -490,13 +681,19 @@ def desktop_talk_track(track):
     item = normalize_talk_track(track)
     if item is None or item.get("status") == "停用":
         return None
+    image_url = talk_track_image_url(item)
     return {
         "id": item["id"],
         "category": item["category"],
         "keyword": item["keyword"],
+        "scene": item["scene"] or item["keyword"],
+        "text": item["content"],
         "content": item["content"],
         "sort": item["sort"],
+        "priority": item["priority"],
         "status": item["status"],
+        "image_url": image_url,
+        "attachment_type": "image" if image_url else "",
     }
 
 
@@ -512,10 +709,19 @@ def desktop_talk_category(category):
     }
 
 
-def extract_talk_track_import_row(raw_track, row_number, category_names, now):
+def extract_talk_track_import_row(raw_track, row_number, category_names, now, image_sources=None):
     category = canonical_talk_category_name(first_text(raw_track.get("category"), raw_track.get("分类")))
     keyword = first_text(raw_track.get("keyword"), raw_track.get("关键词"), raw_track.get("keywords"))
     content = first_text(raw_track.get("content"), raw_track.get("话术内容"), raw_track.get("text"), raw_track.get("标准话术"))
+    legacy_image_ref = normalize_zip_member_path(first_text(
+        raw_track.get("image_filename"),
+        raw_track.get("图片文件名"),
+        raw_track.get("图片"),
+        raw_track.get("image"),
+    ))
+    image_ref = legacy_image_ref
+    image_source = None
+    embedded_image_source = raw_track.get("_embedded_image")
 
     errors = []
     if not category:
@@ -526,12 +732,28 @@ def extract_talk_track_import_row(raw_track, row_number, category_names, now):
         errors.append("关键词必填")
     if not content:
         errors.append("话术内容必填")
+    if isinstance(embedded_image_source, dict) and embedded_image_source.get("content"):
+        image_ref = str(embedded_image_source.get("filename") or f"图片_{row_number}.png")
+        image_source = embedded_image_source
+    elif legacy_image_ref:
+        if image_sources is None:
+            errors.append("图片文件名不为空时，请上传包含图片的 zip 包")
+        elif Path(legacy_image_ref).suffix.lower() not in TALK_MATERIAL_EXTENSIONS:
+            errors.append(f"图片格式不支持：{legacy_image_ref}")
+        else:
+            image_ref, image_source = find_talk_track_image_source(image_sources, keyword, legacy_image_ref)
+            if image_source is None:
+                errors.append(f"图片文件不存在：{legacy_image_ref}")
+    elif image_sources:
+        # New import format: the keyword itself is the image filename (extension optional).
+        image_ref, image_source = find_talk_track_image_source(image_sources, keyword)
 
     if errors:
         return None, {
             "row": row_number,
             "category": category,
             "keyword": keyword,
+            "image_filename": image_ref,
             "errors": errors,
         }
 
@@ -551,13 +773,18 @@ def extract_talk_track_import_row(raw_track, row_number, category_names, now):
             "errors": ["没有读取到可导入的话术"],
         }
     track["id"] = uuid.uuid4().hex
+    if image_ref and image_source:
+        track["_pending_image_source"] = {
+            "filename": image_ref,
+            "content": image_source["content"],
+        }
     track["created_by"] = str(g.user.get("username") or "")
     track["created_at"] = now
     track["updated_at"] = now
     return track, None
 
 
-def import_talk_track_rows(data, raw_tracks, replace_category="", should_replace_category=False):
+def import_talk_track_rows(data, raw_tracks, replace_category="", should_replace_category=False, image_sources=None):
     category_names = set(talk_category_names(data))
     now = datetime.now(timezone.utc).isoformat()
     imported = []
@@ -568,7 +795,7 @@ def import_talk_track_rows(data, raw_tracks, replace_category="", should_replace
             continue
         if not any(str(value or "").strip() for value in raw_track.values()):
             continue
-        track, error = extract_talk_track_import_row(raw_track, row_number, category_names, now)
+        track, error = extract_talk_track_import_row(raw_track, row_number, category_names, now, image_sources=image_sources)
         if error:
             invalid_rows.append(error)
         elif track:
@@ -580,6 +807,26 @@ def import_talk_track_rows(data, raw_tracks, replace_category="", should_replace
     if not imported:
         return imported, [{"row": 0, "errors": ["没有读取到可导入的话术。"]}]
 
+    saved_image_tracks = []
+    for row_number, track in enumerate(imported, start=2):
+        pending_image = track.pop("_pending_image_source", None)
+        if not pending_image:
+            continue
+        try:
+            track.update(save_track_image_bytes(track["id"], pending_image["filename"], pending_image["content"]))
+            saved_image_tracks.append(track)
+        except ValueError as exc:
+            for saved_track in saved_image_tracks:
+                remove_track_image_file(saved_track)
+                clear_track_image_fields(saved_track)
+            return imported, [{
+                "row": row_number,
+                "category": track.get("category", ""),
+                "keyword": track.get("keyword", ""),
+                "image_filename": pending_image.get("filename", ""),
+                "errors": [str(exc)],
+            }]
+
     tracks = normalized_talk_tracks(data)
     if should_replace_category and replace_category in category_names:
         tracks = [track for track in tracks if track.get("category") != replace_category]
@@ -587,34 +834,114 @@ def import_talk_track_rows(data, raw_tracks, replace_category="", should_replace
     return imported, []
 
 
-def parse_uploaded_talk_file(uploaded_file):
-    raw_filename = str(uploaded_file.filename or "").strip()
-    extension = Path(raw_filename).suffix.lower()
+def parse_talk_rows_from_bytes(raw_filename, content):
+    extension = Path(str(raw_filename or "")).suffix.lower()
     if extension == ".xlsx":
-        uploaded_file.stream.seek(0)
-        workbook = load_workbook(uploaded_file.stream, read_only=True, data_only=True)
+        workbook = load_workbook(io.BytesIO(content), data_only=True)
         worksheet = workbook.active
         rows = list(worksheet.iter_rows(values_only=True))
         if not rows:
             return []
         headers = [str(value or "").strip() for value in rows[0]]
+        images_by_row = embedded_talk_images_by_row(worksheet, headers)
         parsed_rows = []
-        for row in rows[1:]:
-            parsed_rows.append({
+        for row_index, row in enumerate(rows[1:]):
+            parsed_row = {
                 headers[index]: value
                 for index, value in enumerate(row)
                 if index < len(headers) and headers[index]
-            })
+            }
+            if row_index in images_by_row:
+                parsed_row["_embedded_image"] = images_by_row[row_index]
+            parsed_rows.append(parsed_row)
         return parsed_rows
     if extension == ".csv":
-        uploaded_file.stream.seek(0)
-        raw_bytes = uploaded_file.read()
         try:
-            text = raw_bytes.decode("utf-8-sig")
+            text = content.decode("utf-8-sig")
         except UnicodeDecodeError:
-            text = raw_bytes.decode("gb18030", errors="replace")
+            text = content.decode("gb18030", errors="replace")
         return list(csv.DictReader(io.StringIO(text)))
-    raise ValueError("目前仅支持 xlsx 或 csv 文件。")
+    raise ValueError("目前仅支持 xlsx、csv 或 zip 文件。")
+
+
+def parse_uploaded_talk_file(uploaded_file):
+    raw_filename = str(uploaded_file.filename or "").strip()
+    extension = Path(raw_filename).suffix.lower()
+    uploaded_file.stream.seek(0)
+    content = uploaded_file.read()
+    if extension in {".xlsx", ".csv"}:
+        return parse_talk_rows_from_bytes(raw_filename, content), None
+    if extension != ".zip":
+        raise ValueError("目前仅支持 xlsx、csv 或 zip 文件。")
+
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile as exc:
+        raise ValueError("zip 文件无法读取，请重新压缩后上传。") from exc
+
+    workbook_members = []
+    image_sources = {}
+    for member in archive.infolist():
+        if member.is_dir():
+            continue
+        member_path = normalize_zip_member_path(member.filename)
+        if not member_path:
+            continue
+        member_extension = Path(member_path).suffix.lower()
+        if member_extension in {".xlsx", ".csv"} and not Path(member_path).name.startswith("~$"):
+            workbook_members.append(member_path)
+        elif member_extension in TALK_MATERIAL_EXTENSIONS:
+            image_sources[member_path] = {
+                "filename": member_path,
+                "content": archive.read(member),
+            }
+            image_sources[member_path.lower()] = image_sources[member_path]
+
+    if not workbook_members:
+        raise ValueError("zip 中没有找到话术导入 Excel/CSV 文件。")
+    workbook_members.sort(key=lambda path: ("/" in path, path.lower()))
+    workbook_path = workbook_members[0]
+    rows = parse_talk_rows_from_bytes(workbook_path, archive.read(workbook_path))
+    return rows, image_sources
+
+
+def talk_track_payload_from_request(default_category=""):
+    if request.form:
+        source = request.form
+        return {
+            "category": first_text(source.get("category"), source.get("分类"), default_category),
+            "type": first_text(source.get("type"), source.get("类型")),
+            "keyword": first_text(source.get("keyword"), source.get("keywords"), source.get("关键词")),
+            "keywords": first_text(source.get("keywords"), source.get("keyword"), source.get("关键词")),
+            "scene": first_text(source.get("scene"), source.get("场景"), source.get("keyword"), source.get("keywords")),
+            "example": first_text(source.get("example"), source.get("问题示例")),
+            "content": first_text(source.get("content"), source.get("text"), source.get("话术内容"), source.get("标准话术")),
+            "text": first_text(source.get("text"), source.get("content"), source.get("话术内容"), source.get("标准话术")),
+            "sort": source.get("sort") or source.get("priority") or source.get("排序"),
+            "priority": source.get("priority") or source.get("sort") or source.get("排序"),
+            "status": first_text(source.get("status"), source.get("状态")),
+            "note": first_text(source.get("note"), source.get("备注")),
+        }
+    payload = request.get_json(silent=True) or {}
+    if default_category and not first_text(payload.get("category"), payload.get("分类")):
+        payload["category"] = default_category
+    return payload
+
+
+def request_uploaded_track_image():
+    for key in ("image", "track_image", "file"):
+        uploaded_file = request.files.get(key)
+        if uploaded_file is not None and uploaded_file.filename:
+            return uploaded_file
+    return None
+
+
+def request_wants_remove_image():
+    value = first_text(
+        request.form.get("remove_image") if request.form else "",
+        request.form.get("removeImage") if request.form else "",
+    )
+    return value in {"1", "true", "True", "on", "yes", "是"}
 
 
 @talk_library_bp.get("/categories")
@@ -765,7 +1092,7 @@ def delete_my_talk_track(track_id):
 @talk_library_bp.post("/tracks")
 @login_required
 def create_talk_track():
-    payload = request.get_json(silent=True) or {}
+    payload = talk_track_payload_from_request()
     data = load_talk_library()
     track = normalize_talk_track(payload, category_names=set(talk_category_names(data)), require_fields=True)
     if track is None:
@@ -775,6 +1102,12 @@ def create_talk_track():
 
     now = datetime.now(timezone.utc).isoformat()
     track["id"] = uuid.uuid4().hex
+    uploaded_image = request_uploaded_track_image()
+    if uploaded_image is not None:
+        try:
+            track.update(save_track_image_upload(track["id"], uploaded_image))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
     track["created_by"] = str(g.user.get("username") or "")
     track["created_at"] = now
     track["updated_at"] = now
@@ -785,6 +1118,50 @@ def create_talk_track():
     save_talk_library(data)
     return jsonify({
         "track": public_talk_track(track),
+        "tracks": [public_talk_track(item) for item in normalized_talk_tracks(data)],
+    })
+
+
+@talk_library_bp.put("/tracks/<track_id>")
+@login_required
+def update_talk_track(track_id):
+    data = load_talk_library()
+    tracks = normalized_talk_tracks(data)
+    target_track = next((track for track in tracks if track.get("id") == track_id), None)
+    if target_track is None:
+        return jsonify({"error": "话术不存在。"}), 404
+    if not can_delete_talk_track_item(target_track):
+        return jsonify({"error": "只能编辑自己添加的答疑话术。"}), 403
+
+    payload = talk_track_payload_from_request(default_category=target_track.get("category", ""))
+    updated_track = normalize_talk_track({
+        **target_track,
+        **payload,
+        "id": target_track["id"],
+        "created_by": target_track.get("created_by", ""),
+        "created_at": target_track.get("created_at", ""),
+    }, category_names=set(talk_category_names(data)), require_fields=True)
+    if updated_track is None:
+        return jsonify({"error": "请填写分类、关键词和话术内容。"}), 400
+
+    uploaded_image = request_uploaded_track_image()
+    if request_wants_remove_image() or uploaded_image is not None:
+        remove_track_image_file(target_track)
+        clear_track_image_fields(updated_track)
+    if uploaded_image is not None:
+        try:
+            updated_track.update(save_track_image_upload(updated_track["id"], uploaded_image))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    updated_track["updated_at"] = datetime.now(timezone.utc).isoformat()
+    data["tracks"] = [
+        updated_track if track.get("id") == updated_track["id"] else track
+        for track in tracks
+    ]
+    save_talk_library(data)
+    return jsonify({
+        "track": public_talk_track(updated_track),
         "tracks": [public_talk_track(item) for item in normalized_talk_tracks(data)],
     })
 
@@ -826,16 +1203,16 @@ def import_talk_tracks_file():
 
     uploaded_file = request.files.get("file")
     if uploaded_file is None or not uploaded_file.filename:
-        return jsonify({"error": "请选择要导入的 Excel 或 CSV 文件。"}), 400
+        return jsonify({"error": "请选择要导入的 Excel、CSV 或 zip 文件。"}), 400
     try:
-        raw_tracks = parse_uploaded_talk_file(uploaded_file)
+        raw_tracks, image_sources = parse_uploaded_talk_file(uploaded_file)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
     data = load_talk_library()
     replace_category = str(request.form.get("category") or "").strip()
     should_replace_category = request.form.get("replace_category") in {"1", "true", "True", "on"}
-    imported, invalid_rows = import_talk_track_rows(data, raw_tracks, replace_category, should_replace_category)
+    imported, invalid_rows = import_talk_track_rows(data, raw_tracks, replace_category, should_replace_category, image_sources=image_sources)
     if invalid_rows:
         return jsonify({
             "error": "分类不存在，请先在工作集里创建或修正分类名" if any("分类不存在" in "；".join(row.get("errors", [])) for row in invalid_rows) else "导入失败，请检查必填字段。",
@@ -863,7 +1240,21 @@ def delete_talk_track(track_id):
     next_tracks = [track for track in tracks if track.get("id") != track_id]
     data["tracks"] = next_tracks
     save_talk_library(data)
+    remove_track_image_file(target_track)
     return jsonify({"ok": True, "tracks": [public_talk_track(item) for item in normalized_talk_tracks(data)]})
+
+
+@talk_library_bp.get("/tracks/<track_id>/image")
+@login_required
+def get_talk_track_image(track_id):
+    data = load_talk_library()
+    track = next(
+        (item for item in normalized_talk_tracks(data) if item.get("id") == track_id),
+        None,
+    )
+    if track is None or not track.get("image_filename"):
+        return jsonify({"error": "话术图片不存在。"}), 404
+    return send_from_directory(talk_material_dir(), track["image_filename"])
 
 
 @talk_library_bp.put("/learning-calls")

@@ -389,9 +389,9 @@ const synonymGroups = [
 const talkStorageKey = "pu6_talktracks_v2";
 const talkDailyMessageStorageKey = "pu6_talk_daily_message_recommendation";
 const talkStorageVersionKey = "pu6_talktracks_version";
-const talkStorageVersion = "20260612-renewal-message-recommend";
-const talkCategories = ["参课", "催课", "答疑", "续费", "学情", "挽单", "转介绍", "素材库"];
-const removedTalkCategories = [];
+const talkStorageVersion = "20260729-track-image-attachments";
+const talkCategories = ["参课", "催课", "答疑", "续费", "学情", "挽单", "转介绍"];
+const removedTalkCategories = ["素材库"];
 const talkCategoryAliases = { 其他: "答疑" };
 const defaultTalkCategory = "续费";
 const sharedTalkCategory = "答疑";
@@ -406,10 +406,8 @@ const talkCategoryDetails = {
   学情: "学习反馈、阶段总结、家长沟通跟进",
   挽单: "异议处理、流失挽回、信任修复",
   转介绍: "老带新邀约、家长推荐、报名转化沟通",
-  素材库: "好评截图、家长反馈、可复用素材",
 };
 const learningTalkCategory = "学情";
-const materialTalkCategory = "素材库";
 const learningCallSceneSuffix = "|沟通框架";
 const learningCallTitles = ["首通电话", "第二通电话", "第三通电话", "第四通电话", "第五通电话"];
 const learningGuideSectionLabels = ["问题探需", "输出内容", "需要传达的教育理念"];
@@ -458,6 +456,10 @@ function normalizeTrack(track) {
     排序: Number(track?.排序 || track?.sort || track?.优先级 || track?.priority || 10) || 10,
     状态: String(track?.状态 || track?.status || "启用").trim() || "启用",
     备注: String(track?.备注 || track?.note || "").trim(),
+    __image_url: String(track?.__image_url || track?.image_url || track?.图片地址 || "").trim(),
+    __attachment_type: String(track?.__attachment_type || track?.attachment_type || "").trim(),
+    __image_filename: String(track?.__image_filename || track?.image_filename || "").trim(),
+    __image_original_filename: String(track?.__image_original_filename || track?.image_original_filename || "").trim(),
   };
   if (normalized.分类 === defaultTalkCategory) {
     normalized.类型 = getRenewalTrackType(track);
@@ -538,14 +540,9 @@ const talkHeaderActions = document.querySelector("[data-talk-actions]");
 const talkTypeField = document.querySelector(".talk-type-field");
 const talkRenewalModeTabs = document.querySelector("#tl-renewalModeTabs");
 const talkDailyMessageRecommend = document.querySelector("#tl-dailyMessageRecommend");
-const talkMaterialPanel = document.querySelector("[data-talk-material-panel]");
 let learningCallGuide = document.querySelector("[data-learning-call-guide]");
 const canManageTalk = talkTool?.dataset.canManageTalk === "true";
-const talkMaterialForm = document.querySelector("#tl-materialForm");
-const talkMaterialList = document.querySelector("#tl-materialList");
-const talkMaterialStatus = document.querySelector("#tl-materialStatus");
-const talkMaterialSearch = document.querySelector("#tl-materialSearch");
-let talkMaterials = [];
+let editingTalkTrackId = "";
 
 function canEditSelectedTalkCategory() {
   return canManageTalk || selectedTalkCategory === sharedTalkCategory;
@@ -1086,7 +1083,6 @@ async function loadTalkCategories() {
 function setTalkCategory(category) {
   selectedTalkCategory = talkCategories.includes(category) ? category : defaultTalkCategory;
   const learningMode = isLearningCategory();
-  const materialMode = selectedTalkCategory === materialTalkCategory;
   const canEditCategory = canEditSelectedTalkCategory();
 
   talkCategoryButtons.forEach((button) => {
@@ -1103,16 +1099,14 @@ function setTalkCategory(category) {
 
   if (categoryLabel) categoryLabel.textContent = selectedTalkCategory;
   if (detailTitle) detailTitle.textContent = selectedTalkCategory;
-  if (detailSuffix) detailSuffix.textContent = learningMode ? "电话手册" : materialMode ? "" : "话术专题";
+  if (detailSuffix) detailSuffix.textContent = learningMode ? "电话手册" : "话术专题";
   if (detailDescription) {
     detailDescription.textContent = learningMode
       ? "选择通话类型后，直接查看对应的问题探需、输出内容和需要传达的教育观念。"
-      : materialMode
-        ? "按关键词搜索家长好评、截图素材，选择后复制或下载使用。"
       : selectedTalkCategory === sharedTalkCategory
         ? "老师可以新增常见问题，全组可见并可搜索复制。"
       : canManageTalk
-        ? "当前专题内支持导入、维护、匹配和复制话术。"
+        ? "当前专题内支持导入、维护、匹配和复制话术，可给话术绑定图片附件。"
         : "当前专题内支持输入问题、匹配推荐话术并复制使用。";
   }
   if (libraryTitle) libraryTitle.textContent = `${selectedTalkCategory}话术库`;
@@ -1122,20 +1116,14 @@ function setTalkCategory(category) {
 
   syncTalkTypeField();
   syncRenewalTalkModeUi();
-  talkTool?.classList.toggle("is-hidden", materialMode);
   talkTool?.classList.toggle("viewer-mode", learningMode || !canEditCategory);
   talkTool?.classList.toggle("is-learning-guide", learningMode);
-  talkSearchPanel?.classList.toggle("is-hidden", learningMode || materialMode);
-  talkAdminPanel?.classList.toggle("is-hidden", learningMode || materialMode || !canEditCategory);
-  talkHeaderActions?.classList.toggle("is-hidden", learningMode || materialMode || !canManageTalk);
-  talkMaterialPanel?.classList.toggle("is-hidden", !materialMode);
+  talkSearchPanel?.classList.toggle("is-hidden", learningMode);
+  talkAdminPanel?.classList.toggle("is-hidden", learningMode || !canEditCategory);
+  talkHeaderActions?.classList.toggle("is-hidden", learningMode || !canManageTalk);
   if (learningMode) ensureLearningCallGuide();
-  learningCallGuide?.classList.toggle("is-hidden", !learningMode || materialMode);
-
-  if (materialMode) {
-    renderTalkMaterials();
-    return;
-  }
+  learningCallGuide?.classList.toggle("is-hidden", !learningMode);
+  resetTalkTrackForm();
   if (canEditCategory) renderLibrary();
   if (learningMode) {
     renderLearningCallGuide();
@@ -1173,6 +1161,10 @@ function serverTrackToLocalTrack(track) {
     __server_id: String(track.id || ""),
     __can_delete: Boolean(track.can_delete),
     __created_by: String(track.created_by || "").trim(),
+    __image_url: String(track.image_url || "").trim(),
+    __attachment_type: String(track.attachment_type || "").trim(),
+    __image_filename: String(track.image_filename || "").trim(),
+    __image_original_filename: String(track.image_original_filename || "").trim(),
     分类: talkCategories.includes(category) ? category : defaultTalkCategory,
     ...(type ? { 类型: type } : {}),
     场景: keyword,
@@ -1277,6 +1269,8 @@ window.getRenewalTalkTracks = function getRenewalTalkTracks(category = defaultTa
       example: String(track.问题示例 || "").trim(),
       text: String(track.标准话术 || "").trim(),
       priority: Number(track.优先级 || 0),
+      image_url: String(track.__image_url || "").trim(),
+      attachment_type: String(track.__attachment_type || (track.__image_url ? "image" : "")).trim(),
     }));
 };
 
@@ -1398,7 +1392,7 @@ function parseCsv(text) {
       });
       return item;
     })
-    .filter((item) => item.标准话术 || item.talktrack || item.answer);
+    .filter((item) => item.话术内容 || item.content || item.text || item.标准话术 || item.talktrack || item.answer);
 }
 
 function escapeHtml(value) {
@@ -1409,6 +1403,71 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+function renderTrackImagePreview(track, className = "talk-track-image-chip") {
+  const normalized = normalizeTrack(track);
+  if (!normalized.__image_url) return "";
+  const alt = normalized.__image_original_filename || normalized.关键词 || "话术图片";
+  return `
+    <a class="${className}" href="${escapeHtml(normalized.__image_url)}" target="_blank" rel="noopener" title="打开图片附件">
+      <img src="${escapeHtml(normalized.__image_url)}" alt="${escapeHtml(alt)}">
+      <span>有图</span>
+    </a>
+  `;
+}
+
+function resetTalkTrackForm(options = {}) {
+  editingTalkTrackId = "";
+  ["keywords", "example", "talktrack", "noteField"].forEach((id) => {
+    if (tl(id)) tl(id).value = "";
+  });
+  if (tl("priority")) tl("priority").value = "10";
+  if (tl("status") && !options.keepStatus) tl("status").value = "启用";
+  if (tl("trackImage")) tl("trackImage").value = "";
+  if (tl("removeTrackImage")) tl("removeTrackImage").checked = false;
+  tl("removeImageWrap")?.classList.add("is-hidden");
+  const preview = tl("trackImagePreview");
+  if (preview) {
+    preview.classList.add("is-hidden");
+    preview.innerHTML = "";
+  }
+  if (tl("addTrack")) tl("addTrack").textContent = "添加";
+  tl("cancelEditTrack")?.classList.add("is-hidden");
+}
+
+function startEditTalkTrack(index) {
+  const rawTrack = talkState.tracks[index];
+  if (!rawTrack?.__server_id) return;
+  const track = normalizeTrack(rawTrack);
+  editingTalkTrackId = rawTrack.__server_id;
+  if (tl("keywords")) tl("keywords").value = track.关键词 || "";
+  if (tl("example")) tl("example").value = track.问题示例 || "";
+  if (tl("talktrack")) tl("talktrack").value = track.标准话术 || "";
+  if (tl("priority")) tl("priority").value = String(track.排序 || 10);
+  if (tl("status")) tl("status").value = track.状态 || "启用";
+  if (tl("noteField")) tl("noteField").value = track.备注 || "";
+  if (tl("trackType") && selectedTalkCategory === defaultTalkCategory) {
+    tl("trackType").value = getRenewalTrackType(track);
+  }
+  if (tl("trackImage")) tl("trackImage").value = "";
+  if (tl("removeTrackImage")) tl("removeTrackImage").checked = false;
+  tl("removeImageWrap")?.classList.toggle("is-hidden", !track.__image_url);
+  const preview = tl("trackImagePreview");
+  if (preview) {
+    preview.classList.toggle("is-hidden", !track.__image_url);
+    preview.innerHTML = track.__image_url
+      ? `
+        <span>当前图片</span>
+        <a href="${escapeHtml(track.__image_url)}" target="_blank" rel="noopener">
+          <img src="${escapeHtml(track.__image_url)}" alt="${escapeHtml(track.__image_original_filename || track.关键词 || "话术图片")}">
+        </a>
+      `
+      : "";
+  }
+  if (tl("addTrack")) tl("addTrack").textContent = "保存修改";
+  tl("cancelEditTrack")?.classList.remove("is-hidden");
+  if (tl("libraryStatus")) tl("libraryStatus").textContent = "正在编辑话术，保存后组员刷新即可看到。";
+}
+
 function renderLibrary() {
   if (!canEditSelectedTalkCategory() || !tl("libraryStatus") || !tl("library")) return;
 
@@ -1416,7 +1475,7 @@ function renderLibrary() {
   tl("libraryStatus").textContent = `${tracks.length} 条话术`;
 
   if (!tracks.length) {
-    tl("library").innerHTML = `<div class="empty-state compact-empty">${selectedTalkCategory === sharedTalkCategory ? "当前分类暂无话术，老师可以新增常见问题。" : "当前分类暂无话术，可以新增或导入 Excel/CSV。"}</div>`;
+    tl("library").innerHTML = `<div class="empty-state compact-empty">${selectedTalkCategory === sharedTalkCategory ? "当前分类暂无话术，老师可以新增常见问题。" : "当前分类暂无话术，可以新增或导入 Excel/CSV/ZIP。"}</div>`;
     return;
   }
 
@@ -1428,10 +1487,18 @@ function renderLibrary() {
           ${track.状态 === "停用" ? "<em>停用</em>" : ""}
         </div>
         <span>${escapeHtml(track.标准话术 || "")}</span>
-        ${track.__can_delete || (!track.__server_id && canManageTalk) ? `<button type="button" data-delete-talk="${index}">删除</button>` : ""}
+        ${renderTrackImagePreview(track)}
+        <div class="talk-library-item-actions">
+          ${track.__server_id && (canManageTalk || track.__can_delete) ? `<button type="button" data-edit-talk="${index}">编辑</button>` : ""}
+          ${track.__can_delete || (!track.__server_id && canManageTalk) ? `<button type="button" data-delete-talk="${index}">删除</button>` : ""}
+        </div>
       </article>
     `)
     .join("");
+
+  document.querySelectorAll("[data-edit-talk]").forEach((button) => {
+    button.addEventListener("click", () => startEditTalkTrack(Number(button.dataset.editTalk)));
+  });
 
   document.querySelectorAll("[data-delete-talk]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -1479,128 +1546,6 @@ async function copyText(text, button, resetLabel = "复制话术") {
   }, 1200);
 }
 
-function setTalkMaterialStatus(message, isError = false) {
-  if (!talkMaterialStatus) return;
-  talkMaterialStatus.textContent = message || "";
-  talkMaterialStatus.classList.toggle("is-error", isError);
-}
-
-function renderTalkMaterials() {
-  if (!talkMaterialList) return;
-  const keyword = String(talkMaterialSearch?.value || "").trim().toLowerCase();
-  const visibleMaterials = keyword
-    ? talkMaterials.filter((material) => [
-      material.keyword,
-      material.keywords,
-      material.content,
-      material.original_filename,
-    ].join(" ").toLowerCase().includes(keyword))
-    : talkMaterials;
-
-  if (talkMaterials.length) {
-    setTalkMaterialStatus(keyword ? `匹配到 ${visibleMaterials.length} / ${talkMaterials.length} 个素材` : `${talkMaterials.length} 个素材`);
-  }
-
-  if (!talkMaterials.length) {
-    talkMaterialList.innerHTML = `<div class="empty-state compact-empty">暂无素材，Joanna上传后老师即可使用。</div>`;
-    return;
-  }
-  if (!visibleMaterials.length) {
-    talkMaterialList.innerHTML = `<div class="empty-state compact-empty">没有匹配到素材，换个关键词试试。</div>`;
-    return;
-  }
-
-  talkMaterialList.innerHTML = visibleMaterials
-    .map((material) => {
-      const materialKeyword = String(material.keyword || material.keywords || material.title || "素材").trim();
-      const content = String(material.content || material.note || "").trim();
-      return `
-        <article class="talk-material-card">
-          <div class="talk-material-body">
-            <div class="talk-material-head">
-              <strong>${escapeHtml(materialKeyword)}</strong>
-              ${material.can_delete ? `<button class="talk-material-delete" type="button" data-delete-material="${escapeHtml(material.id)}" title="删除素材" aria-label="删除素材">−</button>` : ""}
-            </div>
-            <p>${escapeHtml(content || "未填写话术内容")}</p>
-            <a class="talk-material-image" href="${escapeHtml(material.url)}" target="_blank" rel="noopener">
-              <img src="${escapeHtml(material.url)}" alt="${escapeHtml(materialKeyword)}">
-            </a>
-            <div class="talk-material-actions">
-              <a class="ghost-button compact-button" href="${escapeHtml(material.url)}" target="_blank" rel="noopener">打开原图</a>
-              <a class="primary-button compact-button" href="${escapeHtml(material.url)}" download>下载使用</a>
-            </div>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-
-  talkMaterialList.querySelectorAll("[data-delete-material]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      if (!window.confirm("确认删除这个素材吗？")) return;
-      button.disabled = true;
-      try {
-        const response = await fetch(`/api/talk-library/materials/${encodeURIComponent(button.dataset.deleteMaterial)}`, {
-          method: "DELETE",
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || "删除失败，请稍后重试。");
-        await loadTalkMaterials();
-      } catch (error) {
-        setTalkMaterialStatus(error.message, true);
-        button.disabled = false;
-      }
-    });
-  });
-}
-
-async function loadTalkMaterials() {
-  if (!talkMaterialList) return;
-  setTalkMaterialStatus("正在读取素材...");
-  try {
-    const response = await fetch("/api/talk-library/materials");
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "素材读取失败，请刷新重试。");
-    talkMaterials = payload.materials || [];
-    setTalkMaterialStatus(talkMaterials.length ? `${talkMaterials.length} 个素材` : "按关键词搜索家长好评、截图素材");
-    renderTalkMaterials();
-  } catch (error) {
-    talkMaterials = [];
-    renderTalkMaterials();
-    setTalkMaterialStatus(error.message, true);
-  }
-}
-
-async function uploadTalkMaterial(event) {
-  event.preventDefault();
-  if (!talkMaterialForm || !canManageTalk) return;
-  const fileInput = tl("materialFile");
-  if (!fileInput?.files?.length) {
-    setTalkMaterialStatus("请先选择一张素材图片。", true);
-    return;
-  }
-
-  const formData = new FormData(talkMaterialForm);
-  setTalkMaterialStatus("正在上传素材...");
-  const submitButton = talkMaterialForm.querySelector("button[type='submit']");
-  if (submitButton) submitButton.disabled = true;
-  try {
-    const response = await fetch("/api/talk-library/materials", {
-      method: "POST",
-      body: formData,
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "上传失败，请稍后重试。");
-    talkMaterialForm.reset();
-    await loadTalkMaterials();
-    setTalkMaterialStatus("素材已上传。");
-  } catch (error) {
-    setTalkMaterialStatus(error.message, true);
-  } finally {
-    if (submitButton) submitButton.disabled = false;
-  }
-}
-
 function renderResults() {
   renderDailyMessageRecommendation();
   if (isLearningCategory()) {
@@ -1638,8 +1583,10 @@ function renderResults() {
           <em>${Math.round(score)} 分</em>
         </div>
         <p>${escapeHtml(track.标准话术 || "")}</p>
+        ${renderTrackImagePreview(track, "talk-result-image")}
         <div class="result-actions">
           <button type="button" class="primary-button compact-button" data-copy-talk="${index}">复制话术</button>
+          ${track.__image_url ? `<a class="ghost-button compact-button" href="${escapeHtml(track.__image_url)}" target="_blank" rel="noopener">打开图片</a>` : ""}
           <div class="chips">
             ${hits.length ? hits.map((hit) => `<span>${escapeHtml(hit)}</span>`).join("") : `<span>相似匹配</span>`}
           </div>
@@ -1685,21 +1632,30 @@ async function addTrack() {
 
   const addButton = tl("addTrack");
   if (addButton) addButton.disabled = true;
-  if (tl("libraryStatus")) tl("libraryStatus").textContent = "正在保存到服务器...";
+  if (tl("libraryStatus")) tl("libraryStatus").textContent = editingTalkTrackId ? "正在保存修改..." : "正在保存到服务器...";
   try {
-    const response = await fetch("/api/talk-library/tracks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(localTrackToServerPayload(item)),
+    const formData = new FormData();
+    const serverPayload = localTrackToServerPayload(item);
+    Object.entries(serverPayload).forEach(([key, value]) => {
+      formData.append(key, value ?? "");
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "保存失败，请稍后重试。");
-    applyServerTalkPayload(payload);
-    ["keywords", "example", "talktrack", "noteField"].forEach((id) => {
-      if (tl(id)) tl(id).value = "";
-    });
-    if (tl("priority")) tl("priority").value = "10";
-    if (tl("status")) tl("status").value = "启用";
+    const imageInput = tl("trackImage");
+    if (imageInput?.files?.[0]) formData.append("image", imageInput.files[0]);
+    if (editingTalkTrackId && tl("removeTrackImage")?.checked) formData.append("remove_image", "true");
+
+    const response = await fetch(
+      editingTalkTrackId
+        ? `/api/talk-library/tracks/${encodeURIComponent(editingTalkTrackId)}`
+        : "/api/talk-library/tracks",
+      {
+        method: editingTalkTrackId ? "PUT" : "POST",
+        body: formData,
+      },
+    );
+    const responsePayload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(responsePayload.error || "保存失败，请稍后重试。");
+    applyServerTalkPayload(responsePayload);
+    resetTalkTrackForm();
     if (tl("libraryStatus")) tl("libraryStatus").textContent = selectedTalkCategory === sharedTalkCategory
       ? "已保存，大家刷新后可使用。"
       : "话术已保存，组员刷新后可使用。";
@@ -1795,8 +1751,6 @@ function initTalkLibrary() {
       }
     });
 
-    talkMaterialForm?.addEventListener("submit", uploadTalkMaterial);
-
     tl("unifiedFileInput")?.addEventListener("change", async (event) => {
       const file = event.target.files[0];
       if (!file) return;
@@ -1832,8 +1786,10 @@ function initTalkLibrary() {
   }
 
   tl("addTrack")?.addEventListener("click", addTrack);
-
-  talkMaterialSearch?.addEventListener("input", renderTalkMaterials);
+  tl("cancelEditTrack")?.addEventListener("click", () => {
+    resetTalkTrackForm();
+    if (tl("libraryStatus")) tl("libraryStatus").textContent = "已取消编辑。";
+  });
 
   talkBackButton?.addEventListener("click", showTalkHome);
   talkMenuButton?.addEventListener("click", showTalkHome);
@@ -1844,7 +1800,6 @@ function initTalkLibrary() {
       showTalkHome();
       loadServerTalkTracks();
     });
-  loadTalkMaterials();
   loadLearningCallOverrides();
 }
 

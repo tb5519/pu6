@@ -28,7 +28,6 @@ INSTANCE_JSON_DEFAULTS = {
             {"name": "学情", "sort": 50, "status": "启用"},
             {"name": "挽单", "sort": 60, "status": "启用"},
             {"name": "转介绍", "sort": 70, "status": "启用"},
-            {"name": "素材库", "sort": 80, "status": "启用"},
         ],
         "learning_calls": {},
         "materials": [],

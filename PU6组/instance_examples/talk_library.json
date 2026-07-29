@@ -35,11 +35,6 @@
       "name": "转介绍",
       "sort": 70,
       "status": "启用"
-    },
-    {
-      "name": "素材库",
-      "sort": 80,
-      "status": "启用"
     }
   ],
   "learning_calls": {},

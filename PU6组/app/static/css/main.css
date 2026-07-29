@@ -1941,6 +1941,69 @@ input {
   padding: 11px 14px;
 }
 
+.talk-admin-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.talk-admin-actions .success-button,
+.talk-admin-actions .ghost-button {
+  min-height: 40px;
+}
+
+.talk-admin-actions .success-button {
+  padding: 0 14px;
+}
+
+.talk-image-remove {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px !important;
+  padding: 8px 10px;
+  border: 1px solid #eadcf4;
+  border-radius: 8px;
+  background: #fbf9ff;
+}
+
+.talk-image-remove.is-hidden {
+  display: none !important;
+}
+
+.talk-image-remove input {
+  width: auto;
+}
+
+.talk-track-image-preview {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #e1daf3;
+  border-radius: 8px;
+  background: #fbf9ff;
+}
+
+.talk-track-image-preview.is-hidden {
+  display: none;
+}
+
+.talk-track-image-preview span {
+  color: #625b80;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.talk-track-image-preview img {
+  width: 100%;
+  max-height: 132px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
+}
+
 .panel-title-row,
 .search-top {
   display: flex;
@@ -2012,6 +2075,12 @@ input {
   line-height: 1.5;
 }
 
+.talk-library-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .talk-library-item button {
   justify-self: start;
   min-height: 30px;
@@ -2022,6 +2091,41 @@ input {
   color: #9d2f58;
   font-weight: 800;
   cursor: pointer;
+}
+
+.talk-track-image-chip,
+.talk-result-image {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #d9f0e8;
+  border-radius: 8px;
+  background: #f5fcfa;
+  color: #18745f;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.talk-track-image-chip img {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.talk-result-image {
+  margin: 0 0 10px;
+}
+
+.talk-result-image img {
+  width: 54px;
+  height: 54px;
+  border-radius: 7px;
+  object-fit: cover;
 }
 
 .talk-type-field {

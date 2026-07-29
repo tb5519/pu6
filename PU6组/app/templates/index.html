@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260729-material-content') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260729-track-image-upload') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/talk-library.js', v='20260729-material-content') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/talk-library.js', v='20260729-track-image-upload') }}" defer></script>
     <script src="{{ url_for('static', filename='js/completion.js', v='20260728-completion-image-auto-week') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260716-todo-targets') }}" defer></script>
     <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260727-learning-progress-name') }}" defer></script>
@@ -157,9 +157,9 @@
               </div>
               {% if can_manage_talk_library %}
                 <div class="module-actions">
-                  <label class="file-button">
-                    统一导入 Excel/CSV
-                    <input id="tl-unifiedFileInput" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                  <label class="file-button" title="Excel 可使用：分类、关键词、话术内容、图片。图片列插入图片即可自动绑定，空白则导入纯文字话术。">
+                    统一导入 Excel/CSV/ZIP
+                    <input id="tl-unifiedFileInput" type="file" accept=".xlsx,.csv,.zip,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip">
                   </label>
                   <span id="tl-homeImportStatus" class="tool-status"></span>
                 </div>
@@ -189,49 +189,15 @@
               </div>
               {% if can_manage_talk_library %}
                 <div class="module-actions" data-talk-actions>
-                  <label class="file-button">
-                    导入 Excel/CSV
-                    <input id="tl-fileInput" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                  <label class="file-button" title="Excel 可使用：分类、关键词、话术内容、图片。图片列插入图片即可自动绑定，空白则导入纯文字话术。">
+                    导入 Excel/CSV/ZIP
+                    <input id="tl-fileInput" type="file" accept=".xlsx,.csv,.zip,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip">
                   </label>
                   <button id="tl-loadSample" type="button">载入示例</button>
                   <button id="tl-clearData" type="button">清空当前分类</button>
                 </div>
               {% endif %}
             </header>
-
-            <section class="talk-material-panel is-hidden" data-talk-material-panel aria-label="话术素材库">
-              <div class="panel-title-row">
-                <div>
-                  <h2>素材库</h2>
-                  <span id="tl-materialStatus" class="tool-status">按关键词搜索家长好评、截图素材</span>
-                </div>
-              </div>
-
-              <label class="talk-material-search" for="tl-materialSearch">
-                <span>关键词搜索</span>
-                <input id="tl-materialSearch" type="search" placeholder="输入好评、进步、坚持等关键词">
-              </label>
-
-              {% if can_manage_talk_library %}
-              <form id="tl-materialForm" class="talk-material-form">
-                <label for="tl-materialKeywords">
-                  <span>关键词</span>
-                  <input id="tl-materialKeywords" name="keywords" type="text" maxlength="160" placeholder="例如：家长好评、线下、坚持">
-                </label>
-                <label for="tl-materialContent">
-                  <span>话术内容</span>
-                  <textarea id="tl-materialContent" name="content" maxlength="1000" placeholder="输入配合图片发送给家长的话术内容"></textarea>
-                </label>
-                <label for="tl-materialFile">
-                  <span>图片</span>
-                  <input id="tl-materialFile" name="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-                </label>
-                <button class="primary-button compact-button" type="submit">上传素材</button>
-              </form>
-              {% endif %}
-
-              <div id="tl-materialList" class="talk-material-list"></div>
-            </section>
 
             <div
               class="talk-tool{% if not can_manage_talk_library %} viewer-mode{% endif %}"
@@ -272,7 +238,19 @@
                     <label for="tl-noteField">备注</label>
                     <textarea id="tl-noteField" placeholder="仅后台维护查看，不展示给老师"></textarea>
 
-                    <button id="tl-addTrack" class="success-button" type="button">添加</button>
+                    <label for="tl-trackImage">图片附件</label>
+                    <input id="tl-trackImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+
+                    <label id="tl-removeImageWrap" class="talk-image-remove is-hidden" for="tl-removeTrackImage">
+                      <input id="tl-removeTrackImage" type="checkbox">
+                      <span>移除当前图片</span>
+                    </label>
+                    <div id="tl-trackImagePreview" class="talk-track-image-preview is-hidden"></div>
+
+                    <div class="talk-admin-actions">
+                      <button id="tl-addTrack" class="success-button" type="button">添加</button>
+                      <button id="tl-cancelEditTrack" class="ghost-button compact-button is-hidden" type="button">取消编辑</button>
+                    </div>
                   </section>
 
                   <section class="tool-panel library-panel">
