@@ -1959,6 +1959,106 @@ def normalize_identity(value):
     return str(value or "").strip().lower()
 
 
+def completion_roster_accounts(target_class):
+    roster = target_class.get("completion_roster")
+    source = roster.get("accounts") if isinstance(roster, dict) else None
+    if not isinstance(source, list):
+        return []
+    accounts = []
+    seen = set()
+    for account in source:
+        normalized = normalize_identity(account)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            accounts.append(normalized)
+    return accounts
+
+
+def imported_completion_roster_accounts(imported_students):
+    accounts = []
+    seen = set()
+    missing_count = 0
+    duplicate_count = 0
+    for imported in imported_students:
+        normalized = normalize_identity(imported.get("account"))
+        if not normalized:
+            missing_count += 1
+            continue
+        if normalized in seen:
+            duplicate_count += 1
+            continue
+        seen.add(normalized)
+        accounts.append(normalized)
+    return accounts, missing_count, duplicate_count
+
+
+def completion_roster_display_names(imported_students, account_keys):
+    wanted = set(account_keys)
+    labels = []
+    for imported in imported_students:
+        account = normalize_identity(imported.get("account"))
+        if account not in wanted:
+            continue
+        name = str(imported.get("name") or "").strip()
+        raw_account = str(imported.get("account") or "").strip()
+        labels.append(f"{name or '未命名学员'}（{raw_account or account}）")
+        if len(labels) >= 5:
+            break
+    return labels
+
+
+def prepare_completion_roster(target_class, imported_students, updated_at):
+    incoming_accounts, missing_count, duplicate_count = imported_completion_roster_accounts(imported_students)
+    if missing_count:
+        return {
+            "error": f"本次表格有 {missing_count} 条学员记录缺少学习账号，无法校验完课名单，请补全账号后再上传。",
+            "status": 400,
+        }
+    if duplicate_count:
+        return {
+            "error": f"本次表格有 {duplicate_count} 条重复学习账号，无法校验完课名单，请去重后再上传。",
+            "status": 400,
+        }
+    if not incoming_accounts:
+        return {
+            "error": "没有识别到学习账号，无法建立完课名单。",
+            "status": 400,
+        }
+
+    existing_accounts = completion_roster_accounts(target_class)
+    incoming_set = set(incoming_accounts)
+    existing_set = set(existing_accounts)
+    is_initial = not existing_accounts
+    if existing_accounts:
+        extra_accounts = incoming_set - existing_set
+        if extra_accounts:
+            labels = completion_roster_display_names(imported_students, extra_accounts)
+            preview = "、".join(labels) or "未知账号"
+            suffix = "等" if len(extra_accounts) > len(labels) else ""
+            return {
+                "error": f"本次表格发现 {len(extra_accounts)} 个不在首次完课名单中的账号：{preview}{suffix}。请确认班级后再上传。",
+                "status": 400,
+            }
+
+    active_accounts = incoming_accounts if is_initial else [
+        account for account in existing_accounts if account in incoming_set
+    ]
+    target_class["completion_roster"] = {
+        "accounts": active_accounts,
+        "initialized_at": (
+            target_class.get("completion_roster", {}).get("initialized_at")
+            if isinstance(target_class.get("completion_roster"), dict)
+            else ""
+        ) or updated_at,
+        "updated_at": updated_at,
+    }
+    return {
+        "accounts": set(active_accounts),
+        "is_initial": is_initial,
+        "removed_count": len(existing_set - set(active_accounts)),
+    }
+
+
 def learning_assessment_key(item):
     assessment_type = str(item.get("type") or "unit")
     book = str(item.get("book") or "upper")
@@ -2748,7 +2848,13 @@ def upload_students(class_id):
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
+    roster = prepare_completion_roster(item, imported_students, now_iso())
+    if roster.get("error"):
+        return jsonify({"error": roster["error"]}), roster.get("status", 400)
+
     result = sync_students_from_upload(item, imported_students, week_number, active_activity, completion_period)
+    result["roster_initialized"] = roster["is_initial"]
+    result["roster_removed_count"] = roster["removed_count"]
     save_store(store)
     return jsonify({
         "result": result,

@@ -1682,18 +1682,6 @@ def closing_month_range_label(months):
     return f"{int(start[:4])}年{int(start[5:7])}月-{int(end[:4])}年{int(end[5:7])}月"
 
 
-def infer_renewal_closing_month(week_number, report_date):
-    try:
-        week = int(week_number or 0)
-        base_date = datetime.strptime(str(report_date or "")[:10], "%Y-%m-%d")
-    except (TypeError, ValueError):
-        return ""
-    if week <= 0:
-        return ""
-    weeks_until_closing = max(0, 54 - week)
-    return (base_date + timedelta(weeks=weeks_until_closing)).strftime("%Y-%m")
-
-
 def normalize_optional_count(value):
     if value is None or value == "":
         return None
@@ -1891,7 +1879,9 @@ def build_renewal_rate_summary(month_key, report_date, closing_months=None):
             or teacher_id_for_username(project.get("owner"))
         )
         week_number = current_title_week_number(source_class) if source_class else None
-        project_closing_month = infer_renewal_closing_month(week_number, report_date)
+        # Closing month is an administrator-owned project setting. It must not
+        # drift when a class week number or the report date changes.
+        project_closing_month = normalize_month_or_blank(project.get("closing_month"))
         student_count = renewal_rate_student_count(project, source_class)
         period_month = project_closing_month or month_key
         period_report_date = report_date if str(report_date or "").startswith(f"{period_month}-") else month_end_date(period_month)
@@ -2115,8 +2105,16 @@ def build_learning_summary(month_key, report_date, completion):
         teacher_id = item.get("teacher_id", "")
         if teacher_id in LEARNING_EXCLUDED_TEACHER_IDS:
             continue
-        coefficient = parse_float(class_settings.get(class_id, {}).get("coefficient"), 0)
-        student_count = int(item.get("student_count") or 0)
+        class_setting = class_settings.get(class_id, {})
+        class_setting = class_setting if isinstance(class_setting, dict) else {}
+        coefficient = parse_float(class_setting.get("coefficient"), 0)
+        source_student_count = int(item.get("student_count") or 0)
+        has_manual_student_count = "student_count" in class_setting
+        student_count = (
+            normalize_locked_student_count(class_setting.get("student_count"))
+            if has_manual_student_count
+            else source_student_count
+        )
         learning_base = rounded_metric(student_count * coefficient)
         class_row = {
             "class_id": class_id,
@@ -2124,6 +2122,8 @@ def build_learning_summary(month_key, report_date, completion):
             "teacher_id": teacher_id,
             "teacher_name": item.get("teacher_name", ""),
             "student_count": student_count,
+            "source_student_count": source_student_count,
+            "student_count_overridden": has_manual_student_count,
             "coefficient": coefficient,
             "learning_base": learning_base,
             "can_edit": setting_allowed_for_teacher(teacher_id),
@@ -4231,9 +4231,17 @@ def update_learning_settings():
             teacher_id = class_lookup.get(class_id)
             if not class_id or not teacher_id or not setting_allowed_for_teacher(teacher_id):
                 continue
-            class_settings[class_id] = {
-                "coefficient": rounded_metric(parse_float(item.get("coefficient"), 0))
-            }
+            class_setting = class_settings.setdefault(class_id, {})
+            if not isinstance(class_setting, dict):
+                class_setting = {}
+                class_settings[class_id] = class_setting
+            class_setting["coefficient"] = rounded_metric(parse_float(item.get("coefficient"), 0))
+            if "student_count" in item:
+                raw_student_count = str(item.get("student_count") or "").strip()
+                if raw_student_count:
+                    class_setting["student_count"] = normalize_locked_student_count(raw_student_count)
+                else:
+                    class_setting.pop("student_count", None)
 
         for item in payload.get("teachers", []):
             teacher_id = normalize_teacher_id(item.get("teacher_id"))

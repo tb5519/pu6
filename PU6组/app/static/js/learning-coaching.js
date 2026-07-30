@@ -4,6 +4,8 @@ const learningClassList = document.querySelector("#lc-classList");
 const learningRefreshButton = document.querySelector("#lc-refreshButton");
 const learningUploadButton = document.querySelector("#lc-uploadButton");
 const learningFileInput = document.querySelector("#lc-fileInput");
+const learningRosterRemoveFrom = document.querySelector("#lc-rosterRemoveFrom");
+const learningRemoveRosterButton = document.querySelector("#lc-removeRosterButton");
 const learningGuideUploadButton = document.querySelector("#lc-guideUploadButton");
 const learningGuideUploadInput = document.querySelector("#lc-guideUploadInput");
 const learningUploadStatus = document.querySelector("#lc-uploadStatus");
@@ -70,6 +72,7 @@ let learningSelectedBook = "upper";
 let learningHasLoaded = false;
 let learningGuideContext = null;
 let learningExpandedTeacherIds = new Set();
+let learningSelectedRosterStudentIds = new Set();
 
 function escapeLearningText(value) {
   return String(value ?? "")
@@ -665,11 +668,18 @@ function renderStageScoreCell(score = {}, student = {}, stage) {
   `;
 }
 
-function renderLearningScoreHead() {
+function renderLearningScoreHead(rows = []) {
   if (!learningScoreHead) return;
+  const canWrite = Boolean(currentLearningClass()?.can_write);
+  const studentIds = rows.map((student) => String(student.student_id || "").trim()).filter(Boolean);
+  const allSelected = studentIds.length > 0 && studentIds.every((studentId) => learningSelectedRosterStudentIds.has(studentId));
+  const selectionControl = canWrite ? `
+    <input class="learning-roster-select" type="checkbox" data-learning-roster-select-all="1"
+      aria-label="全选当前辅导名单" ${allSelected ? "checked" : ""}>
+  ` : "";
   learningScoreHead.innerHTML = `
     <tr>
-      <th>姓名</th>
+      <th><span class="learning-name-head">${selectionControl}<span>姓名</span></span></th>
       <th>学习账号</th>
       <th>Unit1</th>
       <th>Unit2</th>
@@ -690,6 +700,10 @@ function renderLearningScoreHead() {
 function renderLearningScoreMatrix() {
   if (!learningScoreRows || !learningScoreEmpty) return;
   const sourceRows = currentLearningBook()?.student_rows || [];
+  const visibleStudentIds = new Set(sourceRows.map((student) => String(student.student_id || "").trim()).filter(Boolean));
+  learningSelectedRosterStudentIds = new Set(
+    [...learningSelectedRosterStudentIds].filter((studentId) => visibleStudentIds.has(studentId)),
+  );
   const rows = sourceRows.map((student, index) => ({ student, index })).sort((left, right) => {
     const leftCompleted = Boolean(learningCompletionForStudent(left.student.student_id));
     const rightCompleted = Boolean(learningCompletionForStudent(right.student.student_id));
@@ -698,12 +712,18 @@ function renderLearningScoreMatrix() {
   }).map((item) => item.student);
   const hasAnyScore = rows.some(studentHasLearningScore);
   learningScoreEmpty.classList.toggle("is-hidden", hasAnyScore);
-  renderLearningScoreHead();
+  renderLearningScoreHead(rows);
+  const canWrite = Boolean(currentLearningClass()?.can_write);
   learningScoreRows.innerHTML = rows.map((student) => {
     const completion = learningCompletionForStudent(student.student_id);
     const completionBadge = completion
       ? `<span class="learning-completion-date">&#10003; ${escapeLearningText(completion.completed_label || completion.completed_date || "")}</span>`
       : "";
+    const studentId = String(student.student_id || "").trim();
+    const selectionControl = canWrite && studentId ? `
+      <input class="learning-roster-select" type="checkbox" data-learning-roster-student="${escapeLearningText(studentId)}"
+        aria-label="选择 ${escapeLearningText(student.name || "学员")}" ${learningSelectedRosterStudentIds.has(studentId) ? "checked" : ""}>
+    ` : "";
     const firstStageCells = Array.from({ length: 3 }, (_, index) => {
       const score = (student.unit_scores || []).find((item) => Number(item.unit) === index + 1) || {};
       return `<td>${renderUnitScoreCell(score, student)}</td>`;
@@ -721,7 +741,10 @@ function renderLearningScoreMatrix() {
     return `
       <tr class="${studentHasLearningScore(student) ? "" : "is-empty-score-row"}${completion ? " is-learning-completed-row" : ""}">
         <td class="learning-sticky-name">
-          <input class="learning-student-name-input" data-learning-student-name="${escapeLearningText(student.student_id || "")}" data-original-name="${escapeLearningText(student.name || "")}" value="${escapeLearningText(student.name || "")}" aria-label="编辑学员姓名">
+          <div class="learning-student-name-line">
+            ${selectionControl}
+            <input class="learning-student-name-input" data-learning-student-name="${escapeLearningText(student.student_id || "")}" data-original-name="${escapeLearningText(student.name || "")}" value="${escapeLearningText(student.name || "")}" aria-label="编辑学员姓名">
+          </div>
           ${completionBadge}
         </td>
         <td>${escapeLearningText(student.account || "-")}</td>
@@ -734,6 +757,7 @@ function renderLearningScoreMatrix() {
       </tr>
     `;
   }).join("");
+  syncLearningRemoveRosterButton(rows);
 }
 
 function findLearningStudent(studentId) {
@@ -1036,6 +1060,7 @@ async function completeLearningAppointment() {
     renderLearningClassList();
     const completion = currentLearningCompletion();
     setLearningAppointmentStatus(`已完成：${completion?.completed_label || completion?.completed_date || ""}`);
+    closeLearningGuide();
   } catch (error) {
     setLearningAppointmentStatus(error.message || "完成记录失败。", true);
     learningAppointmentDone.checked = false;
@@ -1049,6 +1074,7 @@ function renderLearningDetail() {
   learningEmptyState?.classList.toggle("is-hidden", Boolean(classData));
   learningDetail?.classList.toggle("is-hidden", !classData);
   if (learningUploadButton) learningUploadButton.disabled = !classData;
+  syncLearningRemoveRosterButton();
   learningGuideUploadButton?.classList.toggle("is-hidden", !learningCoachingData.can_manage);
   if (!classData) return;
 
@@ -1074,10 +1100,37 @@ function renderLearningDetail() {
 }
 
 function selectLearningClass(classId) {
+  if (learningSelectedClassId !== classId) {
+    learningSelectedRosterStudentIds.clear();
+  }
   learningSelectedClassId = classId;
   setLearningUploadStatus("");
   renderLearningClassList();
   renderLearningDetail();
+}
+
+function syncLearningRemoveRosterButton(rows = null) {
+  if (!learningRemoveRosterButton) return;
+  const canWrite = Boolean(currentLearningClass()?.can_write);
+  const selectedCount = learningSelectedRosterStudentIds.size;
+  const showRemoveButton = canWrite && selectedCount > 0;
+  learningRemoveRosterButton.classList.toggle("is-hidden", !showRemoveButton);
+  learningRemoveRosterButton.disabled = !canWrite || selectedCount === 0;
+  learningRemoveRosterButton.title = selectedCount ? `移除所选 ${selectedCount} 名学员` : "移除所选名单";
+  learningRemoveRosterButton.setAttribute("aria-label", learningRemoveRosterButton.title);
+
+  if (!learningRosterRemoveFrom) return;
+  learningRosterRemoveFrom.classList.toggle("is-hidden", !canWrite);
+  learningRosterRemoveFrom.disabled = !canWrite;
+  const sourceRows = Array.isArray(rows) ? rows : (currentLearningBook()?.student_rows || []);
+  learningRosterRemoveFrom.innerHTML = [
+    '<option value="">从这位起批量选择</option>',
+    ...sourceRows
+      .filter((student) => String(student.student_id || "").trim())
+      .map((student) => (
+        `<option value="${escapeLearningText(student.student_id)}">${escapeLearningText(student.name || "未命名学员")} · ${escapeLearningText(student.account || "无账号")}</option>`
+      )),
+  ].join("");
 }
 
 function renderLearningCoaching() {
@@ -1113,14 +1166,52 @@ async function uploadLearningScores(file) {
     const result = data.result || {};
     const changed = Number(result.assessment_updated || 0);
     const total = Number(result.score_count || 0);
-    setLearningUploadStatus(changed
+    const rosterNote = result.roster_initialized
+      ? "已建立首次辅导名单。"
+      : (Number(result.roster_removed_count || 0) > 0
+        ? `已移除 ${Number(result.roster_removed_count || 0)} 名本次未获取到的名单。`
+        : "");
+    const scoreNote = changed
       ? `已更新 ${changed} 条检测分数。`
-      : `已读取 ${total} 条检测分数，暂无新增变化。`);
+      : `已读取 ${total} 条检测分数，暂无新增变化。`;
+    setLearningUploadStatus(`${scoreNote}${rosterNote ? ` ${rosterNote}` : ""}`);
   } catch (error) {
     setLearningUploadStatus(error.message || "上传失败，请检查表格。", true);
   } finally {
     if (learningUploadButton) learningUploadButton.disabled = false;
     if (learningFileInput) learningFileInput.value = "";
+  }
+}
+
+async function removeSelectedLearningRosterStudents() {
+  const classData = currentLearningClass();
+  const studentIds = [...learningSelectedRosterStudentIds];
+  if (!classData || !classData.can_write || !studentIds.length) return;
+  const confirmed = window.confirm(
+    `确认从“${classData.name || "当前班级"}”的学情辅导名单移除 ${studentIds.length} 名学员吗？\n\n只会移除学情辅导中的名单、分数展示和预约；不会删除“我的班级”、完课或续费数据。`,
+  );
+  if (!confirmed) return;
+
+  setLearningUploadStatus(`正在移除 ${studentIds.length} 名辅导名单...`);
+  if (learningRemoveRosterButton) learningRemoveRosterButton.disabled = true;
+  try {
+    const data = await learningApiRequest(`/api/learning-coaching/${encodeURIComponent(classData.id)}/remove-roster-students`, {
+      method: "POST",
+      body: JSON.stringify({ student_ids: studentIds }),
+    });
+    replaceLearningClassPayload(data.class);
+    learningSelectedRosterStudentIds.clear();
+    renderLearningCoaching();
+    const result = data.result || {};
+    const removedCount = Number(result.removed_count || 0);
+    const removedAppointments = Number(result.removed_appointments || 0);
+    setLearningUploadStatus(
+      `已移除 ${removedCount} 名错误名单${removedAppointments ? `，并清除 ${removedAppointments} 条对应预约` : ""}。`,
+    );
+  } catch (error) {
+    setLearningUploadStatus(error.message || "名单移除失败，请稍后重试。", true);
+  } finally {
+    syncLearningRemoveRosterButton();
   }
 }
 
@@ -1181,6 +1272,18 @@ learningUploadButton?.addEventListener("click", () => learningFileInput?.click()
 learningFileInput?.addEventListener("change", () => {
   const file = learningFileInput.files?.[0];
   if (file) uploadLearningScores(file);
+});
+learningRemoveRosterButton?.addEventListener("click", removeSelectedLearningRosterStudents);
+learningRosterRemoveFrom?.addEventListener("change", () => {
+  const startStudentId = String(learningRosterRemoveFrom.value || "").trim();
+  if (!startStudentId) return;
+  const displayedStudentIds = [...(learningScoreRows?.querySelectorAll("[data-learning-roster-student]") || [])]
+    .map((input) => String(input.dataset.learningRosterStudent || "").trim())
+    .filter(Boolean);
+  const startIndex = displayedStudentIds.indexOf(startStudentId);
+  if (startIndex < 0) return;
+  learningSelectedRosterStudentIds = new Set(displayedStudentIds.slice(startIndex));
+  renderLearningScoreMatrix();
 });
 learningGuideUploadButton?.addEventListener("click", () => learningGuideUploadInput?.click());
 learningGuideUploadInput?.addEventListener("change", () => {
@@ -1268,6 +1371,33 @@ learningScoreRows?.addEventListener("click", (event) => {
     button.dataset.stage || "",
     button.dataset.guideKind || "unit",
   );
+});
+
+learningScoreRows?.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-learning-roster-student]");
+  if (!checkbox) return;
+  const studentId = String(checkbox.dataset.learningRosterStudent || "").trim();
+  if (!studentId) return;
+  if (checkbox.checked) {
+    learningSelectedRosterStudentIds.add(studentId);
+  } else {
+    learningSelectedRosterStudentIds.delete(studentId);
+  }
+  renderLearningScoreMatrix();
+});
+
+learningScoreHead?.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-learning-roster-select-all]");
+  if (!checkbox) return;
+  const studentIds = (currentLearningBook()?.student_rows || [])
+    .map((student) => String(student.student_id || "").trim())
+    .filter(Boolean);
+  if (checkbox.checked) {
+    studentIds.forEach((studentId) => learningSelectedRosterStudentIds.add(studentId));
+  } else {
+    studentIds.forEach((studentId) => learningSelectedRosterStudentIds.delete(studentId));
+  }
+  renderLearningScoreMatrix();
 });
 
 learningScoreRows?.addEventListener("focusout", (event) => {

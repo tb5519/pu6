@@ -421,6 +421,51 @@ function canEditClosingRenewal() {
   );
 }
 
+function teacherStripeMap(rows = []) {
+  const bands = new Map();
+  rows.forEach((row) => {
+    const teacherKey = String(row?.teacher_id || row?.teacher_name || "未分配").trim() || "未分配";
+    if (!bands.has(teacherKey)) {
+      bands.set(teacherKey, `teacher-band-${bands.size % 6}`);
+    }
+  });
+  return bands;
+}
+
+function teacherStripeClass(row = {}, bands = new Map()) {
+  const teacherKey = String(row?.teacher_id || row?.teacher_name || "未分配").trim() || "未分配";
+  return bands.get(teacherKey) || "teacher-band-0";
+}
+
+function closingRenewalMonthControl(row = {}) {
+  const projectId = String(row.project_id || "").trim();
+  const value = String(row.closing_month || "").trim();
+  if (!canEditClosingRenewal() || !projectId) {
+    return escapeDatabaseText(row.closing_month_label || "-");
+  }
+  return `
+    <input
+      class="closing-renewal-month-input"
+      type="month"
+      value="${escapeDatabaseText(value)}"
+      data-closing-renewal-project="${escapeDatabaseText(projectId)}"
+      aria-label="设置${escapeDatabaseText(row.class_name || "班级")}的结营月"
+      title="管理员设置结营月；留空则不纳入结营看板"
+    >
+  `;
+}
+
+async function saveClosingRenewalMonth(projectId, monthValue) {
+  if (!canEditClosingRenewal() || !projectId) return;
+  setDatabaseMessage("正在保存结营月份...");
+  await databaseApiRequest(`/api/renewal/projects/${encodeURIComponent(projectId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ closing_month: monthValue || "" }),
+  });
+  await loadDatabaseSummary();
+  setDatabaseMessage(monthValue ? "结营月份已保存。" : "已取消设置结营月份。 ");
+}
+
 function parseDatabaseOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
@@ -855,6 +900,7 @@ function renderClosingRenewalTeacherSummary(closing = {}, selectedRows = []) {
   const monthGroups = Array.isArray(closing.month_groups) && closing.month_groups.length
     ? closing.month_groups
     : [fallbackGroup];
+  const teacherBands = teacherStripeMap(selectedRows);
 
   return monthGroups.map((group) => {
     const teacherRows = Array.isArray(group.teacher_rows) ? group.teacher_rows : [];
@@ -862,7 +908,7 @@ function renderClosingRenewalTeacherSummary(closing = {}, selectedRows = []) {
     const title = `${group.month_label || "-"}结营月数据`;
     const teacherHtml = teacherRows.length
       ? teacherRows.map((row) => `
-        <tr>
+        <tr class="${teacherStripeClass(row, teacherBands)}">
           <td class="database-strong-cell">${escapeDatabaseText(row.teacher_name || "-")}</td>
           <td>${formatDatabaseNumber(row.student_count)}</td>
           <td>${formatDatabaseNumber(row.enrolled_count)}</td>
@@ -901,6 +947,7 @@ function renderClosingRenewalDashboard(rows = []) {
       || String(first.teacher_name || "").localeCompare(String(second.teacher_name || ""), "zh-CN")
       || String(first.class_name || "").localeCompare(String(second.class_name || ""), "zh-CN")
     ));
+  const teacherBands = teacherStripeMap(selectedRows);
 
   if (databaseClosingRenewalMonthLabel) databaseClosingRenewalMonthLabel.textContent = closing.month_label || currentDatabaseData?.month || "-";
   if (databaseClosingRenewalClassCount) databaseClosingRenewalClassCount.textContent = formatDatabaseNumber(closing.class_count ?? selectedRows.length);
@@ -914,7 +961,7 @@ function renderClosingRenewalDashboard(rows = []) {
 
   databaseClosingRenewalRows.innerHTML = selectedRows.length
     ? `${selectedRows.map((row) => `
-      <tr>
+      <tr class="${teacherStripeClass(row, teacherBands)}">
         <td>${escapeDatabaseText(row.closing_month_label || "-")}</td>
         <td>${escapeDatabaseText(row.term_label || "-")}</td>
         <td>${escapeDatabaseText(row.class_name || "-")}</td>
@@ -950,36 +997,29 @@ function renderClosingRenewalDashboard(rows = []) {
         <td>${formatDatabaseNumber(closing.month_new_count)}</td>
       </tr>
     `
-    : `<tr><td colspan="9" class="database-empty-cell">当前范围暂无按 W54 推算到结营月的续费班级。</td></tr>`;
+    : `<tr><td colspan="9" class="database-empty-cell">当前范围暂无已设置结营月的续费班级。</td></tr>`;
 
 }
 
 function renderRenewalRateRows(rows = [], groupRows = null) {
   if (!databaseRenewalRateRows) return;
   syncClosingRenewalState(rows);
-  const displayRows = Array.isArray(groupRows) && groupRows.length ? groupRows : rows;
-  if (!displayRows.length) {
+  if (!rows.length) {
     databaseRenewalRateRows.innerHTML = `<tr><td colspan="9" class="database-empty-cell">暂无进入续费期的班级。</td></tr>`;
     renderClosingRenewalDashboard([]);
     return;
   }
+  const teacherBands = teacherStripeMap(rows);
 
-  databaseRenewalRateRows.innerHTML = displayRows
+  databaseRenewalRateRows.innerHTML = rows
     .map((row) => {
       const gapCount = row.gap_count;
       const gapClass = Number(gapCount || 0) <= 0 ? "is-positive" : "is-negative";
-      const classNames = Array.isArray(row.class_names) && row.class_names.length
-        ? row.class_names
-        : String(row.class_name_summary || row.class_name || "-").split("、").filter(Boolean);
-      const classTitle = classNames.join("、") || "-";
-      const classHtml = classNames
-        .map((className) => `<span>${escapeDatabaseText(className)}</span>`)
-        .join("");
       return `
-        <tr>
-          <td>${escapeDatabaseText(row.closing_month_label || "-")}</td>
+        <tr class="${teacherStripeClass(row, teacherBands)}">
+          <td>${closingRenewalMonthControl(row)}</td>
           <td class="database-strong-cell">${escapeDatabaseText(row.teacher_name || "-")}</td>
-          <td title="${escapeDatabaseText(classTitle)}"><div class="renewal-rate-class-list">${classHtml}</div></td>
+          <td><div class="renewal-rate-class-list"><span>${escapeDatabaseText(row.class_name || "-")}</span></div></td>
           <td>${escapeDatabaseText(row.week_label || (row.week_number ? `W${row.week_number}` : "-"))}</td>
           <td>${escapeDatabaseText(row.stage || "-")}</td>
           <td>${formatDatabaseNumber(row.student_count)}</td>
@@ -1026,10 +1066,23 @@ function renderLearningEditor(data = currentDatabaseData) {
 
   databaseLearningClassRows.innerHTML = classes.length
     ? classes.map((item) => `
-      <tr>
+      <tr data-learning-class-row="${escapeDatabaseText(item.class_id)}">
         <td>${escapeDatabaseText(item.teacher_name)}</td>
         <td class="database-strong-cell">${escapeDatabaseText(item.class_name)}</td>
-        <td>${databaseCount(item, "student_count")}</td>
+        <td>
+          <input
+            class="database-student-count-input${item.can_edit ? "" : " is-readonly"}"
+            type="number"
+            min="0"
+            step="1"
+            value="${databaseCount(item, "student_count")}"
+            data-learning-student-count
+            data-class-id="${escapeDatabaseText(item.class_id)}"
+            data-source-student-count="${databaseCount(item, "source_student_count")}"
+            title="可按实际带班人数调整；清空后恢复系统同步人数"
+            ${item.can_edit ? "" : "disabled"}
+          >
+        </td>
         <td>
           <input
             class="database-coefficient-input${item.can_edit ? "" : " is-readonly"}"
@@ -1069,6 +1122,9 @@ function renderLearningEditor(data = currentDatabaseData) {
   databaseLearningClassRows.querySelectorAll("[data-learning-coefficient]").forEach((input) => {
     input.addEventListener("input", recalculateLearningEditor);
   });
+  databaseLearningClassRows.querySelectorAll("[data-learning-student-count]").forEach((input) => {
+    input.addEventListener("input", recalculateLearningEditor);
+  });
   databaseLearningTargetRows.querySelectorAll("[data-learning-target-rate]").forEach((select) => {
     select.addEventListener("change", recalculateLearningEditor);
   });
@@ -1078,7 +1134,14 @@ function renderLearningEditor(data = currentDatabaseData) {
 function recalculateLearningEditor() {
   const baseByTeacher = {};
   databaseLearningClassRows?.querySelectorAll("[data-learning-coefficient]").forEach((input) => {
-    const studentCount = Number(input.dataset.studentCount || 0);
+    const classId = input.dataset.classId || "";
+    const studentCountInput = databaseLearningClassRows.querySelector(
+      `[data-learning-student-count][data-class-id="${escapeDatabaseSelector(classId)}"]`
+    );
+    const rawStudentCount = String(studentCountInput?.value ?? "").trim();
+    const studentCount = rawStudentCount === ""
+      ? Number(studentCountInput?.dataset.sourceStudentCount || 0)
+      : Math.max(0, Number(rawStudentCount || 0));
     const coefficient = Math.max(0, Number(input.value || 0));
     const base = studentCount * (Number.isNaN(coefficient) ? 0 : coefficient);
     baseByTeacher[input.dataset.teacherId] = (baseByTeacher[input.dataset.teacherId] || 0) + base;
@@ -1177,10 +1240,17 @@ async function uploadCompletionLastMonth(file) {
 
 async function saveLearningSettings() {
   if (!databaseLearningSaveButton) return;
-  const classes = Array.from(document.querySelectorAll("[data-learning-coefficient]:not(:disabled)")).map((input) => ({
-    class_id: input.dataset.classId,
-    coefficient: Number(input.value || 0),
-  }));
+  const classes = Array.from(document.querySelectorAll("[data-learning-coefficient]:not(:disabled)")).map((input) => {
+    const classId = input.dataset.classId || "";
+    const studentCountInput = databaseLearningClassRows?.querySelector(
+      `[data-learning-student-count][data-class-id="${escapeDatabaseSelector(classId)}"]`
+    );
+    return {
+      class_id: classId,
+      coefficient: Number(input.value || 0),
+      student_count: String(studentCountInput?.value ?? "").trim(),
+    };
+  });
   const teachers = Array.from(document.querySelectorAll("[data-learning-target-rate]:not(:disabled)")).map((select) => ({
     teacher_id: select.dataset.teacherId,
     target_rate: Number(select.value || 0.26),
@@ -1798,6 +1868,14 @@ function initDatabase() {
   });
   databaseClosingRenewalRows?.addEventListener("keydown", (event) => {
     activateClosingRenewalCountEdit(event);
+  });
+  databaseRenewalRateRows?.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-closing-renewal-project]");
+    if (!input) return;
+    saveClosingRenewalMonth(
+      input.dataset.closingRenewalProject || "",
+      input.value || ""
+    ).catch((error) => setDatabaseMessage(error.message, true));
   });
   databasePeriodHead?.addEventListener("click", (event) => {
     if (event.target.closest("button")) return;

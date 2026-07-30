@@ -325,7 +325,7 @@ def public_learning_appointments(appointments, class_items):
         if not target_class:
             continue
         student = find_student_by_id(target_class, item["student_id"])
-        if not student:
+        if not student or student.get("learning_coaching_hidden"):
             continue
         payload = {
             **item,
@@ -378,7 +378,8 @@ def appointment_request_context(payload):
     if not can_write_learning_class(target_class):
         return None, None, {"error": "只能维护自己班级的辅导预约。", "status": 403}
     student_id = str(payload.get("student_id") or "").strip()
-    if not find_student_by_id(target_class, student_id):
+    student = find_student_by_id(target_class, student_id)
+    if not student or student.get("learning_coaching_hidden"):
         return None, None, {"error": "学员不存在。", "status": 404}
     book = str(payload.get("book") or "upper").strip()
     if book not in LEARNING_BOOKS:
@@ -561,6 +562,115 @@ def can_write_learning_class(item):
     return item.get("owner") == g.user["username"] or can_manage_accounts()
 
 
+def learning_roster_students(target_class):
+    return [
+        student
+        for student in target_class.get("students", [])
+        if not student.get("learning_coaching_hidden")
+    ]
+
+
+def learning_roster_accounts(target_class):
+    roster = target_class.get("learning_coaching_roster")
+    source = roster.get("accounts") if isinstance(roster, dict) else None
+    if not isinstance(source, list):
+        return []
+    accounts = []
+    seen = set()
+    for account in source:
+        normalized = normalize_identity(account)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            accounts.append(normalized)
+    return accounts
+
+
+def imported_learning_roster_accounts(imported_students):
+    accounts = []
+    seen = set()
+    for imported in imported_students:
+        normalized = normalize_identity(imported.get("account"))
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            accounts.append(normalized)
+    return accounts
+
+
+def learning_roster_display_names(imported_students, account_keys):
+    wanted = set(account_keys)
+    labels = []
+    for imported in imported_students:
+        account = normalize_identity(imported.get("account"))
+        if account not in wanted:
+            continue
+        name = str(imported.get("name") or "").strip()
+        raw_account = str(imported.get("account") or "").strip()
+        labels.append(f"{name or '未命名学员'}（{raw_account or account}）")
+        if len(labels) >= 5:
+            break
+    return labels
+
+
+def prepare_learning_roster(target_class, imported_students, updated_at):
+    incoming_accounts = imported_learning_roster_accounts(imported_students)
+    if not incoming_accounts:
+        return {
+            "error": "没有识别到学习账号，无法建立辅导名单。",
+            "status": 400,
+        }
+
+    existing_accounts = learning_roster_accounts(target_class)
+    incoming_set = set(incoming_accounts)
+    existing_set = set(existing_accounts)
+    is_initial = not existing_accounts
+
+    if existing_accounts:
+        extra_accounts = incoming_set - existing_set
+        if extra_accounts:
+            labels = learning_roster_display_names(imported_students, extra_accounts)
+            preview = "、".join(labels) or "未知账号"
+            suffix = "等" if len(extra_accounts) > len(labels) else ""
+            return {
+                "error": f"本次表格发现 {len(extra_accounts)} 个不在首次辅导名单中的账号：{preview}{suffix}。请确认班级后再上传。",
+                "status": 400,
+            }
+
+    active_accounts = incoming_accounts if is_initial else [
+        account for account in existing_accounts if account in incoming_set
+    ]
+    active_set = set(active_accounts)
+    removed_accounts = existing_set - active_set if existing_accounts else set()
+    hidden_student_ids = set()
+
+    for student in target_class.get("students", []):
+        account = normalize_identity(get_student_account(student))
+        if not account:
+            continue
+        if account in active_set:
+            continue
+        student["learning_coaching_hidden"] = True
+        student["updated_at"] = updated_at
+        student_id = str(student.get("id") or "").strip()
+        if student_id:
+            hidden_student_ids.add(student_id)
+
+    target_class["learning_coaching_roster"] = {
+        "accounts": active_accounts,
+        "initialized_at": (
+            target_class.get("learning_coaching_roster", {}).get("initialized_at")
+            if isinstance(target_class.get("learning_coaching_roster"), dict)
+            else ""
+        ) or updated_at,
+        "updated_at": updated_at,
+    }
+    return {
+        "accounts": active_set,
+        "is_initial": is_initial,
+        "removed_accounts": removed_accounts,
+        "hidden_student_ids": hidden_student_ids,
+    }
+
+
 def score_category(score):
     try:
         value = float(score)
@@ -627,7 +737,7 @@ def latest_assessment(student, book, assessment_type, unit=None, stage=None):
 
 def assessment_students(target_class, book, assessment_type, unit=None, stage=None):
     rows = []
-    for student in target_class.get("students", []):
+    for student in learning_roster_students(target_class):
         assessment = latest_assessment(student, book, assessment_type, unit, stage)
         if not assessment:
             continue
@@ -657,7 +767,7 @@ def assessment_summary(target_class, book, assessment_type, unit=None, stage=Non
     average_score = round(sum(scores) / len(scores), 2) if scores else None
     return {
         "count": len(rows),
-        "student_total": len(target_class.get("students", [])),
+        "student_total": len(learning_roster_students(target_class)),
         "average_score": average_score,
         "counts": counts,
         "students": rows,
@@ -689,7 +799,7 @@ def stage_payload(target_class, book, stage):
 
 def unit_score_matrix_rows(target_class, book):
     rows = []
-    for student in target_class.get("students", []):
+    for student in learning_roster_students(target_class):
         unit_scores = []
         scored_count = 0
         score_values = []
@@ -774,7 +884,8 @@ def class_learning_payload(item, rounds=None):
         "teacher_id": teacher_id,
         "teacher_name": teacher_label(teacher_id),
         "owner": item.get("owner", ""),
-        "student_count": len(item.get("students", [])),
+        "student_count": len(learning_roster_students(item)),
+        "can_write": can_write_learning_class(item),
         "title_week_number": week_number,
         "title_week_label": f"W{week_number}" if week_number else "",
         "in_coaching_cycle": cycle["status"] == "active",
@@ -790,6 +901,76 @@ def find_learning_student(target_class, imported):
         if account_key and normalize_identity(get_student_account(student)) == account_key:
             return student
     return None
+
+
+def merge_learning_upload(target_class, imported_students, month_key, updated_at, roster_accounts=None):
+    students = target_class.setdefault("students", [])
+    created = 0
+    updated = 0
+    score_updated = 0
+    score_count = 0
+    skipped = 0
+    allowed_accounts = set(roster_accounts or [])
+    for imported in imported_students:
+        account = str(imported.get("account") or "").strip()
+        account_key = normalize_identity(account)
+        assessments = imported.get("assessments", [])
+        if not account_key:
+            skipped += 1
+            continue
+        if allowed_accounts and account_key not in allowed_accounts:
+            skipped += 1
+            continue
+
+        student = find_learning_student(target_class, imported)
+        if student is None:
+            student = {
+                "id": imported.get("id") or uuid.uuid4().hex,
+                "name": str(imported.get("name") or "").strip(),
+                "account": account,
+                "months": {},
+                "created_at": updated_at,
+            }
+            students.append(student)
+            created += 1
+        else:
+            updated += 1
+
+        if not student.get("name_locked") and not str(student.get("name") or "").strip():
+            student["name"] = str(imported.get("name") or student.get("name") or "").strip()
+        student["account"] = account or str(student.get("account") or "").strip()
+        student["updated_at"] = updated_at
+        if assessments:
+            score_count += len(assessments)
+            score_updated += merge_learning_assessments(student, assessments, month_key, updated_at)
+
+    return {
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "score_count": score_count,
+        "assessment_updated": score_updated,
+    }
+
+
+def remove_learning_appointments_for_students(class_id, student_ids):
+    safe_ids = {str(student_id or "").strip() for student_id in student_ids if str(student_id or "").strip()}
+    if not safe_ids:
+        return 0
+    settings, appointments, _ = load_learning_appointments()
+    retained = {
+        key: item
+        for key, item in appointments.items()
+        if not (
+            str(item.get("class_id") or "").strip() == str(class_id or "").strip()
+            and str(item.get("student_id") or "").strip() in safe_ids
+        )
+    }
+    removed = len(appointments) - len(retained)
+    if removed:
+        settings.setdefault("learning_coaching", {})["appointments"] = retained
+        save_database_settings(settings)
+    return removed
 
 
 def learning_date_label(value):
@@ -1204,56 +1385,72 @@ def upload_learning_scores(class_id):
 
     updated_at = now_iso()
     month_key = completion_period.get("month") or current_month_key()
-    created = 0
-    updated = 0
-    score_updated = 0
-    score_count = 0
-    skipped = 0
-    students = target_class.setdefault("students", [])
+    roster = prepare_learning_roster(target_class, imported_students, updated_at)
+    if roster.get("error"):
+        return jsonify({"error": roster["error"]}), roster.get("status", 400)
 
-    for imported in imported_students:
-        assessments = imported.get("assessments", [])
-        if not assessments:
-            skipped += 1
-            continue
-        if not normalize_identity(imported.get("account")):
-            skipped += 1
-            continue
-        score_count += len(assessments)
-        student = find_learning_student(target_class, imported)
-        if student is None:
-            student = {
-                "id": imported.get("id") or "",
-                "name": str(imported.get("name") or "").strip(),
-                "account": str(imported.get("account") or "").strip(),
-                "months": {},
-                "created_at": updated_at,
-            }
-            if not student["id"]:
-                student["id"] = uuid.uuid4().hex
-            students.append(student)
-            created += 1
-        else:
-            updated += 1
-
-        if not student.get("name_locked") and not str(student.get("name") or "").strip():
-            student["name"] = str(imported.get("name") or student.get("name") or "").strip()
-        student["account"] = str(imported.get("account") or student.get("account") or "").strip()
-        student["updated_at"] = updated_at
-        score_updated += merge_learning_assessments(student, assessments, month_key, updated_at)
-
-    if score_count <= 0:
+    result = merge_learning_upload(
+        target_class,
+        imported_students,
+        month_key,
+        updated_at,
+        roster_accounts=roster["accounts"],
+    )
+    if result["score_count"] <= 0:
         return jsonify({"error": "没有识别到可更新的检测分数，请确认表头包含类似 PU1 Unit1 单元检测、PU1 Unit1-3 阶段测评。"}), 400
+
+    removed_appointments = remove_learning_appointments_for_students(class_id, roster["hidden_student_ids"])
+    result["roster_initialized"] = roster["is_initial"]
+    result["roster_removed_count"] = len(roster["hidden_student_ids"])
+    result["removed_appointments"] = removed_appointments
 
     target_class["updated_at"] = updated_at
     save_store(store)
     return jsonify({
+        "result": result,
+        "class": class_learning_payload(target_class, public_learning_rounds()),
+    })
+
+@learning_coaching_bp.post("/<class_id>/remove-roster-students")
+@login_required
+def remove_learning_roster_students(class_id):
+    payload = request.get_json(silent=True) or {}
+    requested_ids = {
+        str(student_id or "").strip()
+        for student_id in (payload.get("student_ids") or [])
+        if str(student_id or "").strip()
+    }
+    if not requested_ids:
+        return jsonify({"error": "请先勾选需要移除的学员。"}), 400
+
+    store = load_store()
+    target_class = find_class_by_id(store, class_id)
+    if target_class is None or not can_read_class(target_class):
+        return jsonify({"error": "班级不存在。"}), 404
+    if not can_write_learning_class(target_class):
+        return jsonify({"error": "只能维护自己班级的辅导名单。"}), 403
+
+    visible_ids = {
+        str(student.get("id") or "").strip()
+        for student in learning_roster_students(target_class)
+        if str(student.get("id") or "").strip()
+    }
+    target_ids = requested_ids & visible_ids
+    if not target_ids:
+        return jsonify({"error": "所选学员已不在当前辅导名单中。"}), 400
+
+    for student in target_class.get("students", []):
+        if str(student.get("id") or "").strip() in target_ids:
+            student["learning_coaching_hidden"] = True
+            student["updated_at"] = now_iso()
+
+    removed_appointments = remove_learning_appointments_for_students(class_id, target_ids)
+    target_class["updated_at"] = now_iso()
+    save_store(store)
+    return jsonify({
         "result": {
-            "created": created,
-            "updated": updated,
-            "skipped": skipped,
-            "score_count": score_count,
-            "assessment_updated": score_updated,
+            "removed_count": len(target_ids),
+            "removed_appointments": removed_appointments,
         },
         "class": class_learning_payload(target_class, public_learning_rounds()),
     })

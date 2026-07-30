@@ -4096,9 +4096,17 @@ async function uploadStudents(file) {
     generateCompletionImage();
   } else {
     const summary = uploadWeekSummary(data.result || {});
+    const rosterNote = data.result?.roster_initialized
+      ? "已建立首次完课名单基准。"
+      : (Number(data.result?.roster_removed_count || 0) > 0
+        ? `已按本次表格移除 ${Number(data.result.roster_removed_count)} 名缺少账号的学员。`
+        : "");
     setDetailMessage(
       `已同步到${summary}：新增 ${data.result.created} 人，更新 ${data.result.updated} 人，移除 ${data.result.removed} 人。图片数据周已切到${weekLabel(uploadWeek)}。`
     );
+    if (rosterNote && classDetailMessage) {
+      setDetailMessage(`${classDetailMessage.textContent} ${rosterNote}`);
+    }
   }
 }
 

@@ -4,15 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260729-track-image-upload') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260730-renewal-intent-teacher-bands') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260729-track-image-upload') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260728-completion-image-auto-week') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260730-completion-roster-baseline') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260716-todo-targets') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260727-learning-progress-name') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260728-renewal-editable-counts') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260728-renewal-dynamic-weeks') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260730-learning-complete-close') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/database.js', v='20260730-learning-student-count-edit') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260730-renewal-intent-teacher-bands') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
     {% endif %}
@@ -806,6 +806,10 @@
                   <div class="learning-detail-actions">
                     <div id="lc-classBadges" class="learning-class-badges"></div>
                     <button id="lc-uploadButton" class="primary-button compact-button" type="button">上传测试数据</button>
+                    <select id="lc-rosterRemoveFrom" class="learning-roster-remove-from is-hidden" aria-label="从这位学员起批量选择">
+                      <option value="">从这位起批量选择</option>
+                    </select>
+                    <button id="lc-removeRosterButton" class="learning-roster-remove-button is-hidden" type="button" disabled aria-label="移除所选名单" title="移除所选名单">×</button>
                     <button id="lc-guideUploadButton" class="ghost-button compact-button is-hidden" type="button">上传辅导资料</button>
                     <input id="lc-fileInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
                     <input id="lc-guideUploadInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
@@ -1193,7 +1197,7 @@
               <button class="back-button" type="button" data-db-topic="home">返回数据库首页</button>
               <div>
                 <h2>学情专区</h2>
-                <span class="tool-status">带班人数来自完课班级，目标按学情基数计算</span>
+                <span class="tool-status">带班人数可按实际情况修正，目标按学情基数计算</span>
               </div>
               <button id="db-learningEditButton" class="primary-button compact-button" type="button">编辑学情设置</button>
             </div>
@@ -1201,7 +1205,7 @@
               <div class="database-learning-editor-head">
                 <div>
                   <h3>学情基数设置</h3>
-                  <p>按班级填写学情系数，系统会用班级人数 × 系数计算班级学情基数。</p>
+                  <p>可按实际情况修正班级人数，再填写学情系数；系统会用班级人数 × 系数计算学情基数。</p>
                 </div>
                 <div class="database-learning-actions">
                   <button id="db-learningCancelButton" class="ghost-button" type="button">取消</button>
@@ -1275,7 +1279,7 @@
               <div class="panel-title-row">
                 <div>
                   <h3>续费率数据</h3>
-                  <span class="tool-status">来自续费项目跟进；续报首月及以后的班级会进入这里，结营月按 W54 自动判断</span>
+                  <span class="tool-status">来自续费项目跟进；续报首月及以后的班级会进入这里，结营月由管理员逐班设置</span>
                 </div>
               </div>
               <div class="database-table-wrap compact">
@@ -1301,7 +1305,7 @@
               <div class="panel-title-row">
                 <div>
                   <h3>结营班级续费率看板</h3>
-                  <span class="tool-status">按 W54 自动汇总结营月；已续费人数和本月新增可由管理员修正</span>
+                  <span class="tool-status">按管理员设置的结营月汇总；已续费人数和本月新增可由管理员修正</span>
                 </div>
                 <div id="db-closingRenewalRangeControls" class="closing-renewal-range-controls" aria-label="结营月范围"></div>
               </div>

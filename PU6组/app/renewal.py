@@ -123,6 +123,17 @@ def parse_period_date(value):
     return text
 
 
+def normalize_closing_month(value):
+    """Return a valid manual closing month, or an empty value when unset."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        return datetime.strptime(text, "%Y-%m").strftime("%Y-%m")
+    except ValueError:
+        return ""
+
+
 def current_period_start_key(reference_date=None):
     report_date = str(reference_date or today_key())[:10]
     store = load_monthly_archive_store()
@@ -1621,10 +1632,12 @@ def serialize_project(project, classes_by_id):
         "student_count": locked_count,
         "source_student_count": source_count,
         "student_count_note": str(project.get("student_count_note") or "").strip(),
+        "closing_month": normalize_closing_month(project.get("closing_month")),
         "completion_activity": False,
         "stage": normalize_stage(project.get("stage")),
         "note": str(project.get("note") or "").strip(),
         "can_edit": can_edit_project(project),
+        "can_manage_closing_month": can_manage_accounts(),
         "created_at": project.get("created_at", ""),
         "updated_at": project.get("updated_at", ""),
     }
@@ -1908,6 +1921,7 @@ def create_project():
         "student_snapshot": source_class_student_snapshots(source_class),
         "student_followups": {},
         "note": "",
+        "closing_month": "",
         "created_by": current_owner(),
         "created_at": now_iso(),
         "updated_at": now_iso(),
@@ -1947,6 +1961,14 @@ def update_project(project_id):
             return jsonify({"error": "只有管理员可以设置续费目标。"}), 403
         if normalize_stage(project.get("stage")) != RENEWAL_STAGES[0]:
             set_project_month_target(project, payload.get("target_count"))
+    if "closing_month" in payload:
+        if not can_manage_accounts():
+            return jsonify({"error": "只有管理员可以设置结营月份。"}), 403
+        raw_closing_month = str(payload.get("closing_month") or "").strip()
+        closing_month = normalize_closing_month(raw_closing_month)
+        if raw_closing_month and not closing_month:
+            return jsonify({"error": "结营月份格式不正确，请选择月份。"}), 400
+        project["closing_month"] = closing_month
     project["updated_at"] = now_iso()
     save_store(store)
     return jsonify(build_payload())

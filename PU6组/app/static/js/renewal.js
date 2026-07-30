@@ -924,6 +924,17 @@ function renewalIntentTeacherKey(project) {
   return project?.teacher_id || project?.teacher_name || "-";
 }
 
+function renewalIntentTeacherBands(projects = []) {
+  const bands = new Map();
+  projects.forEach((project) => {
+    const teacherKey = renewalIntentTeacherKey(project);
+    if (!bands.has(teacherKey)) {
+      bands.set(teacherKey, `renewal-intent-teacher-band-${bands.size % 6}`);
+    }
+  });
+  return bands;
+}
+
 function renewalIntentOverviewCell(value, tone = "", muted = false) {
   const displayValue = value === null || value === undefined || value === "" ? "-" : value;
   return `<td class="renewal-intent-count-cell ${tone ? `is-${escapeRenewalText(tone)}` : ""}${muted ? " is-muted-value" : ""}">${escapeRenewalText(displayValue)}</td>`;
@@ -946,6 +957,7 @@ function renderRenewalIntentOverview(projects = []) {
 
   const teacherCount = new Set(overviewProjects.map(renewalIntentTeacherKey)).size;
   const titleSuffix = `${teacherCount} 位老师 · ${overviewProjects.length} 个续费班级`;
+  const teacherBands = renewalIntentTeacherBands(overviewProjects);
   let previousTeacherKey = "";
   const rowsHtml = overviewProjects.map((project) => {
     const teacherKey = renewalIntentTeacherKey(project);
@@ -954,7 +966,7 @@ function renderRenewalIntentOverview(projects = []) {
     const summary = renewalIntentSummary(project);
     const isPrepStage = project.stage === RENEWAL_PREP_STAGE;
     return `
-      <tr class="${isGroupStart ? "is-group-start" : ""}">
+      <tr class="${isGroupStart ? "is-group-start " : ""}${teacherBands.get(teacherKey) || "renewal-intent-teacher-band-0"}">
         <td class="renewal-intent-teacher-cell">${escapeRenewalText(project.teacher_name || "-")}</td>
         <td>${escapeRenewalText(project.class_name || "-")}</td>
         <td>${escapeRenewalText(project.stage || "-")}</td>

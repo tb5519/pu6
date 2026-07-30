@@ -7244,6 +7244,54 @@ input {
   border-top: 2px solid #e4d8fa;
 }
 
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-0 > td {
+  background: #eef7ff;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-1 > td {
+  background: #edf9f1;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-2 > td {
+  background: #fff8e5;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-3 > td {
+  background: #fff1f2;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-4 > td {
+  background: #eefaf8;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-5 > td {
+  background: #f5f2ff;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-0 > td:first-child {
+  border-left: 5px solid #378bd8;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-1 > td:first-child {
+  border-left: 5px solid #2b9a63;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-2 > td:first-child {
+  border-left: 5px solid #c88b06;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-3 > td:first-child {
+  border-left: 5px solid #d25463;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-4 > td:first-child {
+  border-left: 5px solid #158b80;
+}
+
+.renewal-intent-overview-table tbody tr.renewal-intent-teacher-band-5 > td:first-child {
+  border-left: 5px solid #7351bf;
+}
+
 .renewal-intent-teacher-cell {
   color: #24184f;
   font-weight: 950;
@@ -9324,6 +9372,99 @@ input {
   word-break: break-all;
 }
 
+.renewal-rate-table tbody tr.teacher-band-0 > td,
+.closing-renewal-table tbody tr.teacher-band-0 > td {
+  background: #eef7ff;
+}
+
+.renewal-rate-table tbody tr.teacher-band-1 > td,
+.closing-renewal-table tbody tr.teacher-band-1 > td {
+  background: #edf9f1;
+}
+
+.renewal-rate-table tbody tr.teacher-band-2 > td,
+.closing-renewal-table tbody tr.teacher-band-2 > td {
+  background: #fff8e5;
+}
+
+.renewal-rate-table tbody tr.teacher-band-3 > td,
+.closing-renewal-table tbody tr.teacher-band-3 > td {
+  background: #fff1f2;
+}
+
+.renewal-rate-table tbody tr.teacher-band-4 > td,
+.closing-renewal-table tbody tr.teacher-band-4 > td {
+  background: #eefaf8;
+}
+
+.renewal-rate-table tbody tr.teacher-band-5 > td,
+.closing-renewal-table tbody tr.teacher-band-5 > td {
+  background: #f5f2ff;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-0 > td {
+  background: #dcedff;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-1 > td {
+  background: #daf4e4;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-2 > td {
+  background: #fff0bd;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-3 > td {
+  background: #ffe0e3;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-4 > td {
+  background: #d8f2ed;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-5 > td {
+  background: #e9e1ff;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-0 > td:first-child {
+  border-left: 5px solid #378bd8;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-1 > td:first-child {
+  border-left: 5px solid #2b9a63;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-2 > td:first-child {
+  border-left: 5px solid #c88b06;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-3 > td:first-child {
+  border-left: 5px solid #d25463;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-4 > td:first-child {
+  border-left: 5px solid #158b80;
+}
+
+.closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-5 > td:first-child {
+  border-left: 5px solid #7351bf;
+}
+
+.renewal-rate-table tbody tr.teacher-band-0 > td.database-percent-cell,
+.renewal-rate-table tbody tr.teacher-band-1 > td.database-percent-cell,
+.renewal-rate-table tbody tr.teacher-band-2 > td.database-percent-cell,
+.renewal-rate-table tbody tr.teacher-band-3 > td.database-percent-cell,
+.renewal-rate-table tbody tr.teacher-band-4 > td.database-percent-cell,
+.renewal-rate-table tbody tr.teacher-band-5 > td.database-percent-cell,
+.closing-renewal-table tbody tr.teacher-band-0 > td.database-percent-cell,
+.closing-renewal-table tbody tr.teacher-band-1 > td.database-percent-cell,
+.closing-renewal-table tbody tr.teacher-band-2 > td.database-percent-cell,
+.closing-renewal-table tbody tr.teacher-band-3 > td.database-percent-cell,
+.closing-renewal-table tbody tr.teacher-band-4 > td.database-percent-cell,
+.closing-renewal-table tbody tr.teacher-band-5 > td.database-percent-cell {
+  background: inherit;
+}
+
 .closing-renewal-month-row td {
   color: #087443 !important;
   background: #dff5eb !important;
@@ -9377,6 +9518,25 @@ input {
   font-size: 12px;
   font-weight: 950;
   text-align: center;
+}
+
+.closing-renewal-month-input {
+  width: 112px;
+  min-height: 30px;
+  padding: 2px 5px;
+  border: 1px solid #c8ece5;
+  border-radius: 6px;
+  color: #17392f;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.closing-renewal-month-input:focus-visible {
+  outline: 2px solid #8ed7b4;
+  outline-offset: 1px;
 }
 
 .closing-renewal-count-editor.is-overridden,
@@ -9851,6 +10011,30 @@ input {
 
 .learning-settings-table {
   min-width: 780px;
+}
+
+.database-student-count-input {
+  width: 72px;
+  min-height: 30px;
+  border: 1px solid #d9d0ee;
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: #24184f;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.database-student-count-input:focus-visible {
+  outline: 2px solid #8e72eb;
+  outline-offset: 1px;
+}
+
+.database-student-count-input.is-readonly {
+  color: #8d85a4;
+  background: #f7f5fb;
 }
 
 .learning-target-table {
@@ -11756,7 +11940,66 @@ input {
   background: #fbfbfd;
 }
 
-.learning-student-name-line,
+.learning-student-name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.learning-name-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.learning-roster-select {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: #d1393b;
+  cursor: pointer;
+}
+
+.learning-roster-remove-from {
+  width: min(220px, 26vw);
+  min-width: 154px;
+  height: 34px;
+  border: 1px solid #e4c7c9;
+  border-radius: 6px;
+  padding: 0 28px 0 9px;
+  color: #67252b;
+  background: #fffafa;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.learning-roster-remove-button {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid #eadde0;
+  border-radius: 6px;
+  padding: 0;
+  color: #9a4b52;
+  background: #fff;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.learning-roster-remove-button:hover,
+.learning-roster-remove-button:focus-visible {
+  border-color: #d36a70;
+  color: #a52129;
+  background: #fff4f4;
+  outline: none;
+}
+
 .learning-completion-date {
   display: block;
 }
