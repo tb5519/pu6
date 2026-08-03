@@ -4,15 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260730-renewal-intent-teacher-bands') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260803-renewal-month-groups') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260729-track-image-upload') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260730-completion-roster-baseline') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260803-database-period-source') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260716-todo-targets') }}" defer></script>
     <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260730-learning-complete-close') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260730-learning-student-count-edit') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260730-renewal-intent-teacher-bands') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/database.js', v='20260803-renewal-month-groups') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260803-followup-history') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
     {% endif %}
@@ -501,13 +501,6 @@
                   <button id="cc-uploadButton" type="button">上传 Excel/CSV</button>
                   <button id="cc-clearWeekButton" class="danger-button" type="button">清空所选周</button>
                   <button id="cc-clearMonthButton" class="danger-button" type="button">清空本月数据</button>
-                  <label class="completion-period-controls" aria-label="完课绩效周期">
-                    <span>绩效周期</span>
-                    <input id="cc-periodStart" type="date">
-                    <em>至</em>
-                    <input id="cc-periodEnd" type="date">
-                  </label>
-                  <button id="cc-periodSave" class="period-save-button" type="button">保存周期</button>
                   <input id="cc-fileInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
                 </div>
               </header>

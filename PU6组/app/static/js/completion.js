@@ -38,9 +38,6 @@ const activityParticipants = document.querySelector("#cc-activityParticipants");
 const activityArchive = document.querySelector("#cc-activityArchive");
 const classNameInput = document.querySelector("#cc-className");
 const classWeekSelect = document.querySelector("#cc-weekSelect");
-const classPeriodStartInput = document.querySelector("#cc-periodStart");
-const classPeriodEndInput = document.querySelector("#cc-periodEnd");
-const classPeriodSaveButton = document.querySelector("#cc-periodSave");
 const classUploadButton = document.querySelector("#cc-uploadButton");
 const classClearWeekButton = document.querySelector("#cc-clearWeekButton");
 const classClearMonthButton = document.querySelector("#cc-clearMonthButton");
@@ -767,7 +764,6 @@ function showClassDetail() {
   classHomeView?.classList.add("is-hidden");
   classDetailView?.classList.remove("is-hidden");
   updateWeekSelectOptions();
-  syncCompletionPeriodControls();
   setClassMessage("");
   setDetailMessage("");
 }
@@ -828,49 +824,6 @@ function updateWeekSelectOptions() {
       .join("");
     select.value = keys.includes(currentValue) ? currentValue : keys[0];
   });
-}
-
-function syncCompletionPeriodControls() {
-  const period = activeClass?.period || {};
-  if (classPeriodStartInput) {
-    classPeriodStartInput.value = period.start_date || "";
-    classPeriodStartInput.disabled = !activeClass?.can_manage_completion_period;
-  }
-  if (classPeriodEndInput) {
-    classPeriodEndInput.value = period.end_date || "";
-    classPeriodEndInput.disabled = !activeClass?.can_manage_completion_period;
-  }
-  if (classPeriodSaveButton) {
-    classPeriodSaveButton.hidden = !activeClass?.can_manage_completion_period;
-  }
-}
-
-async function saveCompletionPeriod() {
-  if (!activeClass) return;
-  const startDate = classPeriodStartInput?.value || "";
-  const endDate = classPeriodEndInput?.value || "";
-  if (!startDate || !endDate) {
-    throw new Error("请先选择绩效周期的开始和结束日期。");
-  }
-  const month = activeClass.month || localDateKey().slice(0, 7);
-  const data = await apiRequest("/api/classes/completion-period", {
-    method: "PATCH",
-    body: JSON.stringify({
-      month,
-      start_date: startDate,
-      end_date: endDate,
-    }),
-  });
-  updateActivityState(data);
-  activeClass.period = data.completion_period || activeClass.period;
-  classes = classes.map((item) => (
-    item.id === activeClass.id ? { ...item, period: activeClass.period } : item
-  ));
-  updateWeekSelectOptions();
-  syncCompletionPeriodControls();
-  renderStudents();
-  clearCompletionImage();
-  setDetailMessage("绩效周期已更新，上传带日期的表格时会按这个周期自动分周。");
 }
 
 function localDateKey(date = new Date()) {
@@ -4087,7 +4040,6 @@ async function uploadStudents(file) {
   updateActivityState(data);
   activeClass = data.class;
   updateWeekSelectOptions();
-  syncCompletionPeriodControls();
   const uploadWeek = preferredUploadWeek(data.result || {}, activeClass.students || []);
   setSelectedCompletionWeek(uploadWeek);
   renderStudents();
@@ -4098,9 +4050,14 @@ async function uploadStudents(file) {
     const summary = uploadWeekSummary(data.result || {});
     const rosterNote = data.result?.roster_initialized
       ? "已建立首次完课名单基准。"
-      : (Number(data.result?.roster_removed_count || 0) > 0
-        ? `已按本次表格移除 ${Number(data.result.roster_removed_count)} 名缺少账号的学员。`
-        : "");
+      : [
+          Number(data.result?.roster_added_count || 0) > 0
+            ? `已新增 ${Number(data.result.roster_added_count)} 名学员到完课名单。`
+            : "",
+          Number(data.result?.roster_removed_count || 0) > 0
+            ? `已按本次表格移除 ${Number(data.result.roster_removed_count)} 名缺少账号的学员。`
+            : "",
+        ].filter(Boolean).join(" ");
     setDetailMessage(
       `已同步到${summary}：新增 ${data.result.created} 人，更新 ${data.result.updated} 人，移除 ${data.result.removed} 人。图片数据周已切到${weekLabel(uploadWeek)}。`
     );
@@ -4245,10 +4202,6 @@ function initCompletion() {
     }
     setDetailMessage(`请选择要导入到${weekLabel(classWeekSelect?.value || "1")}的 Excel 或 CSV 文件。`);
     classFileInput?.click();
-  });
-
-  classPeriodSaveButton?.addEventListener("click", () => {
-    saveCompletionPeriod().catch((error) => setDetailMessage(error.message, true));
   });
 
   classGenerateCurrentImage?.addEventListener("click", generateCompletionImage);

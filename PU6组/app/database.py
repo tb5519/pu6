@@ -1960,6 +1960,7 @@ def build_renewal_rate_summary(month_key, report_date, closing_months=None):
             "teacher_id": row.get("teacher_id") or "",
             "teacher_name": row.get("teacher_name") or "未分配",
             "class_count": 0,
+            "project_ids": [],
             "class_names": [],
             "class_name": "",
             "class_name_summary": "",
@@ -1976,6 +1977,9 @@ def build_renewal_rate_summary(month_key, report_date, closing_months=None):
             "renewal_rate": None,
         })
         entry["class_count"] += 1
+        project_id = str(row.get("project_id") or "").strip()
+        if project_id and project_id not in entry["project_ids"]:
+            entry["project_ids"].append(project_id)
         if row.get("class_name") and row.get("class_name") not in entry["class_names"]:
             entry["class_names"].append(row.get("class_name"))
         if row.get("term_label") and row.get("term_label") not in entry["term_labels"]:

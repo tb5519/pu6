@@ -116,6 +116,10 @@ def classes_file():
     return current_app.config["CLASSES_FILE"]
 
 
+def database_settings_file():
+    return current_app.config["DATABASE_SETTINGS_FILE"]
+
+
 def renewal_projects_file():
     return current_app.config["RENEWAL_PROJECTS_FILE"]
 
@@ -245,8 +249,45 @@ def normalize_completion_period(value=None, month_key=None, active_activity=None
     }
 
 
+def database_completion_period(month_key=None, active_activity=None):
+    """Read the completion period maintained by the database workspace."""
+    safe_month = parse_month_key(month_key or current_month_key())
+    try:
+        with database_settings_file().open("r", encoding="utf-8") as file:
+            settings = json.load(file)
+    except (OSError, json.JSONDecodeError):
+        settings = {}
+
+    periods = settings.get("performance_periods") if isinstance(settings, dict) else {}
+    if not isinstance(periods, dict):
+        return None
+
+    month_settings = periods.get(safe_month)
+    saved = month_settings.get("completion") if isinstance(month_settings, dict) else None
+    if isinstance(saved, dict) and saved.get("start_date") and saved.get("end_date"):
+        return normalize_completion_period(saved, safe_month, active_activity)
+
+    today = parse_date_key(local_date_key())
+    for saved_month, month_settings in periods.items():
+        candidate = month_settings.get("completion") if isinstance(month_settings, dict) else None
+        if not isinstance(candidate, dict):
+            continue
+        start = parse_date_key(candidate.get("start_date"))
+        end = parse_date_key(candidate.get("end_date"))
+        if today and start and end and start <= today <= end:
+            return normalize_completion_period(candidate, saved_month, active_activity)
+    return None
+
+
 def completion_period_from_store(store, month_key=None, active_activity=None):
     safe_month = parse_month_key(month_key or current_month_key())
+    database_period = database_completion_period(safe_month, active_activity)
+    if database_period is not None:
+        return database_period
+
+    # Older deployments used classes.json for this setting. Keep it as a
+    # read-only fallback so historical data remains usable when no database
+    # period has been configured yet.
     periods = store.get("completion_periods") if isinstance(store, dict) else {}
     saved = periods.get(safe_month) if isinstance(periods, dict) else None
     if saved is None and isinstance(periods, dict):
@@ -1276,7 +1317,6 @@ def serialize_class(item, include_students=False, active_activity=True, class_st
         "student_count": len(students),
         "completion_activity": activity_enabled,
         "period": period_rule,
-        "can_manage_completion_period": can_manage_accounts(),
         "created_at": item.get("created_at", ""),
         "updated_at": item.get("updated_at", ""),
     }
@@ -1992,21 +2032,6 @@ def imported_completion_roster_accounts(imported_students):
     return accounts, missing_count, duplicate_count
 
 
-def completion_roster_display_names(imported_students, account_keys):
-    wanted = set(account_keys)
-    labels = []
-    for imported in imported_students:
-        account = normalize_identity(imported.get("account"))
-        if account not in wanted:
-            continue
-        name = str(imported.get("name") or "").strip()
-        raw_account = str(imported.get("account") or "").strip()
-        labels.append(f"{name or '未命名学员'}（{raw_account or account}）")
-        if len(labels) >= 5:
-            break
-    return labels
-
-
 def prepare_completion_roster(target_class, imported_students, updated_at):
     incoming_accounts, missing_count, duplicate_count = imported_completion_roster_accounts(imported_students)
     if missing_count:
@@ -2029,20 +2054,10 @@ def prepare_completion_roster(target_class, imported_students, updated_at):
     incoming_set = set(incoming_accounts)
     existing_set = set(existing_accounts)
     is_initial = not existing_accounts
-    if existing_accounts:
-        extra_accounts = incoming_set - existing_set
-        if extra_accounts:
-            labels = completion_roster_display_names(imported_students, extra_accounts)
-            preview = "、".join(labels) or "未知账号"
-            suffix = "等" if len(extra_accounts) > len(labels) else ""
-            return {
-                "error": f"本次表格发现 {len(extra_accounts)} 个不在首次完课名单中的账号：{preview}{suffix}。请确认班级后再上传。",
-                "status": 400,
-            }
-
-    active_accounts = incoming_accounts if is_initial else [
-        account for account in existing_accounts if account in incoming_set
-    ]
+    added_accounts = incoming_set - existing_set
+    # Students may join a class during the course. A newly seen learning account
+    # is therefore a valid roster change, not a reason to reject the whole upload.
+    active_accounts = incoming_accounts
     target_class["completion_roster"] = {
         "accounts": active_accounts,
         "initialized_at": (
@@ -2055,6 +2070,7 @@ def prepare_completion_roster(target_class, imported_students, updated_at):
     return {
         "accounts": set(active_accounts),
         "is_initial": is_initial,
+        "added_count": len(added_accounts),
         "removed_count": len(existing_set - set(active_accounts)),
     }
 
@@ -2854,6 +2870,7 @@ def upload_students(class_id):
 
     result = sync_students_from_upload(item, imported_students, week_number, active_activity, completion_period)
     result["roster_initialized"] = roster["is_initial"]
+    result["roster_added_count"] = roster["added_count"]
     result["roster_removed_count"] = roster["removed_count"]
     save_store(store)
     return jsonify({

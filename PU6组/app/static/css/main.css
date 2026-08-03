@@ -9402,6 +9402,36 @@ input {
   background: #f5f2ff;
 }
 
+.renewal-rate-table tbody tr.closing-month-band-0 > td,
+.closing-renewal-table tbody tr.closing-month-band-0 > td {
+  background: #eef7ff;
+}
+
+.renewal-rate-table tbody tr.closing-month-band-1 > td,
+.closing-renewal-table tbody tr.closing-month-band-1 > td {
+  background: #edf9f1;
+}
+
+.renewal-rate-table tbody tr.closing-month-band-2 > td,
+.closing-renewal-table tbody tr.closing-month-band-2 > td {
+  background: #fff8e5;
+}
+
+.renewal-rate-table tbody tr.closing-month-band-3 > td,
+.closing-renewal-table tbody tr.closing-month-band-3 > td {
+  background: #fff1f2;
+}
+
+.renewal-rate-table tbody tr.closing-month-band-4 > td,
+.closing-renewal-table tbody tr.closing-month-band-4 > td {
+  background: #eefaf8;
+}
+
+.renewal-rate-table tbody tr.closing-month-band-5 > td,
+.closing-renewal-table tbody tr.closing-month-band-5 > td {
+  background: #f5f2ff;
+}
+
 .closing-renewal-teacher-wrap .closing-renewal-table tbody tr.teacher-band-0 > td {
   background: #dcedff;
 }
