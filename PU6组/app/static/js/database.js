@@ -33,6 +33,8 @@ const databaseCompletionUploadPanel = document.querySelector("#db-completionUplo
 const databaseCompletionUploadDate = document.querySelector("#db-completionUploadDate");
 const databaseCompletionUploadButton = document.querySelector("#db-completionUploadButton");
 const databaseCompletionFileInput = document.querySelector("#db-completionFileInput");
+const databaseCompletionNewBackendUploadButton = document.querySelector("#db-completionNewBackendUploadButton");
+const databaseCompletionNewBackendFileInput = document.querySelector("#db-completionNewBackendFileInput");
 const databaseCompletionLastMonthInput = document.querySelector("#db-completionLastMonthInput");
 const databaseCompletionLastMonthButton = document.querySelector("#db-completionLastMonthButton");
 const databaseCompletionLastMonthFileInput = document.querySelector("#db-completionLastMonthFileInput");
@@ -41,6 +43,8 @@ const databaseCompletionHistoryToggle = document.querySelector("#db-completionHi
 const databaseCompletionCompareCards = document.querySelector("#db-completionCompareCards");
 const databaseCompletionHead = document.querySelector("#db-completionHead");
 const databaseCompletionPerformanceRows = document.querySelector("#db-completionPerformanceRows");
+const databaseCompletionRenewalHead = document.querySelector("#db-completionRenewalHead");
+const databaseCompletionRenewalRows = document.querySelector("#db-completionRenewalRows");
 const databaseLearningRows = document.querySelector("#db-learningRows");
 const databaseLearningEditButton = document.querySelector("#db-learningEditButton");
 const databaseLearningEditor = document.querySelector("#db-learningEditor");
@@ -800,12 +804,12 @@ function completionVisibleDates(completion = {}) {
   return showOlderCompletionDates ? dates : dates.slice(0, 2);
 }
 
-function renderCompletionHead(completion = {}) {
-  if (!databaseCompletionHead) return;
+function renderCompletionHead(completion = {}, target = databaseCompletionHead) {
+  if (!target) return;
   const visibleDates = completionVisibleDates(completion);
   const comparison = completion.comparison || {};
   const compareLabel = comparison.compare_date ? `较${formatDatabaseShortDate(comparison.compare_date)}涨幅` : "对比涨幅";
-  databaseCompletionHead.innerHTML = `
+  target.innerHTML = `
     <tr>
       <th>班级名称</th>
       <th>班主任</th>
@@ -818,20 +822,24 @@ function renderCompletionHead(completion = {}) {
   `;
 }
 
-function renderCompletionRows(classes = [], completion = {}) {
-  if (!databaseCompletionRows) return;
+function renderCompletionRows(classes = [], completion = {}, target = databaseCompletionRows) {
+  if (!target) return;
   const visibleDates = completionVisibleDates(completion);
   const columnCount = 6 + visibleDates.length;
   if (!classes.length) {
-    databaseCompletionRows.innerHTML = `<tr><td colspan="${columnCount}" class="database-empty-cell">暂无完课班级数据。</td></tr>`;
+    target.innerHTML = `<tr><td colspan="${columnCount}" class="database-empty-cell">暂无完课班级数据。</td></tr>`;
     return;
   }
 
-  databaseCompletionRows.innerHTML = classes
+  target.innerHTML = classes
     .map((item) => {
       return `
         <tr>
-          <td class="database-strong-cell">${escapeDatabaseText(item.name)}</td>
+          <td class="database-strong-cell">
+            <span>${escapeDatabaseText(item.name)}</span>
+            ${item.data_source === "new_backend" ? `<small class="completion-data-source-tag">新后台</small>` : ""}
+            ${item.data_source === "class_upload" ? `<small class="completion-data-source-tag">班级上传</small>` : ""}
+          </td>
           <td>${escapeDatabaseText(item.teacher_name || "未分配")}</td>
           <td>${formatDatabaseInteger(item.student_count)}</td>
           ${visibleDates.map((dateText) => `
@@ -883,10 +891,12 @@ function renderCompletionComparison(completion = {}) {
   `;
 
   if (databaseCompletionSnapshotStatus) {
+    const newBackendCount = Number(completion.new_backend_class_count || 0);
+    const newBackendText = newBackendCount ? `，已合并 ${newBackendCount} 个新后台班级` : "";
     if (completion.source === "snapshot") {
-      databaseCompletionSnapshotStatus.textContent = `${sourceLabel}，按我的班级 W1-W41 匹配 Joanna 上传数据`;
+      databaseCompletionSnapshotStatus.textContent = `${sourceLabel}，按我的班级分为绩效期 W1-W41 与续费期 W42+ 展示${newBackendText}`;
     } else if (completion.source === "assignment") {
-      databaseCompletionSnapshotStatus.textContent = "等待 Joanna 上传完课数据，上传后仅展示我的班级 W1-W41";
+      databaseCompletionSnapshotStatus.textContent = "等待 Joanna 上传完课数据，上传后会分开展示绩效期与续费期班级";
     } else {
       databaseCompletionSnapshotStatus.textContent = "尚未上传完课快照，暂按原班级学员明细展示";
     }
@@ -1114,10 +1124,14 @@ function renderLearningEditor(data = currentDatabaseData) {
   const learning = data.learning || {};
   const classes = learning.classes || [];
   const teachers = learning.rows || [];
+  // The editor is intentionally scoped to the signed-in teacher. Summary tables
+  // remain group-wide, while this form only shows records the user can change.
+  const editableClasses = classes.filter((item) => item.can_edit);
+  const editableTeachers = teachers.filter((item) => item.can_edit);
   const rates = learning.target_rates || LEARNING_TARGET_RATES;
 
-  databaseLearningClassRows.innerHTML = classes.length
-    ? classes.map((item) => `
+  databaseLearningClassRows.innerHTML = editableClasses.length
+    ? editableClasses.map((item) => `
       <tr data-learning-class-row="${escapeDatabaseText(item.class_id)}">
         <td>${escapeDatabaseText(item.teacher_name)}</td>
         <td class="database-strong-cell">${escapeDatabaseText(item.class_name)}</td>
@@ -1154,8 +1168,8 @@ function renderLearningEditor(data = currentDatabaseData) {
     `).join("")
     : `<tr><td colspan="5" class="database-empty-cell">暂无完课班级，请先在完课板块导入班级。</td></tr>`;
 
-  databaseLearningTargetRows.innerHTML = teachers.length
-    ? teachers.map((item) => `
+  databaseLearningTargetRows.innerHTML = editableTeachers.length
+    ? editableTeachers.map((item) => `
       <tr>
         <td class="database-strong-cell">${escapeDatabaseText(item.teacher_name)}</td>
         <td><span data-learning-target-base="${escapeDatabaseText(item.teacher_id)}">${formatDatabaseNumber(item.learning_base)}</span></td>
@@ -1256,6 +1270,44 @@ async function uploadCompletionSnapshot(file) {
   } finally {
     databaseCompletionUploadButton.disabled = false;
     if (databaseCompletionFileInput) databaseCompletionFileInput.value = "";
+  }
+}
+
+
+async function uploadNewBackendCompletionSnapshot(file) {
+  if (!databaseCompletionNewBackendUploadButton || !databaseCompletionUploadDate) return;
+  const uploadDate = databaseCompletionUploadDate.value || databaseDateInput.value;
+  if (!uploadDate) {
+    setDatabaseMessage("请先选择完课数据日期。", true);
+    return;
+  }
+  if (!file) {
+    setDatabaseMessage("请先选择要上传的新后台 Excel 或 CSV 文件。", true);
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("date", uploadDate);
+  formData.append("file", file);
+
+  databaseCompletionNewBackendUploadButton.disabled = true;
+  setDatabaseMessage("正在上传新后台完课数据...");
+  try {
+    const data = await databaseApiRequest("/api/database/completion-new-backend-upload", {
+      method: "POST",
+      body: formData,
+    });
+    if (databaseMonthInput) databaseMonthInput.value = uploadDate.slice(0, 7);
+    if (databaseDateInput) databaseDateInput.value = uploadDate;
+    await loadDatabaseSummary();
+    const skippedCount = Number(data.snapshot?.skipped_test_count || 0);
+    const skippedText = skippedCount ? `，已跳过 ${skippedCount} 条测试任务` : "";
+    setDatabaseMessage(
+      `已合并 ${data.snapshot?.date || uploadDate} 的新后台数据，共 ${data.snapshot?.row_count || 0} 个班级${skippedText}。`
+    );
+  } finally {
+    databaseCompletionNewBackendUploadButton.disabled = false;
+    if (databaseCompletionNewBackendFileInput) databaseCompletionNewBackendFileInput.value = "";
   }
 }
 
@@ -1778,8 +1830,10 @@ function renderDatabase(data) {
     databaseCompletionUploadPanel.classList.toggle("is-hidden", !data.permissions?.can_upload_completion && !data.completion?.can_upload);
   }
   renderCompletionComparison(data.completion || {});
-  renderCompletionHead(data.completion || {});
-  renderCompletionRows(data.completion?.classes || [], data.completion || {});
+  renderCompletionHead(data.completion || {}, databaseCompletionHead);
+  renderCompletionRows(data.completion?.classes || [], data.completion || {}, databaseCompletionRows);
+  renderCompletionHead(data.completion || {}, databaseCompletionRenewalHead);
+  renderCompletionRows(data.completion?.renewal_classes || [], data.completion || {}, databaseCompletionRenewalRows);
   renderLearningRows(data.learning?.rows || []);
   if (databaseLearningEditor && !databaseLearningEditor.classList.contains("is-hidden")) {
     renderLearningEditor(data);
@@ -1983,6 +2037,14 @@ function initDatabase() {
     const file = databaseCompletionFileInput.files?.[0];
     uploadCompletionSnapshot(file).catch((error) => setDatabaseMessage(error.message, true));
   });
+  databaseCompletionNewBackendUploadButton?.addEventListener("click", () => {
+    syncCompletionUploadDate();
+    databaseCompletionNewBackendFileInput?.click();
+  });
+  databaseCompletionNewBackendFileInput?.addEventListener("change", () => {
+    const file = databaseCompletionNewBackendFileInput.files?.[0];
+    uploadNewBackendCompletionSnapshot(file).catch((error) => setDatabaseMessage(error.message, true));
+  });
   databaseCompletionLastMonthButton?.addEventListener("click", () => {
     databaseCompletionLastMonthFileInput?.click();
   });
@@ -2000,6 +2062,12 @@ function initDatabase() {
     if (currentDatabaseData) {
       renderCompletionHead(currentDatabaseData.completion || {});
       renderCompletionRows(currentDatabaseData.completion?.classes || [], currentDatabaseData.completion || {});
+      renderCompletionHead(currentDatabaseData.completion || {}, databaseCompletionRenewalHead);
+      renderCompletionRows(
+        currentDatabaseData.completion?.renewal_classes || [],
+        currentDatabaseData.completion || {},
+        databaseCompletionRenewalRows
+      );
     }
   });
 

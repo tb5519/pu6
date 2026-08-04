@@ -7136,7 +7136,7 @@ input {
   min-width: 0;
   min-height: 32px;
   display: grid;
-  grid-template-columns: minmax(72px, 0.45fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(72px, 0.32fr) minmax(80px, 0.28fr) minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   padding: 6px 9px;
@@ -7167,13 +7167,44 @@ input {
   white-space: nowrap;
 }
 
-.renewal-followup-student em {
+.renewal-followup-blocker {
+  min-width: 0;
+  overflow: hidden;
+  color: #b45309 !important;
+  font-size: 12px !important;
+  font-weight: 950 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.renewal-followup-blocker.is-empty {
+  color: #9a94ad !important;
+  font-weight: 800 !important;
+}
+
+.renewal-followup-record {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.renewal-followup-record em {
   min-width: 0;
   overflow: hidden;
   color: #332a5f;
   font-size: 12px;
   font-style: normal;
   font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.renewal-followup-record small {
+  min-width: 0;
+  overflow: hidden;
+  color: #746a92;
+  font-size: 11px;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -9066,6 +9097,20 @@ input {
   justify-content: flex-end;
 }
 
+.completion-data-source-tag {
+  display: inline-flex;
+  align-items: center;
+  margin: 2px 0 0 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #19745b;
+  background: #e1f7eb;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
 .completion-history-toolbar {
   display: flex;
   align-items: flex-end;
@@ -9869,6 +9914,15 @@ input {
   margin-top: 18px;
 }
 
+.completion-renewal-phase-block {
+  border-color: rgba(147, 219, 197, 0.9);
+  background: rgba(247, 255, 251, 0.96);
+}
+
+.completion-renewal-phase-block h2 {
+  color: #116453;
+}
+
 .completion-performance-wrap {
   max-height: 520px;
 }
@@ -10296,7 +10350,11 @@ input {
     gap: 4px 8px;
   }
 
-  .renewal-followup-student em {
+  .renewal-followup-blocker {
+    justify-self: end;
+  }
+
+  .renewal-followup-record {
     grid-column: 1 / -1;
   }
 
@@ -11865,6 +11923,13 @@ input {
   width: 92px;
   min-width: 92px;
   background: #fff9ec;
+}
+
+.learning-score-matrix th.learning-score-scroll-buffer,
+.learning-score-matrix td.learning-score-scroll-buffer {
+  color: transparent;
+  background: #fbfaff;
+  pointer-events: none;
 }
 
 .learning-score-cell {

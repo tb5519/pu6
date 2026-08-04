@@ -4,15 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260803-renewal-month-groups') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260804-new-backend-completion-upload') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260729-track-image-upload') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260803-database-period-source') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260804-completion-roster-guard') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260716-todo-targets') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260730-learning-complete-close') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/database.js', v='20260803-renewal-month-groups') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260803-followup-history') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260804-learning-score-scroll-buffer') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/database.js', v='20260804-new-backend-completion-upload') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260803-followup-details') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
     {% endif %}
@@ -803,6 +803,7 @@
                       <option value="">从这位起批量选择</option>
                     </select>
                     <button id="lc-removeRosterButton" class="learning-roster-remove-button is-hidden" type="button" disabled aria-label="移除所选名单" title="移除所选名单">×</button>
+                    <button id="lc-resetRosterButton" class="ghost-button compact-button is-hidden" type="button" title="首次上传错班时，清空辅导名单后重新上传正确表格">重建名单</button>
                     <button id="lc-guideUploadButton" class="ghost-button compact-button is-hidden" type="button">上传辅导资料</button>
                     <input id="lc-fileInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
                     <input id="lc-guideUploadInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
@@ -1131,8 +1132,10 @@
                   <span>数据日期</span>
                   <input id="db-completionUploadDate" type="date">
                 </label>
-                <button id="db-completionUploadButton" class="primary-button compact-button" type="button">上传数据</button>
+                <button id="db-completionUploadButton" class="primary-button compact-button" type="button">上传旧后台数据</button>
                 <input id="db-completionFileInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
+                <button id="db-completionNewBackendUploadButton" class="ghost-button compact-button" type="button" title="按班级任务汇总，自动跳过测试、检测、测评任务">上传新后台数据</button>
+                <input id="db-completionNewBackendFileInput" class="hidden-file-input" type="file" accept=".xlsx,.csv,text/csv" tabindex="-1" aria-hidden="true">
                 <label class="database-filter">
                   <span>上月月份</span>
                   <input id="db-completionLastMonthInput" type="month">
@@ -1151,10 +1154,30 @@
             </section>
             <section id="db-completionCompareCards" class="completion-compare-grid" aria-label="完课数据对比"></section>
             <section class="database-block">
+              <div class="panel-title-row completion-phase-title">
+                <div>
+                  <h2>绩效期班级完课</h2>
+                  <span class="tool-status">W1-W41</span>
+                </div>
+              </div>
               <div class="database-table-wrap show-all-rows">
                 <table class="database-table">
                   <thead id="db-completionHead"></thead>
                   <tbody id="db-completionRows"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="database-block completion-renewal-phase-block" aria-label="续费期班级完课">
+              <div class="panel-title-row completion-phase-title">
+                <div>
+                  <h2>续费期班级完课</h2>
+                  <span class="tool-status">W42 起</span>
+                </div>
+              </div>
+              <div class="database-table-wrap show-all-rows">
+                <table class="database-table">
+                  <thead id="db-completionRenewalHead"></thead>
+                  <tbody id="db-completionRenewalRows"></tbody>
                 </table>
               </div>
             </section>

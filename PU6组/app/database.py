@@ -148,6 +148,13 @@ def completion_database_week_in_scope(week_number):
     return 1 <= week <= COMPLETION_DATABASE_WEEK_LIMIT
 
 
+def completion_database_week_is_displayable(week_number):
+    try:
+        return int(week_number) >= 1
+    except (TypeError, ValueError):
+        return False
+
+
 DATABASE_METRICS = {
     "learning": {"field": "learning_status", "label": "学情"},
     "renewal": {"field": "renewal_orders", "label": "续费单量"},
@@ -180,6 +187,14 @@ COMPLETION_UPLOAD_COLUMNS = {
         "lastmonthcompletion",
     },
 }
+NEW_BACKEND_COMPLETION_UPLOAD_COLUMNS = {
+    "class_name": {"班级名称", "班级", "课程班级", "class_name", "class"},
+    "student_count": {"任务学员数", "任务学生数", "任务人数", "student_count", "students"},
+    "teacher": {"负责老师", "班主任", "老师", "教师", "teacher"},
+    "task_type": {"任务类型", "任务名称", "任务", "task_type", "task"},
+    "completion_rate": {"完成度", "完成率", "完课率", "completion_rate", "completion"},
+}
+NEW_BACKEND_TEST_KEYWORDS = ("测试", "检测", "测评")
 
 
 def classes_file():
@@ -665,6 +680,27 @@ def find_completion_upload_header(rows):
     return best
 
 
+def find_new_backend_completion_upload_header(rows):
+    best = None
+    for row_index, row in enumerate(rows[:COMPLETION_UPLOAD_HEADER_SCAN_LIMIT]):
+        headers = [str(value or "").strip() for value in row]
+        if not any(headers):
+            continue
+        indexes = {
+            key: pick_upload_column(headers, candidates)
+            for key, candidates in NEW_BACKEND_COMPLETION_UPLOAD_COLUMNS.items()
+        }
+        score = 0
+        score += 8 if indexes["class_name"] is not None else 0
+        score += 6 if indexes["student_count"] is not None else 0
+        score += 5 if indexes["teacher"] is not None else 0
+        score += 8 if indexes["completion_rate"] is not None else 0
+        score += 8 if indexes["task_type"] is not None else 0
+        if best is None or score > best["score"]:
+            best = {"score": score, "row_index": row_index, "indexes": indexes}
+    return best
+
+
 def completion_upload_missing_error(column_name, examples, rows):
     preview = readable_upload_headers(rows)
     message = f"表格需要包含“{column_name}”列，常见列名：{examples}。"
@@ -760,6 +796,104 @@ def rows_to_completion_snapshot(rows):
     return snapshot_rows
 
 
+def is_new_backend_test_task(value):
+    task_text = str(value or "").strip().lower()
+    return any(keyword in task_text for keyword in NEW_BACKEND_TEST_KEYWORDS)
+
+
+def rows_to_new_backend_completion_snapshot(rows):
+    if not rows:
+        return {"rows": [], "task_row_count": 0, "skipped_test_count": 0}
+
+    header = find_new_backend_completion_upload_header(rows)
+    indexes = header["indexes"] if header else {}
+    header_row_index = header["row_index"] if header else 0
+    required_columns = {
+        "class_name": ("班级名称", "班级名称、班级"),
+        "student_count": ("任务学员数", "任务学员数、任务人数"),
+        "task_type": ("任务类型", "任务类型、任务名称"),
+        "completion_rate": ("完成度", "完成度、完成率、完课率"),
+    }
+    for field, (label, examples) in required_columns.items():
+        if indexes.get(field) is None:
+            raise ValueError(completion_upload_missing_error(label, examples, rows))
+
+    grouped = {}
+    task_row_count = 0
+    skipped_test_count = 0
+    for row in rows[header_row_index + 1:]:
+        class_name = row_value(row, indexes["class_name"])
+        if not class_name:
+            continue
+        task_type = row_value(row, indexes["task_type"])
+        if is_new_backend_test_task(task_type):
+            skipped_test_count += 1
+            continue
+        completion_rate = parse_completion(
+            row[indexes["completion_rate"]] if indexes["completion_rate"] < len(row) else None
+        )
+        if completion_rate is None:
+            continue
+        task_row_count += 1
+        student_count = parse_student_count(
+            row[indexes["student_count"]] if indexes["student_count"] < len(row) else None
+        )
+        teacher_text = row_value(row, indexes.get("teacher"))
+        class_id = completion_class_id(class_name)
+        group = grouped.setdefault(
+            class_id,
+            {
+                "id": class_id,
+                "name": class_name,
+                "teacher_id": teacher_id_from_upload(teacher_text, class_name),
+                "teacher_text": teacher_text,
+                "student_count": 0,
+                "weighted_total": 0.0,
+                "total_weight": 0,
+                "rates": [],
+            },
+        )
+        if not group.get("teacher_id"):
+            group["teacher_id"] = teacher_id_from_upload(teacher_text, class_name)
+        if not group.get("teacher_text") and teacher_text:
+            group["teacher_text"] = teacher_text
+        group["student_count"] = max(group["student_count"], student_count)
+        group["rates"].append(completion_rate)
+        if student_count > 0:
+            group["weighted_total"] += completion_rate * student_count
+            group["total_weight"] += student_count
+
+    snapshot_rows = []
+    for group in grouped.values():
+        if group["total_weight"]:
+            completion_rate = round(group["weighted_total"] / group["total_weight"], 2)
+        elif group["rates"]:
+            completion_rate = round(sum(group["rates"]) / len(group["rates"]), 2)
+        else:
+            continue
+        teacher_id = group.get("teacher_id") or ""
+        snapshot_rows.append(
+            {
+                "id": group["id"],
+                "name": group["name"],
+                "teacher_id": teacher_id,
+                "teacher_name": teacher_label(teacher_id) or group.get("teacher_text") or "未分配",
+                "student_count": group["student_count"],
+                "completion_rate": completion_rate,
+                "last_month_completion": None,
+                "data_source": "new_backend",
+            }
+        )
+
+    if not snapshot_rows:
+        raise ValueError("未读取到非测试任务的班级完成度，请确认任务类型和完成度列。")
+    return {
+        "rows": snapshot_rows,
+        "task_row_count": task_row_count,
+        "skipped_test_count": skipped_test_count,
+    }
+
+
 def parse_completion_upload_csv(file_storage):
     raw = file_storage.stream.read()
     for encoding in ("utf-8-sig", "gb18030", "gbk"):
@@ -792,6 +926,28 @@ def parse_completion_upload(file_storage):
         return rows_to_completion_snapshot(parse_completion_upload_csv(file_storage))
     if filename.endswith(".xlsx"):
         return parse_completion_upload_xlsx(file_storage)
+    raise ValueError("仅支持 .xlsx 或 .csv 文件。")
+
+
+def parse_new_backend_completion_upload_xlsx(file_storage):
+    workbook = load_workbook(file_storage, data_only=True)
+    errors = []
+    for sheet in workbook.worksheets:
+        rows = [[cell for cell in row] for row in sheet.iter_rows(values_only=True)]
+        try:
+            return rows_to_new_backend_completion_snapshot(rows)
+        except ValueError as error:
+            errors.append(f"{sheet.title}：{error}")
+    detail = errors[0] if errors else "没有读取到工作表内容。"
+    raise ValueError(f"未在 Excel 工作表中识别到新后台完课数据。{detail}")
+
+
+def parse_new_backend_completion_upload(file_storage):
+    filename = (file_storage.filename or "").lower()
+    if filename.endswith(".csv"):
+        return rows_to_new_backend_completion_snapshot(parse_completion_upload_csv(file_storage))
+    if filename.endswith(".xlsx"):
+        return parse_new_backend_completion_upload_xlsx(file_storage)
     raise ValueError("仅支持 .xlsx 或 .csv 文件。")
 
 
@@ -947,10 +1103,27 @@ def last_month_completion_snapshot(month_key, store=None):
     return None
 
 
-def rows_by_class_id(snapshot):
+def snapshot_completion_rows(snapshot):
     if not snapshot:
-        return {}
-    return {row.get("id"): row for row in snapshot.get("rows", []) if row.get("id")}
+        return []
+    standard_rows = snapshot.get("rows", []) if isinstance(snapshot.get("rows"), list) else []
+    new_backend_rows = (
+        snapshot.get("new_backend_rows", [])
+        if isinstance(snapshot.get("new_backend_rows"), list)
+        else []
+    )
+    # The existing Joanna total table remains authoritative if both uploads
+    # contain the same class. New-backend rows only fill the missing classes.
+    return [*standard_rows, *new_backend_rows]
+
+
+def rows_by_class_id(snapshot):
+    lookup = {}
+    for row in snapshot_completion_rows(snapshot):
+        class_id = row.get("id") if isinstance(row, dict) else ""
+        if class_id and class_id not in lookup:
+            lookup[class_id] = row
+    return lookup
 
 
 def completion_lookup_key(class_name):
@@ -1003,7 +1176,9 @@ def rows_by_class_name(snapshot):
     if not snapshot:
         return {}
     lookup = {}
-    for row in snapshot.get("rows", []):
+    for row in snapshot_completion_rows(snapshot):
+        if not isinstance(row, dict):
+            continue
         for key in reminder_class_match_keys(row.get("name", "")):
             if key and key not in lookup:
                 lookup[key] = row
@@ -1276,6 +1451,87 @@ def build_completion_performance_summary(completion):
     }
 
 
+def local_completion_snapshot_records(value, month_key=None):
+    if isinstance(value, dict):
+        source = list(value.values())
+    elif isinstance(value, list):
+        source = value
+    else:
+        return []
+
+    records = []
+    for raw in source:
+        if not isinstance(raw, dict):
+            continue
+        date_key = str(raw.get("date") or "").strip()
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_key):
+            continue
+        period_month = str(raw.get("period_month") or raw.get("month") or "").strip()
+        if month_key and period_month != month_key:
+            continue
+        completion_rate = parse_completion(raw.get("completion_rate"))
+        if completion_rate is None:
+            continue
+        records.append(
+            {
+                "date": date_key,
+                "period_month": period_month,
+                "completion_rate": completion_rate,
+                "student_count": parse_student_count(raw.get("student_count")),
+                "active_student_count": parse_student_count(raw.get("active_student_count")),
+                "uploaded_at": str(raw.get("uploaded_at") or ""),
+            }
+        )
+    return sorted(records, key=lambda item: item["date"])
+
+
+def latest_local_completion_snapshot(records, report_date=None):
+    candidates = [
+        item
+        for item in records
+        if not report_date or item.get("date", "") <= str(report_date)
+    ]
+    return candidates[-1] if candidates else None
+
+
+def local_completion_snapshot_before(records, date_key):
+    candidates = [item for item in records if item.get("date", "") < str(date_key or "")]
+    return candidates[-1] if candidates else None
+
+
+def local_completion_snapshot_for_date(records, date_key):
+    for item in records:
+        if item.get("date") == date_key:
+            return item
+    return None
+
+
+def current_class_completion_fallback(item, month_key):
+    """Expose already-uploaded class data once, even before the next snapshot upload."""
+    rates = []
+    for student in item.get("students", []):
+        months = student.get("months") if isinstance(student.get("months"), dict) else {}
+        month_data = months.get(month_key) if isinstance(months.get(month_key), dict) else {}
+        weeks = month_data.get("weeks") if isinstance(month_data.get("weeks"), dict) else {}
+        completion_rate = calculate_monthly_completion(weeks)
+        if completion_rate is not None:
+            rates.append(completion_rate)
+    if not rates:
+        return None
+
+    updated_date = str(item.get("updated_at") or "")[:10]
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", updated_date):
+        updated_date = datetime.now().strftime("%Y-%m-%d")
+    return {
+        "date": updated_date,
+        "period_month": month_key,
+        "completion_rate": average(rates),
+        "student_count": len(item.get("students", []) if isinstance(item.get("students"), list) else []),
+        "active_student_count": len(rates),
+        "uploaded_at": str(item.get("updated_at") or ""),
+    }
+
+
 def completion_roster_classes(month_key):
     store = load_json(classes_file(), {"classes": []})
     by_name = {}
@@ -1283,7 +1539,7 @@ def completion_roster_classes(month_key):
         if not isinstance(item, dict):
             continue
         week_number = current_title_week_number(item)
-        if not completion_database_week_in_scope(week_number):
+        if not completion_database_week_is_displayable(week_number):
             continue
         keys = reminder_local_class_keys(item)
         if not keys:
@@ -1303,6 +1559,8 @@ def completion_roster_classes(month_key):
             "title_week_number": week_number,
             "title_week_label": f"W{week_number}" if week_number else "",
             "class_keys": sorted(keys),
+            "local_completion_snapshots": item.get("completion_local_snapshots", {}),
+            "local_current_snapshot": current_class_completion_fallback(item, month_key),
         }
         key = f"{teacher_id}|{sorted(keys)[0]}"
         if not key:
@@ -1318,38 +1576,59 @@ def completion_roster_classes(month_key):
     return list(by_name.values()), True
 
 
-def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_date=None):
+def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_date=None, report_date=None):
     store = store or load_completion_snapshots()
-    snapshot_date = snapshot.get("date", "")
-    history_snapshots = completion_snapshots_until(month_key, snapshot_date or month_end_date(month_key), store)
-    if snapshot_date and not any(item.get("date") == snapshot_date for item in history_snapshots):
+    central_snapshot_date = snapshot.get("date", "")
+    report_date = report_date or central_snapshot_date or month_end_date(month_key)
+    history_snapshots = completion_snapshots_until(month_key, report_date, store)
+    if central_snapshot_date and not any(item.get("date") == central_snapshot_date for item in history_snapshots):
         history_snapshots.append(snapshot)
         history_snapshots = sorted(history_snapshots, key=lambda item: item.get("date", ""))
-    history_dates = [item.get("date", "") for item in reversed(history_snapshots) if item.get("date")]
-    previous_snapshot = history_snapshots[-2] if len(history_snapshots) >= 2 else None
-    compare_snapshot = completion_snapshot_by_date(compare_date, store) if compare_date else None
-    if (
-        not compare_snapshot
-        or not snapshot_date
-        or compare_snapshot.get("date", "") >= snapshot_date
-        or not compare_snapshot.get("date", "").startswith(f"{month_key}-")
-    ):
-        compare_snapshot = previous_snapshot
-    previous_rows = rows_by_class_name(previous_snapshot)
-    compare_rows = rows_by_class_name(compare_snapshot)
-    last_month_snapshot = last_month_completion_snapshot(month_key, store)
-    last_month_source_month = previous_month_key(month_key)
-    if not last_month_snapshot:
-        previous_month = previous_month_key(month_key)
-        last_month_snapshot = latest_completion_snapshot(previous_month, month_end_date(previous_month), store)
-        last_month_source_month = last_month_snapshot.get("date", "") if last_month_snapshot else previous_month
-    previous_month_rows = rows_by_class_name(last_month_snapshot)
+    central_history_dates = [item.get("date", "") for item in history_snapshots if item.get("date")]
     uploaded_rows = rows_by_class_name(snapshot)
     history_row_maps = {
         item.get("date", ""): rows_by_class_name(item)
         for item in history_snapshots
         if item.get("date")
     }
+
+    last_month_snapshot = last_month_completion_snapshot(month_key, store)
+    last_month_source_month = previous_month_key(month_key)
+    previous_month = previous_month_key(month_key)
+    previous_month_latest_snapshot = latest_completion_snapshot(
+        previous_month,
+        month_end_date(previous_month),
+        store,
+    )
+    if not last_month_snapshot:
+        last_month_snapshot = previous_month_latest_snapshot
+        last_month_source_month = last_month_snapshot.get("date", "") if last_month_snapshot else previous_month
+    previous_month_rows = rows_by_class_name(last_month_snapshot)
+    previous_month_latest_rows = rows_by_class_name(previous_month_latest_snapshot)
+
+    roster_classes, _ = completion_roster_classes(month_key)
+    local_records_by_class = {}
+    local_history_dates = set()
+    for roster_row in roster_classes:
+        records = local_completion_snapshot_records(
+            roster_row.get("local_completion_snapshots"),
+            month_key,
+        )
+        if not records and roster_row.get("local_current_snapshot"):
+            records = [roster_row["local_current_snapshot"]]
+        records = [item for item in records if item.get("date", "") <= report_date]
+        class_id = str(roster_row.get("id") or "")
+        local_records_by_class[class_id] = records
+        local_history_dates.update(item["date"] for item in records if item.get("date"))
+
+    history_dates = sorted(set(central_history_dates) | local_history_dates, reverse=True)
+    latest_data_date = history_dates[0] if history_dates else central_snapshot_date
+    requested_compare_date = str(compare_date or "").strip()
+    if requested_compare_date in history_dates and requested_compare_date < latest_data_date:
+        comparison_date = requested_compare_date
+    else:
+        comparison_date = next((date_key for date_key in history_dates if date_key < latest_data_date), "")
+    previous_data_date = next((date_key for date_key in history_dates if date_key < latest_data_date), "")
 
     teacher_lookup = {
         teacher["id"]: {
@@ -1365,73 +1644,147 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
     }
 
     classes = []
+    renewal_classes = []
     total_students = 0
     active_students = 0
-    display_sources = []
-    roster_classes, roster_is_authoritative = completion_roster_classes(month_key)
+    renewal_total_students = 0
+    renewal_active_students = 0
+    local_fallback_count = 0
+    new_backend_class_count = 0
 
     for roster_row in roster_classes:
         keys = roster_row.get("class_keys") or sorted(reminder_class_match_keys(roster_row.get("name", "")))
         matched_key = next((key for key in keys if uploaded_rows.get(key)), "")
-        if not matched_key:
+        lookup_key = matched_key or (keys[0] if keys else "")
+        upload_row = uploaded_rows.get(matched_key) if matched_key else None
+        local_records = local_records_by_class.get(str(roster_row.get("id") or ""), [])
+        local_current = latest_local_completion_snapshot(local_records, report_date)
+        if upload_row:
+            source_type = str(upload_row.get("data_source") or "central_upload")
+            current_date = central_snapshot_date
+            completion_rate = upload_row.get("completion_rate")
+            source_row = upload_row
+        elif local_current:
+            source_type = "class_upload"
+            current_date = local_current.get("date", "")
+            completion_rate = local_current.get("completion_rate")
+            source_row = roster_row
+            local_fallback_count += 1
+        else:
             continue
-        display_sources.append((roster_row, uploaded_rows.get(matched_key), matched_key))
 
-    for roster_row, upload_row, lookup_key in display_sources:
-        source_row = upload_row or roster_row or {}
-        class_id = (roster_row or {}).get("id") or source_row.get("id", "")
-        class_name = (roster_row or {}).get("name") or source_row.get("name", "")
-        completion_rate = upload_row.get("completion_rate") if upload_row else None
-        previous_row = previous_rows.get(lookup_key)
-        compare_row = compare_rows.get(lookup_key)
-        previous_month_row = previous_month_rows.get(lookup_key)
-        previous_completion = previous_row.get("completion_rate") if previous_row else None
-        compare_completion = compare_row.get("completion_rate") if compare_row else None
-        last_month_completion = previous_month_row.get("completion_rate") if previous_month_row else None
+        local_by_date = {item.get("date"): item for item in local_records if item.get("date")}
         history_values = []
+        history_rates = {}
         for date_key in history_dates:
             history_row = history_row_maps.get(date_key, {}).get(lookup_key)
-            history_values.append(
-                {
-                    "date": date_key,
-                    "completion_rate": history_row.get("completion_rate") if history_row else None,
-                }
-            )
+            local_item = local_by_date.get(date_key)
+            if source_type != "class_upload":
+                history_rate = history_row.get("completion_rate") if history_row else None
+            else:
+                history_rate = (
+                    history_row.get("completion_rate")
+                    if history_row
+                    else (local_item.get("completion_rate") if local_item else None)
+                )
+            history_rates[date_key] = history_rate
+            history_values.append({"date": date_key, "completion_rate": history_rate})
 
-        student_count = parse_student_count(upload_row.get("student_count")) if upload_row else None
-        teacher_id = normalize_teacher_id((roster_row or {}).get("teacher_id")) or normalize_teacher_id(source_row.get("teacher_id"))
+        previous_candidates = [
+            (date_key, value)
+            for date_key, value in history_rates.items()
+            if value is not None and date_key < current_date
+        ]
+        previous_date, previous_completion = max(previous_candidates, default=("", None))
+
+        compare_completion = None
+        if comparison_date and comparison_date < current_date:
+            compare_completion = history_rates.get(comparison_date)
+            if compare_completion is None and source_type == "class_upload":
+                local_compare = latest_local_completion_snapshot(local_records, comparison_date)
+                compare_completion = local_compare.get("completion_rate") if local_compare else None
+
+        previous_month_row = previous_month_rows.get(lookup_key) or previous_month_latest_rows.get(lookup_key)
+        previous_month_local = latest_local_completion_snapshot(
+            local_completion_snapshot_records(
+                roster_row.get("local_completion_snapshots"),
+                previous_month_key(month_key),
+            ),
+            month_end_date(previous_month_key(month_key)),
+        )
+        last_month_completion = (
+            previous_month_row.get("completion_rate")
+            if previous_month_row
+            else (
+                previous_month_local.get("completion_rate")
+                if previous_month_local
+                else (upload_row.get("last_month_completion") if upload_row else None)
+            )
+        )
+
+        student_count = (
+            parse_student_count(upload_row.get("student_count"))
+            if upload_row
+            else (parse_student_count(local_current.get("student_count")) or parse_student_count(roster_row.get("student_count")))
+        )
+        active_student_count = (
+            parse_student_count(local_current.get("active_student_count"))
+            if local_current and source_type == "class_upload"
+            else (parse_student_count(student_count) if completion_rate is not None else 0)
+        )
+        teacher_id = normalize_teacher_id(roster_row.get("teacher_id")) or normalize_teacher_id(source_row.get("teacher_id"))
         teacher_name = (
             teacher_label(teacher_id)
-            or (roster_row or {}).get("teacher_name")
+            or roster_row.get("teacher_name")
             or source_row.get("teacher_name")
             or "未分配"
         )
         row = {
-            "id": class_id,
-            "name": class_name,
-            "local_class_id": (roster_row or {}).get("id", ""),
-            "local_class_name": (roster_row or {}).get("name", ""),
+            "id": roster_row.get("id") or source_row.get("id", ""),
+            "name": roster_row.get("name") or source_row.get("name", ""),
+            "local_class_id": roster_row.get("id", ""),
+            "local_class_name": roster_row.get("name", ""),
             "teacher_id": teacher_id,
             "teacher_name": teacher_name,
             "student_count": student_count,
-            "active_student_count": parse_student_count(student_count) if completion_rate is not None else 0,
+            "active_student_count": active_student_count,
             "average_completion": completion_rate,
             "completion_rate": completion_rate,
             "last_month_completion": last_month_completion,
             "previous_completion": previous_completion,
             "compare_completion": compare_completion,
-            "compare_date": compare_snapshot.get("date", "") if compare_snapshot else "",
-            "previous_snapshot_date": previous_snapshot.get("date") if previous_snapshot else "",
+            "compare_date": comparison_date,
+            "previous_snapshot_date": previous_date,
             "change_from_previous": rate_delta(completion_rate, previous_completion),
             "change_from_compare": rate_delta(completion_rate, compare_completion),
             "change_from_last_month": rate_delta(completion_rate, last_month_completion),
             "history": history_values,
             "lookup_matched": bool(upload_row),
+            "data_source": source_type,
+            "data_source_label": (
+                "班级上传"
+                if source_type == "class_upload"
+                else ("新后台上传" if source_type == "new_backend" else "Joanna上传")
+            ),
+            "source_snapshot_date": current_date,
             "category_counts": blank_category_counts(),
-            "updated_at": snapshot.get("uploaded_at", ""),
-            "title_week_number": (roster_row or {}).get("title_week_number"),
-            "title_week_label": (roster_row or {}).get("title_week_label", ""),
+            "updated_at": (
+                local_current.get("uploaded_at", "")
+                if local_current and source_type == "class_upload"
+                else snapshot.get("uploaded_at", "")
+            ),
+            "title_week_number": roster_row.get("title_week_number"),
+            "title_week_label": roster_row.get("title_week_label", ""),
         }
+        if source_type == "new_backend":
+            new_backend_class_count += 1
+        if not completion_database_week_in_scope(row.get("title_week_number")):
+            renewal_classes.append(row)
+            renewal_total_students += parse_student_count(student_count)
+            if completion_rate is not None:
+                renewal_active_students += parse_student_count(student_count)
+            continue
+
         classes.append(row)
         total_students += parse_student_count(student_count)
         if completion_rate is not None:
@@ -1459,6 +1812,23 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
         rows = teacher.pop("completion_rows")
         teachers.append({**teacher, "average_completion": weighted_rate(rows, "completion_rate")})
 
+    renewal_classes.sort(
+        key=lambda row: (
+            row.get("teacher_name") or "",
+            row.get("title_week_number") or 999,
+            row.get("name") or "",
+        )
+    )
+
+    if central_snapshot_date and local_fallback_count:
+        source = "mixed"
+    elif central_snapshot_date:
+        source = "snapshot"
+    elif local_fallback_count:
+        source = "class_upload"
+    else:
+        source = "empty"
+
     return {
         "summary": {
             "class_count": len(classes),
@@ -1468,9 +1838,20 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
             "category_counts": blank_category_counts(),
         },
         "classes": classes,
+        "renewal_summary": {
+            "class_count": len(renewal_classes),
+            "student_count": renewal_total_students,
+            "active_student_count": renewal_active_students,
+            "average_completion": weighted_rate(renewal_classes, "completion_rate"),
+        },
+        "renewal_classes": renewal_classes,
         "teachers": teachers,
-        "source": "snapshot",
-        "snapshot_date": snapshot_date,
+        "source": source,
+        "snapshot_date": latest_data_date,
+        "central_snapshot_date": central_snapshot_date,
+        "local_snapshot_date": max(local_history_dates) if local_history_dates else "",
+        "local_class_count": local_fallback_count,
+        "new_backend_class_count": new_backend_class_count,
         "uploaded_at": snapshot.get("uploaded_at", ""),
         "uploaded_by": snapshot.get("uploaded_by", ""),
         "can_upload": can_upload_completion_data(),
@@ -1478,11 +1859,11 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
         "history_dates": history_dates,
         "visible_history_dates": history_dates[:2],
         "older_history_dates": history_dates[2:],
-        "compare_dates": [date_key for date_key in history_dates if date_key != snapshot_date],
+        "compare_dates": [date_key for date_key in history_dates if date_key != latest_data_date],
         "comparison": {
-            "previous_snapshot_date": previous_snapshot.get("date") if previous_snapshot else "",
+            "previous_snapshot_date": previous_data_date,
             "previous_change": weighted_delta(classes, "change_from_previous"),
-            "compare_date": compare_snapshot.get("date", "") if compare_snapshot else "",
+            "compare_date": comparison_date,
             "compare_change": weighted_delta(classes, "change_from_compare"),
             "last_month_source_date": last_month_snapshot.get("date") if last_month_snapshot else "",
             "last_month_source_month": last_month_source_month,
@@ -1497,29 +1878,24 @@ def build_completion_summary(month_key, report_date=None, compare_date=None):
     store = load_completion_snapshots()
     snapshot = latest_completion_snapshot(month_key, effective_report_date, store)
     if snapshot:
-        summary = build_completion_snapshot_summary(month_key, snapshot, store, compare_date)
+        summary = build_completion_snapshot_summary(
+            month_key,
+            snapshot,
+            store,
+            compare_date,
+            effective_report_date,
+        )
         summary["period"] = period
         return summary
 
-    summary = build_completion_snapshot_summary(month_key, {"date": "", "rows": []}, store, compare_date)
+    summary = build_completion_snapshot_summary(
+        month_key,
+        {"date": "", "rows": []},
+        store,
+        compare_date,
+        effective_report_date,
+    )
     summary["period"] = period
-    summary["source"] = "empty"
-    summary["snapshot_date"] = ""
-    summary["uploaded_at"] = ""
-    summary["uploaded_by"] = ""
-    summary["history_dates"] = []
-    summary["visible_history_dates"] = []
-    summary["older_history_dates"] = []
-    summary["compare_dates"] = []
-    summary["comparison"] = {
-        "previous_snapshot_date": "",
-        "previous_change": None,
-        "compare_date": "",
-        "compare_change": None,
-        "last_month_source_date": "",
-        "last_month_source_month": previous_month_key(month_key),
-        "last_month_change": None,
-    }
     return summary
 
 
@@ -4360,16 +4736,31 @@ def upload_completion_snapshot():
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
-    snapshot = {
-        "date": snapshot_date,
-        "month": snapshot_date[:7],
-        "uploaded_at": datetime.now().isoformat(timespec="seconds"),
-        "uploaded_by": g.user.get("username", ""),
-        "rows": rows,
-    }
-
     with COMPLETION_SNAPSHOTS_LOCK:
         store = load_completion_snapshots()
+        existing_snapshot = store.setdefault("snapshots", {}).get(snapshot_date, {})
+        snapshot = {
+            "date": snapshot_date,
+            "month": snapshot_date[:7],
+            "uploaded_at": datetime.now().isoformat(timespec="seconds"),
+            "uploaded_by": g.user.get("username", ""),
+            "rows": rows,
+            "new_backend_rows": (
+                existing_snapshot.get("new_backend_rows", [])
+                if isinstance(existing_snapshot, dict) and isinstance(existing_snapshot.get("new_backend_rows"), list)
+                else []
+            ),
+            "new_backend_uploaded_at": (
+                existing_snapshot.get("new_backend_uploaded_at", "")
+                if isinstance(existing_snapshot, dict)
+                else ""
+            ),
+            "new_backend_uploaded_by": (
+                existing_snapshot.get("new_backend_uploaded_by", "")
+                if isinstance(existing_snapshot, dict)
+                else ""
+            ),
+        }
         store.setdefault("snapshots", {})[snapshot_date] = snapshot
         save_completion_snapshots(store)
 
@@ -4387,6 +4778,53 @@ def upload_completion_snapshot():
                 "updated": bool(reminder_plan),
                 "cycle_key": reminder_plan.get("cycle_key", "") if reminder_plan else "",
                 "source_date": reminder_plan.get("plan_source_date", "") if reminder_plan else "",
+            },
+        }
+    )
+
+
+@database_bp.post("/completion-new-backend-upload")
+@login_required
+def upload_new_backend_completion_snapshot():
+    if not can_upload_completion_data():
+        return jsonify({"error": "只有文云Joanna账号可以上传完课数据。"}), 403
+
+    file_storage = request.files.get("file")
+    if not file_storage:
+        return jsonify({"error": "请上传 Excel 或 CSV 文件。"}), 400
+
+    try:
+        snapshot_date = normalize_date(request.form.get("date"))
+        parsed = parse_new_backend_completion_upload(file_storage)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    uploaded_at = datetime.now().isoformat(timespec="seconds")
+    with COMPLETION_SNAPSHOTS_LOCK:
+        store = load_completion_snapshots()
+        existing_snapshot = store.setdefault("snapshots", {}).get(snapshot_date, {})
+        snapshot = dict(existing_snapshot) if isinstance(existing_snapshot, dict) else {}
+        snapshot.setdefault("rows", [])
+        snapshot["date"] = snapshot_date
+        snapshot["month"] = snapshot_date[:7]
+        snapshot["new_backend_rows"] = parsed["rows"]
+        snapshot["new_backend_uploaded_at"] = uploaded_at
+        snapshot["new_backend_uploaded_by"] = g.user.get("username", "")
+        if not snapshot.get("uploaded_at"):
+            snapshot["uploaded_at"] = uploaded_at
+            snapshot["uploaded_by"] = g.user.get("username", "")
+        store.setdefault("snapshots", {})[snapshot_date] = snapshot
+        save_completion_snapshots(store)
+
+    return jsonify(
+        {
+            "ok": True,
+            "snapshot": {
+                "date": snapshot_date,
+                "row_count": len(parsed["rows"]),
+                "task_row_count": parsed["task_row_count"],
+                "skipped_test_count": parsed["skipped_test_count"],
+                "uploaded_at": uploaded_at,
             },
         }
     )

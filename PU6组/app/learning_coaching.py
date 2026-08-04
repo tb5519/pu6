@@ -29,6 +29,7 @@ from app.classes import (
     parse_chinese_number,
     parse_upload,
     save_store,
+    sync_renewal_snapshot_for_class,
 )
 from app.database import load_database_settings, save_database_settings
 from app.teachers import teacher_label
@@ -623,6 +624,7 @@ def prepare_learning_roster(target_class, imported_students, updated_at):
     incoming_set = set(incoming_accounts)
     existing_set = set(existing_accounts)
     is_initial = not existing_accounts
+    is_rebuild_pending = bool(target_class.get("learning_coaching_roster_rebuild_pending"))
 
     if existing_accounts:
         extra_accounts = incoming_set - existing_set
@@ -647,6 +649,9 @@ def prepare_learning_roster(target_class, imported_students, updated_at):
         if not account:
             continue
         if account in active_set:
+            if is_rebuild_pending:
+                student.pop("learning_coaching_hidden", None)
+                student["updated_at"] = updated_at
             continue
         student["learning_coaching_hidden"] = True
         student["updated_at"] = updated_at
@@ -663,6 +668,7 @@ def prepare_learning_roster(target_class, imported_students, updated_at):
         ) or updated_at,
         "updated_at": updated_at,
     }
+    target_class.pop("learning_coaching_roster_rebuild_pending", None)
     return {
         "accounts": active_set,
         "is_initial": is_initial,
@@ -1184,6 +1190,7 @@ def update_learning_student(class_id, student_id):
     student["name_locked"] = True
     student["updated_at"] = updated_at
     target_class["updated_at"] = updated_at
+    sync_renewal_snapshot_for_class(target_class)
     save_store(store)
     return jsonify({
         "student": {
@@ -1453,4 +1460,53 @@ def remove_learning_roster_students(class_id):
             "removed_appointments": removed_appointments,
         },
         "class": class_learning_payload(target_class, public_learning_rounds()),
+    })
+
+
+@learning_coaching_bp.post("/<class_id>/reset-roster")
+@login_required
+def reset_learning_roster(class_id):
+    """Clear only the coaching roster so a wrong first import can be rebuilt."""
+    store = load_store()
+    target_class = find_class_by_id(store, class_id)
+    if target_class is None or not can_read_class(target_class):
+        return jsonify({"error": "班级不存在。"}), 404
+    if not can_write_learning_class(target_class):
+        return jsonify({"error": "只能重建自己班级的辅导名单。"}), 403
+
+    roster_accounts = set(learning_roster_accounts(target_class))
+    if not roster_accounts:
+        return jsonify({"error": "当前班级还没有建立辅导名单。"}), 400
+
+    updated_at = now_iso()
+    reset_student_ids = set()
+    cleared_score_count = 0
+    for student in target_class.get("students", []):
+        account = normalize_identity(get_student_account(student))
+        if account not in roster_accounts:
+            continue
+        student_id = str(student.get("id") or "").strip()
+        if student_id:
+            reset_student_ids.add(student_id)
+        assessments = student.pop("learning_assessments", [])
+        if isinstance(assessments, list):
+            cleared_score_count += len(assessments)
+        student["learning_coaching_hidden"] = True
+        student["updated_at"] = updated_at
+
+    removed_appointments = remove_learning_appointments_for_students(class_id, reset_student_ids)
+    target_class.pop("learning_coaching_roster", None)
+    target_class["learning_coaching_roster_rebuild_pending"] = True
+    target_class["updated_at"] = updated_at
+    save_store(store)
+
+    appointment_payload = learning_appointment_payload(store)
+    return jsonify({
+        "result": {
+            "cleared_student_count": len(reset_student_ids),
+            "cleared_score_count": cleared_score_count,
+            "removed_appointments": removed_appointments,
+        },
+        "class": class_learning_payload(target_class, public_learning_rounds()),
+        **appointment_payload,
     })

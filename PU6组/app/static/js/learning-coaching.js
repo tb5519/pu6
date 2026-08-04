@@ -6,6 +6,7 @@ const learningUploadButton = document.querySelector("#lc-uploadButton");
 const learningFileInput = document.querySelector("#lc-fileInput");
 const learningRosterRemoveFrom = document.querySelector("#lc-rosterRemoveFrom");
 const learningRemoveRosterButton = document.querySelector("#lc-removeRosterButton");
+const learningResetRosterButton = document.querySelector("#lc-resetRosterButton");
 const learningGuideUploadButton = document.querySelector("#lc-guideUploadButton");
 const learningGuideUploadInput = document.querySelector("#lc-guideUploadInput");
 const learningUploadStatus = document.querySelector("#lc-uploadStatus");
@@ -52,6 +53,7 @@ const learningAppointmentDate = document.querySelector("#lc-appointmentDate");
 const learningAppointmentSave = document.querySelector("#lc-appointmentSave");
 const learningAppointmentDone = document.querySelector("#lc-appointmentDone");
 const learningAppointmentStatus = document.querySelector("#lc-appointmentStatus");
+const LEARNING_SCORE_SCROLL_BUFFER_COLUMNS = 10;
 
 let learningCoachingData = {
   classes: [],
@@ -668,6 +670,13 @@ function renderStageScoreCell(score = {}, student = {}, stage) {
   `;
 }
 
+function learningScoreScrollBufferCells(tagName = "td") {
+  return Array.from(
+    { length: LEARNING_SCORE_SCROLL_BUFFER_COLUMNS },
+    () => `<${tagName} class="learning-score-scroll-buffer" aria-hidden="true"></${tagName}>`,
+  ).join("");
+}
+
 function renderLearningScoreHead(rows = []) {
   if (!learningScoreHead) return;
   const canWrite = Boolean(currentLearningClass()?.can_write);
@@ -693,6 +702,7 @@ function renderLearningScoreHead(rows = []) {
       <th>Unit8</th>
       <th>Unit9</th>
       <th class="learning-stage-col">阶段3</th>
+      ${learningScoreScrollBufferCells("th")}
     </tr>
   `;
 }
@@ -754,6 +764,7 @@ function renderLearningScoreMatrix() {
         <td class="learning-stage-col">${renderStageScoreCell(stageScoreForStudent(student, 2), student, 2)}</td>
         ${thirdStageCells}
         <td class="learning-stage-col">${renderStageScoreCell(stageScoreForStudent(student, 3), student, 3)}</td>
+        ${learningScoreScrollBufferCells()}
       </tr>
     `;
   }).join("");
@@ -1074,6 +1085,11 @@ function renderLearningDetail() {
   learningEmptyState?.classList.toggle("is-hidden", Boolean(classData));
   learningDetail?.classList.toggle("is-hidden", !classData);
   if (learningUploadButton) learningUploadButton.disabled = !classData;
+  if (learningResetRosterButton) {
+    const canResetRoster = Boolean(classData?.can_write && Number(classData?.student_count || 0) > 0);
+    learningResetRosterButton.classList.toggle("is-hidden", !canResetRoster);
+    learningResetRosterButton.disabled = !canResetRoster;
+  }
   syncLearningRemoveRosterButton();
   learningGuideUploadButton?.classList.toggle("is-hidden", !learningCoachingData.can_manage);
   if (!classData) return;
@@ -1215,6 +1231,35 @@ async function removeSelectedLearningRosterStudents() {
   }
 }
 
+async function resetLearningRoster() {
+  const classData = currentLearningClass();
+  if (!classData?.can_write) return;
+  const confirmed = window.confirm(
+    `确认重建“${classData.name || "当前班级"}”的辅导名单吗？\n\n这会清空学情辅导里的名单、已上传检测分数和预约/完成记录。不会影响“我的班级”、完课数据或续费数据。\n\n确认后请立即上传正确的完整班级表，系统会以新表重新建立名单基准。`,
+  );
+  if (!confirmed) return;
+
+  setLearningUploadStatus("正在清空错误辅导名单...");
+  if (learningResetRosterButton) learningResetRosterButton.disabled = true;
+  try {
+    const data = await learningApiRequest(`/api/learning-coaching/${encodeURIComponent(classData.id)}/reset-roster`, {
+      method: "POST",
+    });
+    replaceLearningClassPayload(data.class);
+    applyLearningAppointmentPayload(data);
+    learningSelectedRosterStudentIds.clear();
+    renderLearningCoaching();
+    const result = data.result || {};
+    setLearningUploadStatus(
+      `已清空 ${Number(result.cleared_student_count || 0)} 名错误辅导名单${Number(result.removed_appointments || 0) ? `，并移除 ${Number(result.removed_appointments)} 条预约记录` : ""}。请上传正确表格重新建立名单。`,
+    );
+  } catch (error) {
+    setLearningUploadStatus(error.message || "重建名单失败，请稍后重试。", true);
+  } finally {
+    if (learningResetRosterButton) learningResetRosterButton.disabled = false;
+  }
+}
+
 async function uploadLearningGuides(file) {
   if (!file) return;
   const formData = new FormData();
@@ -1274,6 +1319,7 @@ learningFileInput?.addEventListener("change", () => {
   if (file) uploadLearningScores(file);
 });
 learningRemoveRosterButton?.addEventListener("click", removeSelectedLearningRosterStudents);
+learningResetRosterButton?.addEventListener("click", resetLearningRoster);
 learningRosterRemoveFrom?.addEventListener("change", () => {
   const startStudentId = String(learningRosterRemoveFrom.value || "").trim();
   if (!startStudentId) return;

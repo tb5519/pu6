@@ -1114,9 +1114,11 @@ def find_upload_class(classes_by_id, class_name, teacher_id=""):
     return None, "匹配到多个同名班级，请补充班主任"
 
 
-def find_student_for_upload(source_class, account, name):
+def find_student_for_upload(source_class, account, _name):
     account_key = normalize_match_text(account)
-    name_key = normalize_match_text(name)
+    # Names are display-only and may be changed by either side. Keep the
+    # legacy branch disabled so historical imports also use account identity.
+    name_key = ""
     students = source_class.get("students", [])
     if account_key:
         for student in students:
@@ -1199,10 +1201,9 @@ def student_priority_key(student):
     priority = student.get("followup_priority") or ""
     blocker_bucket, blocker_index, blocker = blocker_priority(student.get("current_blocker"))
     return (
-        1 if student.get("enrolled") else 0,
+        completion_sort_value(student.get("average_completion")),
         FOLLOWUP_PRIORITY_RANK.get(priority, FOLLOWUP_PRIORITY_RANK[""]),
         FOLLOWUP_STATUS_PRIORITY.get(status, FOLLOWUP_STATUS_PRIORITY[""]),
-        completion_sort_value(student.get("average_completion")),
         blocker_bucket,
         blocker_index,
         blocker,
@@ -1215,10 +1216,9 @@ def student_prep_priority_key(student):
     status = student.get("followup_status") or ""
     priority = student.get("followup_priority") or ""
     return (
-        1 if student.get("enrolled") else 0,
+        completion_sort_value(student.get("average_completion")),
         FOLLOWUP_PRIORITY_RANK.get(priority, FOLLOWUP_PRIORITY_RANK[""]),
         FOLLOWUP_STATUS_PRIORITY.get(status, FOLLOWUP_STATUS_PRIORITY[""]),
-        completion_sort_value(student.get("average_completion")),
         str(student.get("name") or ""),
         str(student.get("account") or ""),
     )
@@ -1403,6 +1403,7 @@ def renewal_followup_overview(projects, classes_by_id, target_date=None):
                 "stage": normalize_stage(project.get("stage")),
                 "student_id": student_id,
                 "student_name": str(student.get("name") or student.get("account") or "未命名学员").strip(),
+                "current_blocker": normalize_blocker(record.get("current_blocker")),
                 "methods": summary.get("methods", []),
                 "sources": summary.get("sources", []),
                 "latest_at": summary.get("latest_at", ""),
@@ -1512,13 +1513,10 @@ def ensure_project_student_snapshot(project, source_class):
                 changed = True
                 continue
 
-            for key in ("account", "average_completion"):
+            for key in ("name", "account", "average_completion"):
                 if target.get(key) != source_snapshot.get(key):
                     target[key] = source_snapshot.get(key)
                     changed = True
-            if not str(target.get("name") or "").strip() and str(source_snapshot.get("name") or "").strip():
-                target["name"] = source_snapshot.get("name")
-                changed = True
 
     next_snapshots = [snapshots_by_id[student_id] for student_id in ordered_ids if student_id in snapshots_by_id]
     if changed or project.get("student_snapshot") != next_snapshots:
@@ -2026,6 +2024,7 @@ def update_student_enrollment(project_id, student_id):
             updated_at = now_iso()
             if student is not None:
                 student["name"] = next_name
+                student["name_locked"] = True
                 student["updated_at"] = updated_at
                 source_class["updated_at"] = updated_at
                 class_had_update = True

@@ -26,6 +26,7 @@ classes_bp = Blueprint("classes", __name__, url_prefix="/api/classes")
 DEFAULT_WEEK_COUNT = 4
 MAX_WEEK_COUNT = 8
 DAY_COUNT = 6
+COMPLETION_ROSTER_MISMATCH_LIMIT = 10
 MAX_DAY_COUNT = 7
 WEEK_SECONDS = 7 * 24 * 60 * 60
 HEADER_SCAN_LIMIT = 20
@@ -464,13 +465,10 @@ def sync_renewal_snapshot_for_class(source_class):
                 ordered_ids.append(student_id)
                 project_changed = True
                 continue
-            for key in ("account", "average_completion"):
+            for key in ("name", "account", "average_completion"):
                 if target.get(key) != snapshot.get(key):
                     target[key] = snapshot.get(key)
                     project_changed = True
-            if not str(target.get("name") or "").strip() and snapshot.get("name"):
-                target["name"] = snapshot.get("name")
-                project_changed = True
 
         next_snapshots = [snapshots_by_id[student_id] for student_id in ordered_ids if student_id in snapshots_by_id]
         if project_changed or project.get("student_snapshot") != next_snapshots:
@@ -1202,6 +1200,81 @@ def calculate_monthly_completion(weeks):
     return round(sum(values) / len(values), 2)
 
 
+def uploaded_completion_source_dates(imported_students):
+    dates = set()
+    for student in imported_students:
+        source_dates = student.get("_completion_source_dates")
+        if not isinstance(source_dates, list):
+            continue
+        for value in source_dates:
+            date_key = local_date_key(parse_date_key(value)) if parse_date_key(value) else ""
+            if date_key:
+                dates.add(date_key)
+    return sorted(dates)
+
+
+def class_completion_rate_as_of(target_class, period_rule, date_key):
+    cutoff = parse_date_key(date_key)
+    start = parse_date_key(period_rule.get("start_date"))
+    if cutoff is None or start is None:
+        return None, 0
+
+    month_key = period_rule.get("month") or current_month_key()
+    week_count = period_rule.get("week_count", DEFAULT_WEEK_COUNT)
+    day_count = period_rule.get("days_per_week", DAY_COUNT)
+    student_rates = []
+
+    for student in target_class.get("students", []):
+        weeks = get_student_weeks(student, month_key, week_count, day_count)
+        values = []
+        for week_key, week_values in weeks.items():
+            try:
+                week_number = int(week_key)
+            except (TypeError, ValueError):
+                continue
+            for day_index, value in enumerate(week_values, start=1):
+                if value is None:
+                    continue
+                completion_date = start + timedelta(days=((week_number - 1) * 7) + (day_index - 1))
+                if completion_date <= cutoff:
+                    values.append(value)
+        if values:
+            student_rates.append(round(sum(values) / len(values), 2))
+
+    if not student_rates:
+        return None, 0
+    return round(sum(student_rates) / len(student_rates), 2), len(student_rates)
+
+
+def record_local_completion_snapshot(target_class, imported_students, period_rule):
+    """Keep a class-upload fallback snapshot for reports missing from Joanna's total table."""
+    source_dates = uploaded_completion_source_dates(imported_students)
+    snapshot_date = source_dates[-1] if source_dates else local_date_key()
+    completion_rate, active_student_count = class_completion_rate_as_of(
+        target_class,
+        period_rule,
+        snapshot_date,
+    )
+    if completion_rate is None:
+        return None
+
+    snapshots = target_class.get("completion_local_snapshots")
+    if not isinstance(snapshots, dict):
+        snapshots = {}
+        target_class["completion_local_snapshots"] = snapshots
+
+    snapshot = {
+        "date": snapshot_date,
+        "period_month": period_rule.get("month") or current_month_key(),
+        "completion_rate": completion_rate,
+        "student_count": len(target_class.get("students", [])),
+        "active_student_count": active_student_count,
+        "uploaded_at": now_iso(),
+    }
+    snapshots[snapshot_date] = snapshot
+    return snapshot
+
+
 def uploaded_day_values(weeks):
     values = []
     for week_key in sorted(weeks, key=lambda value: int(value)):
@@ -1926,15 +1999,21 @@ def rows_to_students(rows, period=None):
         if mapped_date_columns:
             day_count = parse_activity_int(period.get("days_per_week"), DAY_COUNT, 1, MAX_DAY_COUNT)
             weeks = {}
-            for info in mapped_date_columns.values():
+            source_dates = []
+            for date_key, info in mapped_date_columns.items():
                 column_index = info["column"]
                 week_key, day = info["position"]
                 value = row[column_index] if column_index < len(row) else None
                 week_values = weeks.setdefault(week_key, blank_week(day_count))
                 day_index = int(day) - 1
                 if 0 <= day_index < len(week_values):
-                    week_values[day_index] = parse_completion(value)
+                    completion_value = parse_completion(value)
+                    week_values[day_index] = completion_value
+                    if completion_value is not None:
+                        source_dates.append(date_key)
             student["weeks"] = weeks
+            if source_dates:
+                student["_completion_source_dates"] = sorted(set(source_dates))
         else:
             days = {}
             for day, column_index in day_columns.items():
@@ -2055,8 +2134,27 @@ def prepare_completion_roster(target_class, imported_students, updated_at):
     existing_set = set(existing_accounts)
     is_initial = not existing_accounts
     added_accounts = incoming_set - existing_set
-    # Students may join a class during the course. A newly seen learning account
-    # is therefore a valid roster change, not a reason to reject the whole upload.
+    removed_accounts = existing_set - incoming_set
+
+    # Students can join and leave at the same time, so small mixed roster changes
+    # are valid. A large two-way mismatch is much more likely to be another class
+    # uploaded by mistake, so leave the current roster and completion data intact.
+    mismatch_count = len(added_accounts) + len(removed_accounts)
+    if (
+        not is_initial
+        and added_accounts
+        and removed_accounts
+        and mismatch_count >= COMPLETION_ROSTER_MISMATCH_LIMIT
+    ):
+        return {
+            "error": (
+                f"本次表格与当前班级学员基数不一致：新增 {len(added_accounts)} 人，"
+                f"同时缺少原名单中的 {len(removed_accounts)} 人，共 {mismatch_count} 人未匹配。"
+                "为防止错传其他班级，本次未导入；请核对班级后再上传。"
+            ),
+            "status": 400,
+        }
+
     active_accounts = incoming_accounts
     target_class["completion_roster"] = {
         "accounts": active_accounts,
@@ -2071,7 +2169,7 @@ def prepare_completion_roster(target_class, imported_students, updated_at):
         "accounts": set(active_accounts),
         "is_initial": is_initial,
         "added_count": len(added_accounts),
-        "removed_count": len(existing_set - set(active_accounts)),
+        "removed_count": len(removed_accounts),
     }
 
 
@@ -2207,12 +2305,6 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
         for student in students
         if normalize_identity(get_student_account(student))
     }
-    existing_by_name = {
-        normalize_identity(student.get("name")): student
-        for student in students
-        if normalize_identity(student.get("name"))
-    }
-
     month_key = period_rule.get("month") or current_month_key()
     updated_at = now_iso()
     updated = 0
@@ -2223,12 +2315,9 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
 
     for imported in imported_students:
         account_key = normalize_identity(imported.get("account"))
-        name_key = normalize_identity(imported.get("name"))
-        current = None
-        if account_key:
-            current = existing_by_account.get(account_key)
-        if current is None and name_key:
-            current = existing_by_name.get(name_key)
+        # Learning account is the immutable student identity. Names may be
+        # changed by students or teachers, so they must never link records.
+        current = existing_by_account.get(account_key) if account_key else None
         if current is not None and current.get("id") in matched_student_ids:
             current = None
 
@@ -2273,8 +2362,6 @@ def sync_students_from_upload(target_class, imported_students, week_number, acti
 
         if normalize_identity(current.get("account")):
             existing_by_account[normalize_identity(current.get("account"))] = current
-        if normalize_identity(current.get("name")):
-            existing_by_name[normalize_identity(current.get("name"))] = current
         matched_student_ids.add(current["id"])
         synced_students.append(current)
 
@@ -2831,6 +2918,7 @@ def update_student(class_id, student_id):
     student["name_locked"] = True
     student["updated_at"] = updated_at
     item["updated_at"] = updated_at
+    sync_renewal_snapshot_for_class(item)
     save_store(store)
     return jsonify({
         "student": serialize_student(student),
@@ -2872,6 +2960,12 @@ def upload_students(class_id):
     result["roster_initialized"] = roster["is_initial"]
     result["roster_added_count"] = roster["added_count"]
     result["roster_removed_count"] = roster["removed_count"]
+    local_snapshot = record_local_completion_snapshot(item, imported_students, completion_period)
+    if local_snapshot:
+        result["local_completion_snapshot"] = {
+            "date": local_snapshot["date"],
+            "completion_rate": local_snapshot["completion_rate"],
+        }
     save_store(store)
     return jsonify({
         "result": result,

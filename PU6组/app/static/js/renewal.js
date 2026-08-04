@@ -1069,9 +1069,13 @@ function renewalOverviewSummaryText(overview) {
 function renderRenewalFollowupRow(row) {
   const methods = Array.isArray(row.methods) && row.methods.length ? row.methods.join("、") : "已记录";
   const sourceText = Array.isArray(row.sources) && row.sources.length ? row.sources.join("、") : "";
-  const content = String(row.note || "").trim() || (methods === "已记录" ? sourceText || "已跟进" : `${methods}跟进`);
+  const actionText = methods === "已记录" ? sourceText || "已跟进" : `${methods}跟进`;
+  const note = String(row.note || "").trim();
+  const blocker = String(row.current_blocker || "").trim();
+  const content = note ? `备注：${note}` : actionText;
   const meta = [
     row.stage || "",
+    blocker ? `卡点：${blocker}` : "",
     sourceText,
     row.latest_time || "",
   ].filter(Boolean).join(" · ");
@@ -1083,7 +1087,11 @@ function renderRenewalFollowupRow(row) {
       title="${escapeRenewalAttr(meta || "点击进入该续费班级")}"
     >
       <strong>${escapeRenewalText(row.student_name || "未命名学员")}</strong>
-      <em>${escapeRenewalText(content)}</em>
+      <span class="renewal-followup-blocker${blocker ? "" : " is-empty"}">${escapeRenewalText(blocker || "未填写卡点")}</span>
+      <div class="renewal-followup-record">
+        <em>${escapeRenewalText(content)}</em>
+        ${note ? `<small>${escapeRenewalText(actionText)}</small>` : ""}
+      </div>
       <small>${escapeRenewalText(row.latest_time ? row.latest_time.slice(5) : "")}</small>
     </button>
   `;
