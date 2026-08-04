@@ -9,6 +9,7 @@ from openpyxl import load_workbook
 
 from app.auth import can_manage_accounts, current_teacher_id as auth_current_teacher_id, login_required
 from app.classes import (
+    COMPLETION_ROSTER_MISMATCH_LIMIT,
     LEARNING_BOOKS,
     active_completion_activity,
     can_read_class,
@@ -589,12 +590,19 @@ def learning_roster_accounts(target_class):
 def imported_learning_roster_accounts(imported_students):
     accounts = []
     seen = set()
+    missing_count = 0
+    duplicate_count = 0
     for imported in imported_students:
         normalized = normalize_identity(imported.get("account"))
-        if normalized and normalized not in seen:
-            seen.add(normalized)
-            accounts.append(normalized)
-    return accounts
+        if not normalized:
+            missing_count += 1
+            continue
+        if normalized in seen:
+            duplicate_count += 1
+            continue
+        seen.add(normalized)
+        accounts.append(normalized)
+    return accounts, missing_count, duplicate_count
 
 
 def learning_roster_display_names(imported_students, account_keys):
@@ -613,7 +621,17 @@ def learning_roster_display_names(imported_students, account_keys):
 
 
 def prepare_learning_roster(target_class, imported_students, updated_at):
-    incoming_accounts = imported_learning_roster_accounts(imported_students)
+    incoming_accounts, missing_count, duplicate_count = imported_learning_roster_accounts(imported_students)
+    if missing_count:
+        return {
+            "error": f"本次表格有 {missing_count} 条学员记录缺少学习账号，无法校验辅导名单，请补全账号后再上传。",
+            "status": 400,
+        }
+    if duplicate_count:
+        return {
+            "error": f"本次表格有 {duplicate_count} 条重复学习账号，无法校验辅导名单，请去重后再上传。",
+            "status": 400,
+        }
     if not incoming_accounts:
         return {
             "error": "没有识别到学习账号，无法建立辅导名单。",
@@ -621,27 +639,44 @@ def prepare_learning_roster(target_class, imported_students, updated_at):
         }
 
     existing_accounts = learning_roster_accounts(target_class)
+    visible_accounts = {
+        normalize_identity(get_student_account(student))
+        for student in learning_roster_students(target_class)
+        if normalize_identity(get_student_account(student))
+    }
+    # Older manual removals only hid students and left the roster metadata
+    # behind. If nothing remains visible, the next file is a fresh baseline.
+    if existing_accounts and not visible_accounts:
+        existing_accounts = []
     incoming_set = set(incoming_accounts)
     existing_set = set(existing_accounts)
     is_initial = not existing_accounts
-    is_rebuild_pending = bool(target_class.get("learning_coaching_roster_rebuild_pending"))
+    added_accounts = incoming_set - existing_set
+    removed_accounts = existing_set - incoming_set
 
-    if existing_accounts:
-        extra_accounts = incoming_set - existing_set
-        if extra_accounts:
-            labels = learning_roster_display_names(imported_students, extra_accounts)
-            preview = "、".join(labels) or "未知账号"
-            suffix = "等" if len(extra_accounts) > len(labels) else ""
-            return {
-                "error": f"本次表格发现 {len(extra_accounts)} 个不在首次辅导名单中的账号：{preview}{suffix}。请确认班级后再上传。",
-                "status": 400,
-            }
+    # Align with completion uploads: ordinary enrolment changes are accepted,
+    # while a large two-way mismatch is most likely a different class file.
+    mismatch_count = len(added_accounts) + len(removed_accounts)
+    if (
+        not is_initial
+        and added_accounts
+        and removed_accounts
+        and mismatch_count >= COMPLETION_ROSTER_MISMATCH_LIMIT
+    ):
+        added_labels = learning_roster_display_names(imported_students, added_accounts)
+        preview = "、".join(added_labels) or "未知账号"
+        suffix = "等" if len(added_accounts) > len(added_labels) else ""
+        return {
+            "error": (
+                f"本次表格与当前辅导名单不一致：新增 {len(added_accounts)} 人，"
+                f"同时缺少原名单中的 {len(removed_accounts)} 人，共 {mismatch_count} 人未匹配。"
+                f"为防止错传其他班级，本次未导入；新增账号示例：{preview}{suffix}。"
+            ),
+            "status": 400,
+        }
 
-    active_accounts = incoming_accounts if is_initial else [
-        account for account in existing_accounts if account in incoming_set
-    ]
+    active_accounts = incoming_accounts
     active_set = set(active_accounts)
-    removed_accounts = existing_set - active_set if existing_accounts else set()
     hidden_student_ids = set()
 
     for student in target_class.get("students", []):
@@ -649,7 +684,7 @@ def prepare_learning_roster(target_class, imported_students, updated_at):
         if not account:
             continue
         if account in active_set:
-            if is_rebuild_pending:
+            if student.get("learning_coaching_hidden"):
                 student.pop("learning_coaching_hidden", None)
                 student["updated_at"] = updated_at
             continue
@@ -672,6 +707,7 @@ def prepare_learning_roster(target_class, imported_students, updated_at):
     return {
         "accounts": active_set,
         "is_initial": is_initial,
+        "added_accounts": added_accounts,
         "removed_accounts": removed_accounts,
         "hidden_student_ids": hidden_student_ids,
     }
@@ -1408,7 +1444,8 @@ def upload_learning_scores(class_id):
 
     removed_appointments = remove_learning_appointments_for_students(class_id, roster["hidden_student_ids"])
     result["roster_initialized"] = roster["is_initial"]
-    result["roster_removed_count"] = len(roster["hidden_student_ids"])
+    result["roster_added_count"] = len(roster["added_accounts"])
+    result["roster_removed_count"] = len(roster["removed_accounts"])
     result["removed_appointments"] = removed_appointments
 
     target_class["updated_at"] = updated_at
@@ -1446,13 +1483,34 @@ def remove_learning_roster_students(class_id):
     if not target_ids:
         return jsonify({"error": "所选学员已不在当前辅导名单中。"}), 400
 
+    updated_at = now_iso()
+    removed_accounts = set()
     for student in target_class.get("students", []):
         if str(student.get("id") or "").strip() in target_ids:
+            account = normalize_identity(get_student_account(student))
+            if account:
+                removed_accounts.add(account)
             student["learning_coaching_hidden"] = True
-            student["updated_at"] = now_iso()
+            student["updated_at"] = updated_at
+
+    roster = target_class.get("learning_coaching_roster")
+    remaining_accounts = [
+        account
+        for account in learning_roster_accounts(target_class)
+        if account not in removed_accounts
+    ]
+    if remaining_accounts:
+        target_class["learning_coaching_roster"] = {
+            **(roster if isinstance(roster, dict) else {}),
+            "accounts": remaining_accounts,
+            "updated_at": updated_at,
+        }
+    else:
+        target_class.pop("learning_coaching_roster", None)
+        target_class["learning_coaching_roster_rebuild_pending"] = True
 
     removed_appointments = remove_learning_appointments_for_students(class_id, target_ids)
-    target_class["updated_at"] = now_iso()
+    target_class["updated_at"] = updated_at
     save_store(store)
     return jsonify({
         "result": {

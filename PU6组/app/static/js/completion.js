@@ -39,6 +39,7 @@ const activityArchive = document.querySelector("#cc-activityArchive");
 const classNameInput = document.querySelector("#cc-className");
 const classWeekSelect = document.querySelector("#cc-weekSelect");
 const classUploadButton = document.querySelector("#cc-uploadButton");
+const classResetRosterButton = document.querySelector("#cc-resetRosterButton");
 const classClearWeekButton = document.querySelector("#cc-clearWeekButton");
 const classClearMonthButton = document.querySelector("#cc-clearMonthButton");
 const classFileInput = document.querySelector("#cc-fileInput");
@@ -3670,8 +3671,8 @@ function renderReminderPlan(data) {
   reminderPriorityShell?.classList.toggle("is-hidden", !shouldShowPriority);
   if (data?.waiting_for_monday_upload) {
     const waitText = data.cycle_key
-      ? `等待本周一（${data.cycle_key}）完课数据。`
-      : "等待本周一完课数据。";
+      ? `等待本周首次上传完课数据（本周从 ${data.cycle_key} 开始）。`
+      : "等待本周首次上传完课数据。";
     const previewAction = canManageAll
       ? `
         <div class="reminder-preview-action">
@@ -4067,6 +4068,37 @@ async function uploadStudents(file) {
   }
 }
 
+async function resetCompletionRoster() {
+  if (!activeClass) return;
+  const className = activeClass.name || "当前班级";
+  const confirmed = window.confirm(
+    `确认重建“${className}”的完课名单吗？\n\n` +
+      "这会解除首次上传的名单校验，并停止使用该班此前的本地完课快照。当前学员暂时保留；请随后立即上传正确表格，系统会按新表重新同步名单和完课数据。"
+  );
+  if (!confirmed) return;
+
+  classResetRosterButton?.setAttribute("disabled", "disabled");
+  try {
+    const data = await apiRequest(`/api/classes/${activeClass.id}/reset-completion-roster`, {
+      method: "POST",
+    });
+    updateActivityState(data);
+    activeClass = data.class;
+    classes = classes.map((item) => (item.id === activeClass.id ? activeClass : item));
+    renderStudents();
+    await loadClasses();
+    if (data.result?.already_ready) {
+      setDetailMessage("当前班级没有已锁定的完课名单，直接上传正确表格即可。");
+      return;
+    }
+    setDetailMessage(
+      `已重建完课名单基准（原基准 ${Number(data.result?.reset_roster_count || 0)} 人）。请立即上传正确表格。`
+    );
+  } finally {
+    classResetRosterButton?.removeAttribute("disabled");
+  }
+}
+
 async function clearMonthData() {
   if (!activeClass) return;
   const confirmed = window.confirm("确认清空当前班级本月完课数据吗？学员名单和账号会保留。");
@@ -4202,6 +4234,10 @@ function initCompletion() {
     }
     setDetailMessage(`请选择要导入到${weekLabel(classWeekSelect?.value || "1")}的 Excel 或 CSV 文件。`);
     classFileInput?.click();
+  });
+
+  classResetRosterButton?.addEventListener("click", () => {
+    resetCompletionRoster().catch((error) => setDetailMessage(error.message, true));
   });
 
   classGenerateCurrentImage?.addEventListener("click", generateCompletionImage);

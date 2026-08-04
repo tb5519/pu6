@@ -2894,6 +2894,60 @@ def clear_week_data(class_id):
     })
 
 
+@classes_bp.post("/<class_id>/reset-completion-roster")
+@login_required
+def reset_completion_roster(class_id):
+    """Release a mistaken first-upload roster without immediately removing students."""
+    store = load_store()
+    activity_store = load_activity_store(store)
+    active_activity = active_completion_activity(activity_store)
+    item = find_owned_class(store, class_id)
+    if item is None:
+        return jsonify({"error": "班级不存在。"}), 404
+
+    roster = item.get("completion_roster")
+    roster_accounts = completion_roster_accounts(item)
+    snapshots = item.get("completion_local_snapshots")
+    snapshot_count = len(snapshots) if isinstance(snapshots, dict) else 0
+    if not roster_accounts:
+        return jsonify({
+            "result": {
+                "already_ready": True,
+                "reset_roster_count": 0,
+                "snapshot_count": 0,
+            },
+            "class": serialize_class(item, include_students=True, active_activity=active_activity, class_store=store),
+            **completion_activity_payload(activity_store),
+        })
+
+    # Preserve the mistaken baseline for a rollback audit, but stop using it for
+    # upload validation and report fallbacks. The visible student list remains
+    # until the teacher uploads the corrected class file.
+    history = item.setdefault("completion_roster_reset_history", [])
+    if not isinstance(history, list):
+        history = []
+        item["completion_roster_reset_history"] = history
+    history.append({
+        "reset_at": now_iso(),
+        "roster": roster if isinstance(roster, dict) else {},
+        "local_snapshots": snapshots if isinstance(snapshots, dict) else {},
+    })
+    item.pop("completion_roster", None)
+    item.pop("completion_local_snapshots", None)
+    item["updated_at"] = now_iso()
+    save_store(store)
+
+    return jsonify({
+        "result": {
+            "already_ready": False,
+            "reset_roster_count": len(roster_accounts),
+            "snapshot_count": snapshot_count,
+        },
+        "class": serialize_class(item, include_students=True, active_activity=active_activity, class_store=store),
+        **completion_activity_payload(activity_store),
+    })
+
+
 @classes_bp.patch("/<class_id>/students/<student_id>")
 @login_required
 def update_student(class_id, student_id):

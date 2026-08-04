@@ -1182,11 +1182,14 @@ async function uploadLearningScores(file) {
     const result = data.result || {};
     const changed = Number(result.assessment_updated || 0);
     const total = Number(result.score_count || 0);
+    const rosterAdded = Number(result.roster_added_count || 0);
+    const rosterRemoved = Number(result.roster_removed_count || 0);
     const rosterNote = result.roster_initialized
       ? "已建立首次辅导名单。"
-      : (Number(result.roster_removed_count || 0) > 0
-        ? `已移除 ${Number(result.roster_removed_count || 0)} 名本次未获取到的名单。`
-        : "");
+      : [
+        rosterAdded ? `已新增 ${rosterAdded} 名学员。` : "",
+        rosterRemoved ? `已移除 ${rosterRemoved} 名本次未获取到的名单。` : "",
+      ].filter(Boolean).join(" ");
     const scoreNote = changed
       ? `已更新 ${changed} 条检测分数。`
       : `已读取 ${total} 条检测分数，暂无新增变化。`;

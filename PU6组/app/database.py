@@ -1812,13 +1812,25 @@ def build_completion_snapshot_summary(month_key, snapshot, store=None, compare_d
         rows = teacher.pop("completion_rows")
         teachers.append({**teacher, "average_completion": weighted_rate(rows, "completion_rate")})
 
-    renewal_classes.sort(
-        key=lambda row: (
-            row.get("teacher_name") or "",
-            row.get("title_week_number") or 999,
-            row.get("name") or "",
+    teacher_order = {teacher["id"]: index for index, teacher in enumerate(TEACHERS)}
+
+    def completion_table_sort_key(row):
+        teacher_id = normalize_teacher_id(row.get("teacher_id"))
+        teacher_name = str(row.get("teacher_name") or "")
+        try:
+            week_number = int(row.get("title_week_number") or 0)
+        except (TypeError, ValueError):
+            week_number = 0
+        return (
+            teacher_order.get(teacher_id, len(teacher_order)),
+            teacher_name,
+            -week_number,
+            str(row.get("name") or ""),
         )
-    )
+
+    # Keep each teacher's classes adjacent; the newest W number comes first.
+    classes.sort(key=completion_table_sort_key)
+    renewal_classes.sort(key=completion_table_sort_key)
 
     if central_snapshot_date and local_fallback_count:
         source = "mixed"
@@ -4035,6 +4047,34 @@ def reminder_plan_source_date(cycle_key):
     return cycle_key
 
 
+def weekly_reminder_upload_source_date(cycle_key, report_date=None, store=None):
+    """Return the latest usable upload from this work week only.
+
+    A Monday upload is the normal trigger, but if it is missed, the first
+    Tuesday-Friday upload must still be able to create that week's fixed plan.
+    Older snapshots must not silently become this week's source data.
+    """
+    try:
+        cycle_start = datetime.strptime(str(cycle_key or ""), "%Y-%m-%d")
+    except ValueError:
+        return ""
+
+    end_date = str(report_date or datetime.now().strftime("%Y-%m-%d"))[:10]
+    cycle_end = (cycle_start + timedelta(days=4)).strftime("%Y-%m-%d")
+    cycle_date = cycle_start.strftime("%Y-%m-%d")
+    if end_date < cycle_date:
+        return ""
+    end_date = min(end_date, cycle_end)
+
+    candidates = [
+        snapshot
+        for snapshot in snapshot_list(store)
+        if cycle_date <= str(snapshot.get("date", "")) <= end_date
+        and snapshot_completion_rows(snapshot)
+    ]
+    return candidates[-1].get("date", "") if candidates else ""
+
+
 def waiting_for_monday_upload_plan(cycle_key, report_date):
     month_key = str(cycle_key or report_date or "")[:7]
     return {
@@ -4113,38 +4153,32 @@ def preview_weekly_reminder_plan(report_date):
 
 def ensure_weekly_reminder_plan(report_date):
     cycle_key = reminder_cycle_key_for_date(report_date)
-    monday_snapshot = completion_snapshot_by_date(cycle_key)
+    source_date = weekly_reminder_upload_source_date(cycle_key, report_date)
     store = load_reminder_plans()
     plan = store.get("plans", {}).get(cycle_key)
-    if not monday_snapshot and plan and plan.get("plan_source_date") != cycle_key:
-        return waiting_for_monday_upload_plan(cycle_key, report_date)
     if plan:
-        if monday_snapshot and plan.get("plan_source_date") != cycle_key:
-            with REMINDER_PLANS_LOCK:
-                return save_weekly_reminder_plan(cycle_key, cycle_key, "system-monday-upload")
         if plan.get("rule_version") != REMINDER_PLAN_RULE_VERSION:
-            if not monday_snapshot:
-                return waiting_for_monday_upload_plan(cycle_key, report_date)
-            source_date = plan.get("plan_source_date") or reminder_plan_source_date(cycle_key)
+            plan_source_date = plan.get("plan_source_date") or source_date
+            if not plan_source_date:
+                return plan
             with REMINDER_PLANS_LOCK:
-                return save_weekly_reminder_plan(cycle_key, source_date, "system-rule-update")
+                return save_weekly_reminder_plan(cycle_key, plan_source_date, "system-rule-update")
         if reconcile_weekly_reminder_plan(plan):
             store.setdefault("plans", {})[cycle_key] = plan
             store["updated_at"] = plan.get("updated_at", datetime.now().isoformat(timespec="seconds"))
             save_reminder_plans(store)
         return plan
 
-    if not monday_snapshot:
+    if not source_date:
         return waiting_for_monday_upload_plan(cycle_key, report_date)
 
-    source_date = reminder_plan_source_date(cycle_key)
     with REMINDER_PLANS_LOCK:
         store = load_reminder_plans()
         plan = store.get("plans", {}).get(cycle_key)
         if plan:
             if plan.get("rule_version") != REMINDER_PLAN_RULE_VERSION:
-                source_date = plan.get("plan_source_date") or source_date
-                return save_weekly_reminder_plan(cycle_key, source_date, "system-rule-update")
+                plan_source_date = plan.get("plan_source_date") or source_date
+                return save_weekly_reminder_plan(cycle_key, plan_source_date, "system-rule-update")
             if reconcile_weekly_reminder_plan(plan):
                 store.setdefault("plans", {})[cycle_key] = plan
                 store["updated_at"] = plan.get("updated_at", datetime.now().isoformat(timespec="seconds"))
@@ -4154,11 +4188,27 @@ def ensure_weekly_reminder_plan(report_date):
 
 
 def refresh_weekly_reminder_plan_from_snapshot(snapshot_date):
-    if datetime.strptime(snapshot_date, "%Y-%m-%d").weekday() != 0:
+    try:
+        uploaded_on = datetime.strptime(snapshot_date, "%Y-%m-%d")
+    except (TypeError, ValueError):
         return None
+    if uploaded_on.weekday() > 4:
+        return None
+
     cycle_key = reminder_cycle_key_for_date(snapshot_date)
+    current_cycle_key = reminder_cycle_key_for_date(datetime.now().strftime("%Y-%m-%d"))
+    if cycle_key != current_cycle_key:
+        return None
+
     with REMINDER_PLANS_LOCK:
-        return save_weekly_reminder_plan(cycle_key, snapshot_date, g.user.get("username", ""))
+        store = load_reminder_plans()
+        existing_plan = store.get("plans", {}).get(cycle_key)
+        if existing_plan:
+            return existing_plan
+        source_date = weekly_reminder_upload_source_date(cycle_key, snapshot_date)
+        if not source_date:
+            return None
+        return save_weekly_reminder_plan(cycle_key, source_date, g.user.get("username", ""))
 
 
 def reminder_schedule_with_action_states(schedule, action_records, local_upload_lookup=None, report_date=""):
@@ -4816,6 +4866,8 @@ def upload_new_backend_completion_snapshot():
         store.setdefault("snapshots", {})[snapshot_date] = snapshot
         save_completion_snapshots(store)
 
+    reminder_plan = refresh_weekly_reminder_plan_from_snapshot(snapshot_date)
+
     return jsonify(
         {
             "ok": True,
@@ -4825,6 +4877,11 @@ def upload_new_backend_completion_snapshot():
                 "task_row_count": parsed["task_row_count"],
                 "skipped_test_count": parsed["skipped_test_count"],
                 "uploaded_at": uploaded_at,
+            },
+            "reminder_plan": {
+                "updated": bool(reminder_plan),
+                "cycle_key": reminder_plan.get("cycle_key", "") if reminder_plan else "",
+                "source_date": reminder_plan.get("plan_source_date", "") if reminder_plan else "",
             },
         }
     )
