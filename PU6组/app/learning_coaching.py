@@ -314,7 +314,7 @@ def appointment_date_label(date_key):
     return learning_date_label(date.fromisoformat(parsed))
 
 
-def public_learning_appointments(appointments, class_items):
+def public_learning_appointments(appointments, class_items, today_teacher_id=""):
     today = learning_today_key()
     class_map = {str(item.get("id") or ""): item for item in class_items}
     public_items = {}
@@ -345,7 +345,11 @@ def public_learning_appointments(appointments, class_items):
             "is_today": item["appointment_date"] == today,
         }
         public_items[payload["key"]] = payload
-        if not payload["completed"] and payload["is_due"]:
+        if (
+            not payload["completed"]
+            and payload["is_due"]
+            and payload["teacher_id"] == today_teacher_id
+        ):
             due_items.append(payload)
     due_items = sorted(
         due_items,
@@ -364,7 +368,11 @@ def learning_appointment_payload(store=None):
     source = store or load_store()
     class_items = [item for item in source.get("classes", []) if can_read_class(item)]
     _, _, appointments = load_learning_appointments()
-    public_items, due_items = public_learning_appointments(appointments, class_items)
+    public_items, due_items = public_learning_appointments(
+        appointments,
+        class_items,
+        auth_current_teacher_id(),
+    )
     return {
         "appointments": public_items,
         "today_appointments": due_items,
@@ -928,6 +936,7 @@ def class_learning_payload(item, rounds=None):
         "owner": item.get("owner", ""),
         "student_count": len(learning_roster_students(item)),
         "can_write": can_write_learning_class(item),
+        "learning_coaching_pinned": bool(item.get("learning_coaching_pinned")),
         "title_week_number": week_number,
         "title_week_label": f"W{week_number}" if week_number else "",
         "in_coaching_cycle": cycle["status"] == "active",
@@ -1147,6 +1156,7 @@ def learning_class_sort_key(item):
     status = cycle.get("status") or ""
     primary_date = cycle.get("deadline_date") if status == "active" else cycle.get("entry_date")
     return (
+        0 if item.get("learning_coaching_pinned") else 1,
         status_order.get(status, 4),
         primary_date or "9999-12-31",
         item.get("teacher_name", ""),
@@ -1200,6 +1210,29 @@ def update_learning_rounds():
     coaching["rounds"] = rounds
     save_database_settings(settings)
     return jsonify({"coaching_rounds": rounds})
+
+
+@learning_coaching_bp.put("/<class_id>/pin")
+@login_required
+def update_learning_class_pin(class_id):
+    payload = request.get_json(silent=True) or {}
+    pinned = bool(payload.get("pinned"))
+
+    store = load_store()
+    target_class = find_class_by_id(store, class_id)
+    if target_class is None or not can_read_class(target_class):
+        return jsonify({"error": "班级不存在。"}), 404
+    if not can_write_learning_class(target_class):
+        return jsonify({"error": "只能置顶自己的辅导班级。"}), 403
+
+    target_class["learning_coaching_pinned"] = pinned
+    target_class["learning_coaching_pinned_at"] = now_iso() if pinned else ""
+    target_class["updated_at"] = now_iso()
+    save_store(store)
+    return jsonify({
+        "pinned": pinned,
+        "class": class_learning_payload(target_class, public_learning_rounds()),
+    })
 
 
 @learning_coaching_bp.patch("/<class_id>/students/<student_id>")

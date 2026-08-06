@@ -266,7 +266,7 @@ function renewalHubGoalSummary(projects = []) {
   const gap = summary.target_gap;
   return {
     value: gap === null ? "未设置" : gap > 0 ? `还差${gap}` : "已达成",
-    meta: `目标 ${summary.target_count || "-"} · 已报 ${summary.month_enrolled_count}`,
+    meta: `本月目标 ${summary.target_count || "-"} · 本月新增 ${summary.target_new_enrolled_count}`,
     tone: gap > 0 || gap === null ? "warning" : "success",
   };
 }
@@ -769,6 +769,18 @@ function renewalTargetValue(project) {
   return Number.isNaN(number) ? "" : String(Math.max(0, Math.trunc(number)));
 }
 
+function renewalTargetProgressCount(project) {
+  return Math.max(0, Math.trunc(Number(project?.month_enrolled_count || 0)) || 0);
+}
+
+function renewalHistoricalEnrolledCount(project) {
+  return Math.max(0, Math.trunc(Number(project?.historical_enrolled_count || 0)) || 0);
+}
+
+function renewalTargetProgressText(project) {
+  return `本月新增 ${renewalTargetProgressCount(project)} · 历史已报 ${renewalHistoricalEnrolledCount(project)}`;
+}
+
 function renewalManualEnrolledValue(project) {
   if (project?.manual_enrolled_count === null || project?.manual_enrolled_count === undefined || project?.manual_enrolled_count === "") return "";
   const number = Number(project.manual_enrolled_count);
@@ -797,7 +809,7 @@ function renderRenewalEnrolledMetric(project, disabledAttr = "", tagName = "div"
 function renewalTargetGapText(project) {
   if (project?.target_gap === null || project?.target_gap === undefined || project?.target_gap === "") return "先定目标";
   const gap = Number(project.target_gap || 0);
-  return gap > 0 ? `本月还差 ${gap}` : "本月已达成";
+  return gap > 0 ? `本月还差 ${gap}` : "本月目标已达成";
 }
 
 function renewalGapClass(value) {
@@ -1902,16 +1914,16 @@ function renderRenewalLeaderPlanCell(project, student, disabledAttr) {
 function renewalGoalSummaryFor(projects = []) {
   const targetProjects = projects.filter((project) => project.target_count !== null && project.target_count !== undefined && project.target_count !== "");
   const targetCount = targetProjects.reduce((sum, project) => sum + Number(project.target_count || 0), 0);
-  const monthEnrolledCount = projects.reduce((sum, project) => sum + Number(project.month_enrolled_count || 0), 0);
+  const targetNewEnrolledCount = targetProjects.reduce((sum, project) => sum + renewalTargetProgressCount(project), 0);
   const enrolledCount = projects.reduce((sum, project) => sum + Number(project.enrolled_count || 0), 0);
   return {
     class_count: projects.length,
     target_projects: targetProjects.length,
     target_count: targetCount,
-    month_enrolled_count: monthEnrolledCount,
+    target_new_enrolled_count: targetNewEnrolledCount,
     enrolled_count: enrolledCount,
-    target_gap: targetProjects.length ? Math.max(0, targetCount - monthEnrolledCount) : null,
-    target_progress_rate: targetCount ? (monthEnrolledCount / targetCount) * 100 : null,
+    target_gap: targetProjects.length ? Math.max(0, targetCount - targetNewEnrolledCount) : null,
+    target_progress_rate: targetCount ? (targetNewEnrolledCount / targetCount) * 100 : null,
   };
 }
 
@@ -1939,8 +1951,8 @@ function renderRenewalGoalPanel(projects = []) {
   }
   renewalGoalSummary.innerHTML = `
     <span>本月目标 <strong>${summary.target_projects ? summary.target_count : "-"}</strong></span>
-    <span>本月已报 <strong>${summary.month_enrolled_count}</strong></span>
-    <span class="renewal-goal-summary-gap ${renewalGapClass(summary.target_gap)}">本月还差 <strong>${summary.target_gap === null ? "-" : summary.target_gap}</strong></span>
+    <span>本月新增 <strong>${summary.target_new_enrolled_count}</strong></span>
+    <span class="renewal-goal-summary-gap ${renewalGapClass(summary.target_gap)}">还差 <strong>${summary.target_gap === null ? "-" : summary.target_gap}</strong></span>
     <span>达成 <strong>${escapeRenewalText(formatRenewalRate(summary.target_progress_rate))}</strong></span>
   `;
   renewalGoalRows.innerHTML = targetProjects.map((project) => {
@@ -1957,13 +1969,40 @@ function renderRenewalGoalPanel(projects = []) {
         aria-label="${escapeRenewalText(project.class_name || "班级")} 续费目标"
       >
     ` : `<strong>${escapeRenewalText(formatRenewalCount(project.target_count))}</strong>`;
+    const monthEnrolledInput = renewalData?.can_manage_all ? `
+      <input
+        class="renewal-goal-input"
+        type="number"
+        min="0"
+        max="9999"
+        step="1"
+        value="${renewalTargetProgressCount(project)}"
+        data-renewal-month-enrolled="${escapeRenewalText(project.id)}"
+        aria-label="${escapeRenewalText(project.class_name || "班级")} 本月新增报名"
+        title="本月真实新增报名人数，用来核算本月目标。"
+      >
+    ` : `<strong>${renewalTargetProgressCount(project)}</strong>`;
+    const historicalEnrolledInput = renewalData?.can_manage_all ? `
+      <input
+        class="renewal-goal-input renewal-goal-history-input"
+        type="number"
+        min="0"
+        max="9999"
+        step="1"
+        value="${renewalHistoricalEnrolledCount(project)}"
+        data-renewal-historical-enrolled="${escapeRenewalText(project.id)}"
+        aria-label="${escapeRenewalText(project.class_name || "班级")} 历史已报"
+        title="补录的历史报名填在这里；系统会自动反算本月新增，累计报名不变。"
+      >
+    ` : `<strong>${renewalHistoricalEnrolledCount(project)}</strong>`;
     const rowTooltip = renewalGoalRowTooltip(project);
     return `
       <tr title="${escapeRenewalAttr(rowTooltip)}">
         <td>${escapeRenewalText(project.teacher_name || "-")}</td>
         <td class="renewal-goal-class-cell" title="${escapeRenewalAttr(rowTooltip)}">${escapeRenewalText(project.class_name || "-")}</td>
         <td>${targetInput}</td>
-        <td>${Number(project.month_enrolled_count || 0)}</td>
+        <td>${monthEnrolledInput}</td>
+        <td>${historicalEnrolledInput}</td>
         <td>
           <span class="renewal-goal-gap-pill ${renewalGapClass(project.target_gap)}">
             ${escapeRenewalText(renewalTargetGapText(project))}
@@ -1998,7 +2037,7 @@ function renderRenewalProjectTarget(project, disabledAttr) {
           aria-label="${escapeRenewalText(project.class_name || "班级")} 续费目标"
           ${disabledAttr}
         >
-        <small>本月已报 ${Number(project.month_enrolled_count || 0)} · ${escapeRenewalText(gapText)}</small>
+        <small>${escapeRenewalText(renewalTargetProgressText(project))} · ${escapeRenewalText(gapText)}</small>
       </label>
     `;
   }
@@ -2006,7 +2045,7 @@ function renderRenewalProjectTarget(project, disabledAttr) {
     <div class="renewal-target-card">
       <span>本月目标 / 还差</span>
       <strong>${escapeRenewalText(targetText)}</strong>
-      <small>本月已报 ${Number(project.month_enrolled_count || 0)} · ${escapeRenewalText(gapText)}</small>
+      <small>${escapeRenewalText(renewalTargetProgressText(project))} · ${escapeRenewalText(gapText)}</small>
     </div>
   `;
 }
@@ -2454,7 +2493,7 @@ function renderRenewalDetail(project) {
       <article>
         <span>本月目标</span>
         <strong>${escapeRenewalText(formatRenewalCount(project.target_count))}</strong>
-        <small>本月已报 ${Number(project.month_enrolled_count || 0)} · ${escapeRenewalText(renewalTargetGapText(project))} · 达成 ${escapeRenewalText(formatRenewalRate(project.target_progress_rate))}</small>
+        <small>${escapeRenewalText(renewalTargetProgressText(project))} · ${escapeRenewalText(renewalTargetGapText(project))} · 达成 ${escapeRenewalText(formatRenewalRate(project.target_progress_rate))}</small>
       </article>
     ` : "";
     renewalDetailSummary.innerHTML = `
@@ -2709,6 +2748,38 @@ function saveRenewalTargetCount(targetInput) {
     rawValue === "" ? "续费目标已清空。" : "续费目标已保存。"
   ).finally(() => {
     targetInput.disabled = false;
+  });
+}
+
+function saveRenewalMonthEnrolledCount(monthInput) {
+  const projectId = monthInput.dataset.renewalMonthEnrolled;
+  if (!projectId || !renewalData?.can_manage_all) return;
+  const rawValue = String(monthInput.value || "").trim();
+  const monthCount = rawValue === "" ? "" : Math.max(0, Math.min(9999, Number.parseInt(rawValue, 10) || 0));
+  if (rawValue !== "") monthInput.value = String(monthCount);
+  monthInput.disabled = true;
+  saveRenewalProjectSettings(
+    projectId,
+    { manual_month_enrolled_count: monthCount },
+    rawValue === "" ? "本月新增已恢复自动统计。" : "本月新增已修正，历史已报已同步调整。"
+  ).finally(() => {
+    monthInput.disabled = false;
+  });
+}
+
+function saveRenewalHistoricalEnrolledCount(historyInput) {
+  const projectId = historyInput.dataset.renewalHistoricalEnrolled;
+  if (!projectId || !renewalData?.can_manage_all) return;
+  const rawValue = String(historyInput.value || "").trim();
+  const historicalCount = rawValue === "" ? "" : Math.max(0, Math.min(9999, Number.parseInt(rawValue, 10) || 0));
+  if (rawValue !== "") historyInput.value = String(historicalCount);
+  historyInput.disabled = true;
+  saveRenewalProjectSettings(
+    projectId,
+    { historical_enrolled_count: historicalCount },
+    rawValue === "" ? "报名拆分已恢复自动统计。" : "历史已报已修正，本月新增已同步调整。"
+  ).finally(() => {
+    historyInput.disabled = false;
   });
 }
 
@@ -3033,7 +3104,17 @@ function initRenewal() {
   });
   renewalGoalPanel?.addEventListener("change", (event) => {
     const targetInput = event.target.closest("[data-renewal-target-count]");
-    if (targetInput) saveRenewalTargetCount(targetInput);
+    if (targetInput) {
+      saveRenewalTargetCount(targetInput);
+      return;
+    }
+    const monthInput = event.target.closest("[data-renewal-month-enrolled]");
+    if (monthInput) {
+      saveRenewalMonthEnrolledCount(monthInput);
+      return;
+    }
+    const historyInput = event.target.closest("[data-renewal-historical-enrolled]");
+    if (historyInput) saveRenewalHistoricalEnrolledCount(historyInput);
   });
   renewalGoalPanel?.addEventListener("click", (event) => {
     if (!isRenewalInteractiveClick(event.target) && event.target.closest(".renewal-goal-head")) {
@@ -3051,6 +3132,18 @@ function initRenewal() {
     if (targetInput && event.key === "Enter") {
       event.preventDefault();
       targetInput.blur();
+      return;
+    }
+    const monthInput = event.target.closest("[data-renewal-month-enrolled]");
+    if (monthInput && event.key === "Enter") {
+      event.preventDefault();
+      monthInput.blur();
+      return;
+    }
+    const historyInput = event.target.closest("[data-renewal-historical-enrolled]");
+    if (historyInput && event.key === "Enter") {
+      event.preventDefault();
+      historyInput.blur();
     }
   });
   renewalWeekSelect?.addEventListener("change", () => {

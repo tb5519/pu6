@@ -633,6 +633,62 @@ def project_manual_enrolled_count(project, student_count=None):
     return manual_count
 
 
+def project_enrollment_counts(project, source_class=None):
+    student_count = project_student_count(project, source_class)
+    checked_enrolled_count = len(enrolled_student_ids(project, source_class))
+    manual_enrolled_count = project_manual_enrolled_count(project, student_count)
+    enrolled_count = manual_enrolled_count if manual_enrolled_count is not None else checked_enrolled_count
+    return student_count, checked_enrolled_count, manual_enrolled_count, enrolled_count
+
+
+def project_manual_month_enrolled_count(project, month_key=None):
+    month = month_key or current_period_key()
+    breakdowns = project.get("monthly_enrollment_breakdowns")
+    if isinstance(breakdowns, dict):
+        settings = breakdowns.get(month)
+        if isinstance(settings, dict):
+            return normalize_target_count(settings.get("month_enrolled_count"))
+    # Kept only for compatibility with any local data saved during the transition.
+    return normalize_target_count(project.get("manual_month_enrolled_count"))
+
+
+def set_project_manual_month_enrolled_count(project, value, month_key=None):
+    month = month_key or current_period_key()
+    month_enrolled_count = normalize_target_count(value)
+    breakdowns = project.get("monthly_enrollment_breakdowns")
+    if not isinstance(breakdowns, dict):
+        breakdowns = {}
+        project["monthly_enrollment_breakdowns"] = breakdowns
+    if month_enrolled_count is None:
+        breakdowns.pop(month, None)
+    else:
+        breakdowns[month] = {
+            "month_enrolled_count": month_enrolled_count,
+            "updated_at": now_iso(),
+            "updated_by": current_owner(),
+        }
+    project.pop("manual_month_enrolled_count", None)
+    return month_enrolled_count
+
+
+def project_enrollment_breakdown(project, enrolled_count, source_class=None):
+    detected_month_enrolled_count = len(month_enrolled_student_ids(project, source_class))
+    manual_month_enrolled_count = project_manual_month_enrolled_count(project)
+    month_enrolled_count = (
+        manual_month_enrolled_count
+        if manual_month_enrolled_count is not None
+        else detected_month_enrolled_count
+    )
+    month_enrolled_count = min(max(0, month_enrolled_count), max(0, enrolled_count))
+    historical_enrolled_count = max(0, enrolled_count - month_enrolled_count)
+    return (
+        detected_month_enrolled_count,
+        manual_month_enrolled_count,
+        month_enrolled_count,
+        historical_enrolled_count,
+    )
+
+
 def prune_project_followups(project, source_class):
     return False
 
@@ -1649,17 +1705,26 @@ def serialize_project(project, classes_by_id):
             "teacher_id": class_teacher_id(source_class),
             "teacher_name": teacher_label(class_teacher_id(source_class)),
         })
-    student_count = int(output.get("student_count") or 0)
-    checked_enrolled_count = len(enrolled_student_ids(project, source_class))
-    manual_enrolled_count = project_manual_enrolled_count(project, student_count)
-    enrolled_count = manual_enrolled_count if manual_enrolled_count is not None else checked_enrolled_count
-    month_enrolled_count = len(month_enrolled_student_ids(project, source_class))
+    student_count, checked_enrolled_count, manual_enrolled_count, enrolled_count = project_enrollment_counts(
+        project,
+        source_class,
+    )
+    (
+        detected_month_enrolled_count,
+        manual_month_enrolled_count,
+        month_enrolled_count,
+        historical_enrolled_count,
+    ) = project_enrollment_breakdown(project, enrolled_count, source_class)
     target_count = None if output["stage"] == RENEWAL_STAGES[0] else project_month_target(project)
     output["checked_enrolled_count"] = checked_enrolled_count
     output["manual_enrolled_count"] = manual_enrolled_count
     output["enrolled_count_overridden"] = manual_enrolled_count is not None
     output["enrolled_count"] = enrolled_count
+    output["detected_month_enrolled_count"] = detected_month_enrolled_count
+    output["manual_month_enrolled_count"] = manual_month_enrolled_count
+    output["month_enrolled_count_overridden"] = manual_month_enrolled_count is not None
     output["month_enrolled_count"] = month_enrolled_count
+    output["historical_enrolled_count"] = historical_enrolled_count
     output["renewal_rate"] = round(enrolled_count / student_count * 100, 2) if student_count else None
     output["target_count"] = target_count
     output["target_gap"] = max(0, target_count - month_enrolled_count) if target_count is not None else None
@@ -1731,6 +1796,7 @@ def project_summary(projects):
     counts = {stage: 0 for stage in RENEWAL_STAGES}
     target_projects = 0
     target_total = 0
+    target_progress_total = 0
     month_enrolled_total = 0
     enrolled_total = 0
     for project in projects:
@@ -1741,15 +1807,17 @@ def project_summary(projects):
         if target_count is not None:
             target_projects += 1
             target_total += target_count
+            target_progress_total += int(project.get("month_enrolled_count") or 0)
     return {
         "total": len(projects),
         "stage_counts": counts,
         "target_projects": target_projects,
         "target_count": target_total,
+        "target_new_enrolled_count": target_progress_total,
         "month_enrolled_count": month_enrolled_total,
         "enrolled_count": enrolled_total,
-        "target_gap": max(0, target_total - month_enrolled_total) if target_projects else None,
-        "target_progress_rate": round(month_enrolled_total / target_total * 100, 2) if target_total else None,
+        "target_gap": max(0, target_total - target_progress_total) if target_projects else None,
+        "target_progress_rate": round(target_progress_total / target_total * 100, 2) if target_total else None,
         "target_month": current_period_label(),
     }
 
@@ -1954,11 +2022,31 @@ def update_project(project_id):
             project.pop("manual_enrolled_count", None)
         else:
             project["manual_enrolled_count"] = manual_count
-    if "target_count" in payload:
+    if any(key in payload for key in ("target_count", "manual_month_enrolled_count", "historical_enrolled_count")):
         if not can_manage_accounts():
-            return jsonify({"error": "只有管理员可以设置续费目标。"}), 403
+            return jsonify({"error": "只有管理员可以调整续费目标和报名拆分。"}), 403
         if normalize_stage(project.get("stage")) != RENEWAL_STAGES[0]:
-            set_project_month_target(project, payload.get("target_count"))
+            if "target_count" in payload:
+                set_project_month_target(project, payload.get("target_count"))
+            if "manual_month_enrolled_count" in payload or "historical_enrolled_count" in payload:
+                source_class = class_lookup().get(project.get("class_id"))
+                _, _, _, enrolled_count = project_enrollment_counts(project, source_class)
+                if "manual_month_enrolled_count" in payload:
+                    month_count = normalize_target_count(payload.get("manual_month_enrolled_count"))
+                    set_project_manual_month_enrolled_count(
+                        project,
+                        min(month_count, enrolled_count) if month_count is not None else None,
+                    )
+                elif "historical_enrolled_count" in payload:
+                    historical_count = normalize_target_count(payload.get("historical_enrolled_count"))
+                    if historical_count is None:
+                        set_project_manual_month_enrolled_count(project, None)
+                    else:
+                        # Keep the cumulative total unchanged while moving registrations into history.
+                        set_project_manual_month_enrolled_count(
+                            project,
+                            max(0, enrolled_count - min(historical_count, enrolled_count)),
+                        )
     if "closing_month" in payload:
         if not can_manage_accounts():
             return jsonify({"error": "只有管理员可以设置结营月份。"}), 403
@@ -2044,6 +2132,13 @@ def update_student_enrollment(project_id, student_id):
             record["enrolled_at"] = now_iso()
         if not next_enrolled:
             record.pop("enrolled_at", None)
+        manual_month_enrolled_count = project_manual_month_enrolled_count(project)
+        if manual_month_enrolled_count is not None and next_enrolled != was_enrolled:
+            # After a manual split, later checkbox changes default to this month's new signups.
+            set_project_manual_month_enrolled_count(
+                project,
+                max(0, manual_month_enrolled_count + (1 if next_enrolled else -1)),
+            )
         had_update = True
     elif "current_blocker" in payload:
         record["current_blocker"] = normalize_blocker(payload.get("current_blocker"))

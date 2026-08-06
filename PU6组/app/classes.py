@@ -2181,28 +2181,6 @@ def learning_assessment_key(item):
     return f"{assessment_type}:{book}:{item.get('unit') or ''}"
 
 
-def assessment_label_has_pu(label, number):
-    text = str(label or "")
-    compact = re.sub(r"\s+", "", text).lower()
-    return bool(re.search(rf"\bpu\s*{number}\b", text, flags=re.IGNORECASE) or f"pu{number}" in compact)
-
-
-def corrected_learning_assessment_stale_key(item):
-    if item.get("type") != "unit" or not item.get("unit"):
-        return ""
-    if item.get("book") == "lower" and assessment_label_has_pu(item.get("label"), 2):
-        stale = dict(item)
-        stale["book"] = "upper"
-        stale["global_unit"] = item.get("unit")
-        return learning_assessment_key(stale)
-    if item.get("book") == "upper" and assessment_label_has_pu(item.get("label"), 1):
-        stale = dict(item)
-        stale["book"] = "lower"
-        stale["global_unit"] = (item.get("unit") or 0) + 9
-        return learning_assessment_key(stale)
-    return ""
-
-
 def normalize_learning_assessment(item, month_key, updated_at):
     if not isinstance(item, dict):
         return None
@@ -2265,10 +2243,8 @@ def merge_learning_assessments(student, imported_assessments, month_key, updated
         if not normalized:
             continue
         key = learning_assessment_key(normalized)
-        stale_key = corrected_learning_assessment_stale_key(normalized)
-        if stale_key and stale_key != key and stale_key in lookup:
-            lookup.pop(stale_key, None)
-            changed += 1
+        # Book is part of the assessment identity: PU1 Unit1 and PU2 Unit1
+        # are separate scores and must never overwrite one another.
         previous = lookup.get(key)
         if previous != normalized:
             lookup[key] = normalized

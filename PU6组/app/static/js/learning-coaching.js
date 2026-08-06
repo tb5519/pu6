@@ -74,7 +74,9 @@ let learningSelectedBook = "upper";
 let learningHasLoaded = false;
 let learningGuideContext = null;
 let learningExpandedTeacherIds = new Set();
+let learningTeacherGroupsInitialized = false;
 let learningSelectedRosterStudentIds = new Set();
+let learningClassContextMenu = null;
 
 function escapeLearningText(value) {
   return String(value ?? "")
@@ -247,11 +249,14 @@ function learningClassCardHtml(item) {
   const ddlBadge = item.in_coaching_cycle && cycle.deadline_label
     ? `<i class="learning-ddl-badge">DDL ${escapeLearningText(cycle.deadline_label)}</i>`
     : "";
+  const pinnedBadge = item.learning_coaching_pinned
+    ? `<i class="learning-pinned-mark" title="已置顶">置顶</i>`
+    : "";
   return `
     <button class="learning-class-card${isActive ? " is-active" : ""}${item.in_coaching_cycle ? " is-cycle-active" : " is-muted"}" type="button" data-learning-class="${escapeLearningText(item.id)}">
       <span class="learning-class-topline">
         <b>${escapeLearningText(item.title_week_label || "未填W")}</b>
-        ${ddlBadge}
+        <span class="learning-class-topline-badges">${pinnedBadge}${ddlBadge}</span>
       </span>
       <strong>${escapeLearningText(item.name || "-")}</strong>
       ${learningClassCycleNoteHtml(item)}
@@ -261,6 +266,59 @@ function learningClassCardHtml(item) {
       </span>
     </button>
   `;
+}
+
+function closeLearningClassContextMenu() {
+  if (!learningClassContextMenu) return;
+  learningClassContextMenu.classList.remove("is-open");
+  learningClassContextMenu.innerHTML = "";
+}
+
+function ensureLearningClassContextMenu() {
+  if (learningClassContextMenu) return learningClassContextMenu;
+  learningClassContextMenu = document.createElement("div");
+  learningClassContextMenu.className = "learning-class-context-menu";
+  learningClassContextMenu.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-learning-class-pin]");
+    if (!button) return;
+    const classId = button.dataset.learningClassPin || "";
+    const pinned = button.dataset.pinned === "1";
+    updateLearningClassPin(classId, pinned).catch((error) => {
+      window.alert(error.message || "班级置顶设置失败。");
+    });
+  });
+  document.body.appendChild(learningClassContextMenu);
+  return learningClassContextMenu;
+}
+
+function openLearningClassContextMenu(event, classId) {
+  const classData = (learningCoachingData.classes || []).find((item) => item.id === classId);
+  if (!classData?.can_write) return;
+  event.preventDefault();
+  const menu = ensureLearningClassContextMenu();
+  const nextPinned = !classData.learning_coaching_pinned;
+  menu.innerHTML = `
+    <button type="button" data-learning-class-pin="${escapeLearningText(classId)}" data-pinned="${nextPinned ? "1" : "0"}">
+      ${nextPinned ? "置顶" : "取消置顶"}
+    </button>
+  `;
+  menu.style.left = `${Math.max(8, Math.min(event.clientX, window.innerWidth - 140))}px`;
+  menu.style.top = `${Math.max(8, Math.min(event.clientY, window.innerHeight - 46))}px`;
+  menu.classList.add("is-open");
+}
+
+async function updateLearningClassPin(classId, pinned) {
+  if (!classId) return;
+  const data = await learningApiRequest(`/api/learning-coaching/${encodeURIComponent(classId)}/pin`, {
+    method: "PUT",
+    body: JSON.stringify({ pinned }),
+  });
+  if (data.class) {
+    replaceLearningClassPayload(data.class);
+    renderLearningClassList();
+    renderLearningDetail();
+  }
+  closeLearningClassContextMenu();
 }
 
 function teacherGroupSortValue(group = {}) {
@@ -296,7 +354,8 @@ function learningTeacherGroups(classes = []) {
 
 function learningTeacherGroupHtml(group = {}) {
   const containsSelected = group.classes.some((item) => item.id === learningSelectedClassId);
-  const isOpen = group.isOwn || containsSelected || learningExpandedTeacherIds.has(group.teacherId);
+  const isOpen = learningExpandedTeacherIds.has(group.teacherId)
+    || (!group.isOwn && containsSelected);
   const activeCount = group.classes.filter((item) => item.in_coaching_cycle).length;
   const title = group.isOwn ? "我的班级" : group.teacherName;
   const subtitle = `${group.classes.length}个班${activeCount ? ` · ${activeCount}个辅导中` : ""}`;
@@ -466,6 +525,11 @@ function renderLearningClassList() {
     learningClassList.innerHTML = classes.map(learningClassCardHtml).join("");
     return;
   }
+  const currentTeacherId = learningCurrentTeacherId();
+  if (!learningTeacherGroupsInitialized && currentTeacherId) {
+    learningExpandedTeacherIds.add(currentTeacherId);
+    learningTeacherGroupsInitialized = true;
+  }
   learningClassList.innerHTML = learningTeacherGroups(classes).map(learningTeacherGroupHtml).join("");
 }
 
@@ -550,7 +614,7 @@ function learningCompletedCalendarRows(classData) {
 function renderLearningCommunicationCalendar() {
   if (!learningCommunicationCalendar || !learningCommunicationCalendarList) return;
   const classData = currentLearningClass();
-  const shouldShow = Boolean(learningCoachingData.can_manage && classData?.in_coaching_cycle);
+  const shouldShow = Boolean(learningCoachingData.can_manage && classData);
   learningCommunicationCalendar.classList.toggle("is-hidden", !shouldShow);
   if (!shouldShow) {
     learningCommunicationCalendarList.innerHTML = "";
@@ -565,7 +629,7 @@ function renderLearningCommunicationCalendar() {
       : "暂无完成记录";
   }
   if (!rows.length) {
-    learningCommunicationCalendarList.innerHTML = `<div class="empty-state compact-empty">当前辅导周期暂无已完成辅导。</div>`;
+    learningCommunicationCalendarList.innerHTML = `<div class="empty-state compact-empty">暂无已完成辅导。</div>`;
     return;
   }
   learningCommunicationCalendarList.innerHTML = rows.map((row) => {
@@ -590,19 +654,10 @@ function renderUnitScoreCell(score = {}, student = {}) {
   if (score.score === null || score.score === undefined) {
     return `<span class="learning-score-cell is-empty">-</span>`;
   }
-  const classData = currentLearningClass();
-  const canOpenGuide = Boolean(classData?.in_coaching_cycle);
   const inner = `
     <strong>${escapeLearningText(formatLearningScore(score.score))}</strong>
     <em>${escapeLearningText(score.category || "")}</em>
   `;
-  if (!canOpenGuide) {
-    return `
-      <span class="learning-score-cell is-${escapeLearningText(score.category_key || "")}">
-        ${inner}
-      </span>
-    `;
-  }
   return `
     <button class="learning-score-cell learning-score-button is-${escapeLearningText(score.category_key || "")}" type="button"
       data-learning-score="1"
@@ -645,19 +700,10 @@ function renderStageScoreCell(score = {}, student = {}, stage) {
   if (stageScore.score === null || stageScore.score === undefined) {
     return `<span class="learning-score-cell learning-stage-score-cell is-empty">-</span>`;
   }
-  const classData = currentLearningClass();
-  const canOpenGuide = Boolean(classData?.in_coaching_cycle);
   const inner = `
     <strong>${escapeLearningText(formatLearningScore(stageScore.score))}</strong>
     <em>${escapeLearningText(stageScore.category || "阶段测评")}</em>
   `;
-  if (!canOpenGuide) {
-    return `
-      <span class="learning-score-cell learning-stage-score-cell is-${escapeLearningText(stageScore.category_key || "")}">
-        ${inner}
-      </span>
-    `;
-  }
   return `
     <button class="learning-score-cell learning-score-button learning-stage-score-cell is-${escapeLearningText(stageScore.category_key || "")}" type="button"
       data-learning-score="1"
@@ -1014,7 +1060,7 @@ function renderLearningGuideModal() {
 
 function openLearningGuide(studentId, unit, stage, kind = "unit") {
   const classData = currentLearningClass();
-  if (!classData?.in_coaching_cycle) return;
+  if (!classData) return;
   const student = findLearningStudent(studentId);
   const score = kind === "stage"
     ? stageScoreForStudent(student, stage)
@@ -1394,6 +1440,12 @@ learningTodayList?.addEventListener("click", (event) => {
   openLearningAppointment(button.dataset.appointmentKey || "");
 });
 
+learningClassList?.addEventListener("contextmenu", (event) => {
+  const button = event.target.closest("[data-learning-class]");
+  if (!button) return;
+  openLearningClassContextMenu(event, button.dataset.learningClass || "");
+});
+
 learningClassList?.addEventListener("click", (event) => {
   const toggle = event.target.closest("[data-learning-teacher-toggle]");
   if (toggle) {
@@ -1410,6 +1462,17 @@ learningClassList?.addEventListener("click", (event) => {
   if (!button) return;
   selectLearningClass(button.dataset.learningClass || "");
 });
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".learning-class-context-menu")) {
+    closeLearningClassContextMenu();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeLearningClassContextMenu();
+});
+window.addEventListener("resize", closeLearningClassContextMenu);
+window.addEventListener("scroll", closeLearningClassContextMenu, true);
 
 learningScoreRows?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-learning-score]");

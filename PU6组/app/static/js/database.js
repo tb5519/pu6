@@ -744,6 +744,17 @@ function databaseDeltaClass(value) {
   return Number(value) >= 0 ? "is-positive" : "is-negative";
 }
 
+function databaseLastMonthDeltaClass(value) {
+  if (value === null || value === undefined || value === "") return "is-neutral";
+  const number = Number(value);
+  if (Number.isNaN(number)) return "is-neutral";
+  if (number < -20) return "is-month-drop-critical";
+  if (number <= -10) return "is-month-drop-major";
+  if (number <= -5) return "is-month-drop-light";
+  if (Math.abs(number) <= 2) return "is-month-healthy";
+  return number > 0 ? "is-positive" : "is-neutral";
+}
+
 function formatDatabaseDelta(value) {
   if (value === null || value === undefined || value === "") return "-";
   const number = Number(value);
@@ -847,7 +858,7 @@ function renderCompletionRows(classes = [], completion = {}, target = databaseCo
           `).join("")}
           <td>${formatDatabasePercent(item.last_month_completion)}</td>
           <td class="database-delta-cell ${databaseDeltaClass(item.change_from_compare)}">${formatDatabaseDelta(item.change_from_compare)}</td>
-          <td class="database-delta-cell ${databaseDeltaClass(item.change_from_last_month)}">${formatDatabaseDelta(item.change_from_last_month)}</td>
+          <td class="database-delta-cell ${databaseLastMonthDeltaClass(item.change_from_last_month)}">${formatDatabaseDelta(item.change_from_last_month)}</td>
         </tr>
       `;
     })

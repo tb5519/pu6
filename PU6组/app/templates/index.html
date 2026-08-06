@@ -4,15 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260804-new-backend-completion-upload') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260806-completion-month-delta') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260729-track-image-upload') }}" defer></script>
     <script src="{{ url_for('static', filename='js/completion.js', v='20260804-completion-roster-reset') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260716-todo-targets') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260804-learning-roster-sync') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/database.js', v='20260804-new-backend-completion-upload') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260803-followup-details') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260806-flexible-coaching') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/database.js', v='20260806-completion-month-delta') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260806-renewal-month-history-split') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
     {% endif %}
@@ -1556,7 +1556,8 @@
                       <th>班主任</th>
                       <th>班级</th>
                       <th>本月目标</th>
-                      <th>本月已报</th>
+                      <th>本月新增</th>
+                      <th>历史已报</th>
                       <th>还差</th>
                       <th>达成</th>
                       <th>累计已报/续费率</th>
