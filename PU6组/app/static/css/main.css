@@ -1542,6 +1542,17 @@ input {
   align-items: center;
 }
 
+.renewal-detail-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.renewal-detail-actions .compact-button {
+  min-width: 118px;
+}
+
 .back-button {
   min-height: 34px;
   margin: 0 0 12px;
@@ -6943,6 +6954,259 @@ input {
 
 .renewal-intent-overview.is-hidden {
   display: none;
+}
+
+.renewal-legacy-followup-panel {
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid rgba(198, 220, 242, 0.96);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 14px 32px rgba(48, 99, 146, 0.08);
+}
+
+.renewal-legacy-followup-panel.is-hidden {
+  display: none;
+}
+
+.renewal-legacy-followup-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.renewal-legacy-followup-head h2 {
+  margin: 0;
+  color: #191143;
+  font-size: 18px;
+}
+
+.renewal-legacy-followup-head .tool-status {
+  display: block;
+  margin-top: 4px;
+}
+
+.renewal-legacy-add-form,
+.renewal-legacy-add-student {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.renewal-legacy-add-form {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.renewal-legacy-add-form select,
+.renewal-legacy-add-student select {
+  min-height: 34px;
+  border: 1px solid #bfd5ec;
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #1f3e5f;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.renewal-legacy-add-form select {
+  min-width: 240px;
+  max-width: 360px;
+}
+
+.renewal-legacy-list {
+  display: grid;
+  gap: 12px;
+}
+
+.renewal-legacy-class-list {
+  overflow: hidden;
+  border: 1px solid #c8dced;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.renewal-legacy-table-wrap {
+  overflow-x: auto;
+}
+
+.renewal-legacy-table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+}
+
+.renewal-legacy-table th,
+.renewal-legacy-table td {
+  padding: 8px 10px;
+  border-right: 1px solid #dbe6f0;
+  border-bottom: 1px solid #dbe6f0;
+  color: #263f5d;
+  font-size: 13px;
+  font-weight: 850;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.renewal-legacy-table th:last-child,
+.renewal-legacy-table td:last-child {
+  border-right: 0;
+}
+
+.renewal-legacy-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.renewal-legacy-table th {
+  color: #17395d;
+  background: #cfe0fb;
+  font-size: 14px;
+  font-weight: 950;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.renewal-legacy-class-cell,
+.renewal-legacy-teacher-cell {
+  min-width: 165px;
+  color: #164557 !important;
+  background: #e1f7f3;
+  font-size: 14px !important;
+  font-weight: 950 !important;
+  text-align: center !important;
+}
+
+.renewal-legacy-class-cell {
+  position: relative;
+  min-width: 235px;
+}
+
+.renewal-legacy-class-cell > div {
+  display: grid;
+  gap: 4px;
+}
+
+.renewal-legacy-class-cell small {
+  color: #a23d3d;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.renewal-legacy-remove-class,
+.renewal-legacy-remove-student {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #f3b5b5;
+  border-radius: 5px;
+  padding: 0;
+  color: #b42318;
+  background: #fff;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 950;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.renewal-legacy-remove-class {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+}
+
+.renewal-legacy-remove-class:hover,
+.renewal-legacy-remove-class:focus-visible,
+.renewal-legacy-remove-student:hover,
+.renewal-legacy-remove-student:focus-visible {
+  border-color: #b42318;
+  outline: 0;
+  background: #fff1f2;
+}
+
+.renewal-legacy-student-name {
+  min-width: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.renewal-legacy-student-name > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.renewal-legacy-student-name strong,
+.renewal-legacy-student-name small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.renewal-legacy-student-name strong {
+  color: #191143;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.renewal-legacy-student-name small {
+  color: #756f93;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.renewal-legacy-field {
+  width: 100%;
+  min-width: 145px;
+  border: 1px solid #c8dced;
+  border-radius: 5px;
+  padding: 7px 8px;
+  color: #263f5d;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.renewal-legacy-field:focus {
+  border-color: #4285bd;
+  outline: 2px solid rgba(66, 133, 189, 0.16);
+}
+
+.renewal-legacy-judgement {
+  min-width: 240px;
+  min-height: 54px;
+  resize: vertical;
+}
+
+.renewal-legacy-empty-cell {
+  height: 54px;
+  color: #7d8fa4 !important;
+  background: #fbfdff;
+  text-align: center !important;
+}
+
+.renewal-legacy-add-student {
+  padding: 9px 10px;
+  border-top: 1px solid #dbe6f0;
+  background: #f8fbff;
+}
+
+.renewal-legacy-add-student select {
+  min-width: 260px;
+  max-width: min(100%, 420px);
 }
 
 .renewal-intent-overview-head span {

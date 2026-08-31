@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260806-completion-month-delta') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260807-legacy-renewal-followup') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260729-track-image-upload') }}" defer></script>
@@ -12,7 +12,7 @@
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260716-todo-targets') }}" defer></script>
     <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260806-flexible-coaching') }}" defer></script>
   <script src="{{ url_for('static', filename='js/database.js', v='20260806-completion-month-delta') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/renewal.js', v='20260806-renewal-month-history-split') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/renewal.js', v='20260831-project-export') }}" defer></script>
     {% if can_manage_accounts %}
     <script src="{{ url_for('static', filename='js/account-admin.js', v='20260630-account-status') }}" defer></script>
     {% endif %}
@@ -1510,6 +1510,14 @@
                   </select>
                   <button class="primary-button compact-button" type="submit">添加</button>
                 </form>
+                {% if can_manage_accounts %}
+                <button
+                  id="renewal-preparationExportButton"
+                  class="ghost-button compact-button"
+                  type="button"
+                  title="导出当前铺垫阶段班级与学员跟进明细"
+                >↓ 导出铺垫 Excel</button>
+                {% endif %}
               </div>
             </div>
           </header>
@@ -1570,6 +1578,24 @@
           </section>
           <section id="renewal-intentOverview" class="renewal-intent-overview is-hidden" aria-label="管理员续费意向看板"></section>
 
+          <section id="renewal-legacyFollowupPanel" class="renewal-legacy-followup-panel is-hidden" aria-label="老班续费跟进名单">
+            <div class="renewal-legacy-followup-head">
+              <div>
+                <h2>老班续费跟进名单</h2>
+                <span class="tool-status">默认带出上月平均完课率高于 30% 的学员；老师可增删名单并补充当前情况。</span>
+              </div>
+              {% if can_manage_accounts %}
+              <form id="renewal-legacyAddForm" class="renewal-legacy-add-form">
+                <select id="renewal-legacyProjectSelect" aria-label="选择老班续费跟进班级">
+                  <option value="">选择续费班级</option>
+                </select>
+                <button class="primary-button compact-button" type="submit">加入名单</button>
+              </form>
+              {% endif %}
+            </div>
+            <div id="renewal-legacyList" class="renewal-legacy-list"></div>
+          </section>
+
           <div id="renewal-message" class="tool-note renewal-message"></div>
           <section id="renewal-stageBoard" class="renewal-stage-board" aria-label="续费阶段跟进"></section>
           <section id="renewal-detailView" class="renewal-detail-view is-hidden" aria-label="续费班级报名明细">
@@ -1580,6 +1606,16 @@
                 <h1 id="renewal-detailTitle">班级续费明细</h1>
                 <p id="renewal-detailMeta">记录每位学员的铺垫情况、报名状态和每周跟进，已报名人数可按学员勾选统计，也可双击手动修正。</p>
               </div>
+              {% if can_manage_accounts %}
+              <div class="renewal-detail-actions">
+                <button
+                  id="renewal-detailExportButton"
+                  class="ghost-button compact-button"
+                  type="button"
+                  title="下载当前班级的姓名、账号、跟进情况、顾虑和备注"
+                >↓ 下载明细</button>
+              </div>
+              {% endif %}
             </header>
             <section id="renewal-detailSummary" class="renewal-detail-summary" aria-label="续费数据汇总"></section>
             <section class="database-block renewal-student-block">

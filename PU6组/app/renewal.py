@@ -5,9 +5,11 @@ import re
 import uuid
 from datetime import datetime
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request, send_file
 
 from app.auth import can_manage_accounts, login_required
 from app.classes import (
@@ -249,16 +251,18 @@ def current_teacher_id():
 def load_store():
     path = renewal_file()
     if not path.exists():
-        return {"projects": [], "blocker_options": []}
+        return {"projects": [], "blocker_options": [], "legacy_followups": []}
     with path.open("r", encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, dict):
-        return {"projects": [], "blocker_options": []}
+        return {"projects": [], "blocker_options": [], "legacy_followups": []}
     projects = data.get("projects")
     if not isinstance(projects, list):
         data["projects"] = []
     if not isinstance(data.get("blocker_options"), list):
         data["blocker_options"] = []
+    if not isinstance(data.get("legacy_followups"), list):
+        data["legacy_followups"] = []
     return data
 
 
@@ -1603,6 +1607,186 @@ def project_student_rows(project, source_class=None):
     return rows
 
 
+LEGACY_FOLLOWUP_COMPLETION_THRESHOLD = 30
+
+
+def normalize_legacy_followup_student(value):
+    if not isinstance(value, dict):
+        return None
+    student_id = str(value.get("id") or value.get("student_id") or "").strip()
+    if not student_id:
+        return None
+    output = {
+        "id": student_id,
+        "name": str(value.get("name") or "").strip()[:80],
+        "account": str(value.get("account") or value.get("phone") or "").strip()[:120],
+        "average_completion": value.get("average_completion"),
+    }
+    if "current_blocker" in value:
+        output["current_blocker"] = str(value.get("current_blocker") or "").strip()[:100]
+    if "judgement" in value:
+        output["judgement"] = str(value.get("judgement") or "").strip()[:500]
+    return output
+
+
+def legacy_followup_students(legacy_list):
+    raw_students = legacy_list.get("students") if isinstance(legacy_list, dict) else []
+    if not isinstance(raw_students, list):
+        return []
+    students = []
+    seen = set()
+    for item in raw_students:
+        student = normalize_legacy_followup_student(item)
+        if student is None or student["id"] in seen:
+            continue
+        students.append(student)
+        seen.add(student["id"])
+    return students
+
+
+def find_legacy_followup_list(store, legacy_list_id):
+    target_id = str(legacy_list_id or "").strip()
+    return next(
+        (
+            item
+            for item in store.get("legacy_followups", [])
+            if isinstance(item, dict) and str(item.get("id") or "") == target_id
+        ),
+        None,
+    )
+
+
+def can_edit_legacy_followup(legacy_list):
+    return can_manage_accounts() or legacy_list.get("owner") == current_owner()
+
+
+def legacy_followup_student_snapshot(student):
+    return {
+        "id": str(student.get("id") or "").strip(),
+        "name": str(student.get("name") or "").strip()[:80],
+        "account": str(student.get("account") or student.get("phone") or "").strip()[:120],
+        "average_completion": student.get("average_completion"),
+    }
+
+
+def legacy_completion_above_threshold(student, threshold=LEGACY_FOLLOWUP_COMPLETION_THRESHOLD):
+    try:
+        return float(student.get("average_completion")) > threshold
+    except (TypeError, ValueError):
+        return False
+
+
+def legacy_followup_default_judgement(record):
+    notes = normalize_note_entries(record) if isinstance(record, dict) else []
+    if notes:
+        return str(notes[-1].get("text") or "").strip()
+    return normalize_followup_status((record or {}).get("status"))
+
+
+def serialize_legacy_followup_list(legacy_list, projects_by_id, classes_by_id, store):
+    project = projects_by_id.get(legacy_list.get("project_id"))
+    source_class = classes_by_id.get(project.get("class_id")) if project else None
+    source_rows = project_student_rows(project, source_class) if project else []
+    source_by_id = {
+        str(student.get("id") or ""): student
+        for student in source_rows
+        if str(student.get("id") or "").strip()
+    }
+    followups = project.get("student_followups") if isinstance(project, dict) and isinstance(project.get("student_followups"), dict) else {}
+    stored_students = legacy_followup_students(legacy_list)
+    selected_ids = {student["id"] for student in stored_students}
+    students = []
+
+    for stored_student in stored_students:
+        student_id = stored_student["id"]
+        source_student = source_by_id.get(student_id, {})
+        followup = followups.get(student_id) if isinstance(followups.get(student_id), dict) else {}
+        source_blocker = normalize_blocker(followup.get("current_blocker"), store)
+        source_judgement = legacy_followup_default_judgement(followup)
+        source_completion = source_student.get("average_completion")
+        students.append({
+            "id": student_id,
+            "name": str(source_student.get("name") or stored_student.get("name") or "").strip(),
+            "account": str(source_student.get("account") or stored_student.get("account") or "").strip(),
+            "average_completion": source_completion if source_completion is not None else stored_student.get("average_completion"),
+            "current_blocker": stored_student.get("current_blocker") if "current_blocker" in stored_student else source_blocker,
+            "judgement": stored_student.get("judgement") if "judgement" in stored_student else source_judgement,
+            "has_current_blocker_override": "current_blocker" in stored_student,
+            "has_judgement_override": "judgement" in stored_student,
+        })
+
+    candidates = [
+        legacy_followup_student_snapshot(student)
+        for student in source_rows
+        if str(student.get("id") or "").strip() not in selected_ids
+    ]
+    candidates.sort(key=lambda item: (str(item.get("name") or ""), str(item.get("account") or "")))
+    teacher_id = (
+        class_teacher_id(source_class)
+        if source_class
+        else normalize_teacher_id((project or {}).get("teacher_id") or legacy_list.get("teacher_id"))
+    )
+    class_name = (
+        str((source_class or {}).get("name") or "").strip()
+        or str((project or {}).get("class_name") or "").strip()
+        or str(legacy_list.get("class_name") or "").strip()
+    )
+    return {
+        "id": str(legacy_list.get("id") or ""),
+        "project_id": str(legacy_list.get("project_id") or ""),
+        "class_id": str((project or {}).get("class_id") or legacy_list.get("class_id") or ""),
+        "class_name": class_name,
+        "teacher_id": teacher_id,
+        "teacher_name": teacher_label(teacher_id),
+        "stage": normalize_stage((project or {}).get("stage")),
+        "class_missing": project is None,
+        "can_edit": can_edit_legacy_followup(legacy_list),
+        "can_remove_class": can_manage_accounts(),
+        "students": students,
+        "available_students": candidates,
+        "student_count": len(students),
+        "created_at": str(legacy_list.get("created_at") or ""),
+        "updated_at": str(legacy_list.get("updated_at") or ""),
+    }
+
+
+def serialize_legacy_followups(store, classes_by_id):
+    projects_by_id = {
+        str(project.get("id") or ""): project
+        for project in store.get("projects", [])
+        if str(project.get("id") or "").strip()
+    }
+    legacy_lists = [
+        serialize_legacy_followup_list(legacy_list, projects_by_id, classes_by_id, store)
+        for legacy_list in store.get("legacy_followups", [])
+        if isinstance(legacy_list, dict) and can_edit_legacy_followup(legacy_list)
+    ]
+    legacy_lists.sort(key=lambda item: (item.get("teacher_name") or "", item.get("class_name") or ""))
+    return legacy_lists
+
+
+def legacy_followup_available_projects(store, classes_by_id):
+    tracked_ids = {
+        str(item.get("project_id") or "")
+        for item in store.get("legacy_followups", [])
+        if isinstance(item, dict) and str(item.get("project_id") or "").strip()
+    }
+    projects = []
+    for project in store.get("projects", []):
+        project_id = str(project.get("id") or "").strip()
+        if not project_id or project_id in tracked_ids:
+            continue
+        source_class = classes_by_id.get(project.get("class_id"))
+        teacher_id = class_teacher_id(source_class) if source_class else normalize_teacher_id(project.get("teacher_id"))
+        projects.append({
+            "id": project_id,
+            "class_name": str((source_class or {}).get("name") or project.get("class_name") or "").strip(),
+            "teacher_name": teacher_label(teacher_id),
+            "stage": normalize_stage(project.get("stage")),
+        })
+    return sorted(projects, key=lambda item: (item.get("teacher_name") or "", item.get("class_name") or ""))
+
+
 def find_project_snapshot_student(project, student_id):
     target_id = str(student_id or "").strip()
     for item in normalize_project_student_snapshot(project):
@@ -1882,9 +2066,7 @@ def teacher_overview(projects, classes_by_id):
     )
 
 
-def build_payload(followup_date=None):
-    store = load_store()
-    classes_by_id = class_lookup()
+def refresh_project_snapshots(store, classes_by_id):
     changed = prune_store_followups(store, classes_by_id)
     for project in store.get("projects", []):
         source_class = classes_by_id.get(project.get("class_id"))
@@ -1893,6 +2075,207 @@ def build_payload(followup_date=None):
             source_class,
         ) or changed
         changed = ensure_project_student_snapshot(project, source_class) or changed
+    return changed
+
+
+def preparation_export_percent(value):
+    try:
+        return round(float(value) / 100, 4)
+    except (TypeError, ValueError):
+        return None
+
+
+def style_preparation_export_sheet(worksheet, headers, column_widths, percentage_columns=()):
+    header_fill = PatternFill("solid", fgColor="DCEBFF")
+    header_font = Font(color="17395D", bold=True)
+    thin_border = Border(
+        left=Side(style="thin", color="D7E2EF"),
+        right=Side(style="thin", color="D7E2EF"),
+        top=Side(style="thin", color="D7E2EF"),
+        bottom=Side(style="thin", color="D7E2EF"),
+    )
+    worksheet.freeze_panes = "A2"
+    worksheet.sheet_view.showGridLines = False
+    worksheet.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{max(worksheet.max_row, 1)}"
+    worksheet.row_dimensions[1].height = 26
+
+    for index, header in enumerate(headers, start=1):
+        cell = worksheet.cell(1, index)
+        cell.value = header
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = thin_border
+        worksheet.column_dimensions[get_column_letter(index)].width = column_widths[index - 1]
+
+    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, max_col=len(headers)):
+        for cell in row:
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+        for column_index in percentage_columns:
+            row[column_index - 1].number_format = "0.00%"
+
+
+def build_preparation_export_workbook(projects, classes_by_id, store):
+    workbook = Workbook()
+    class_sheet = workbook.active
+    class_sheet.title = "铺垫班级汇总"
+    class_headers = [
+        "班主任",
+        "班级名称",
+        "班级备注",
+        "班级人数",
+        "已报名人数",
+        "本月新增报名",
+        "历史已报名",
+        "续费率",
+        "已录入学员数",
+        "最近更新时间",
+    ]
+    class_sheet.append(class_headers)
+
+    detail_sheet = workbook.create_sheet("铺垫学员明细")
+    detail_headers = [
+        "班主任",
+        "班级名称",
+        "学员姓名",
+        "学习账号",
+        "上月平均完课率",
+        "铺垫情况",
+        "意向度",
+        "当前卡点",
+        "是否报名",
+        "最近跟进时间",
+        "最近跟进方式",
+        "跟进次数",
+        "备注",
+    ]
+    detail_sheet.append(detail_headers)
+
+    serialized_projects = [
+        (project, serialize_project(project, classes_by_id))
+        for project in projects
+    ]
+    serialized_projects.sort(
+        key=lambda item: (
+            item[1].get("teacher_name", ""),
+            item[1].get("class_name", ""),
+        )
+    )
+
+    for project, summary in serialized_projects:
+        class_sheet.append([
+            summary.get("teacher_name", ""),
+            summary.get("class_name", ""),
+            summary.get("class_note", ""),
+            int(summary.get("student_count") or 0),
+            int(summary.get("enrolled_count") or 0),
+            int(summary.get("month_enrolled_count") or 0),
+            int(summary.get("historical_enrolled_count") or 0),
+            preparation_export_percent(summary.get("renewal_rate")),
+            len(project_student_rows(project, classes_by_id.get(project.get("class_id")))),
+            format_followup_time(summary.get("updated_at")),
+        ])
+
+        source_class = classes_by_id.get(project.get("class_id"))
+        detail_rows = []
+        for student in project_student_rows(project, source_class):
+            student_id = str(student.get("id") or "").strip()
+            if not student_id:
+                continue
+            followup = (project.get("student_followups") or {}).get(student_id)
+            followup = followup if isinstance(followup, dict) else {}
+            general_followup = serialize_general_followups(followup, include_weekly=True)
+            detail_rows.append({
+                "teacher_name": summary.get("teacher_name", ""),
+                "class_name": summary.get("class_name", ""),
+                "name": str(student.get("name") or "").strip(),
+                "account": str(student.get("account") or "").strip(),
+                "average_completion": student.get("average_completion"),
+                "followup_status": normalize_followup_status(followup.get("status")),
+                "followup_priority": normalize_followup_priority(followup.get("priority")),
+                "current_blocker": normalize_blocker(followup.get("current_blocker"), store),
+                "enrolled": bool(followup.get("enrolled")),
+                "followup_time": format_followup_time(followup.get("followed_at")),
+                "latest_methods": "、".join(general_followup.get("latest_methods", [])),
+                "followup_count": int(general_followup.get("count") or 0),
+                "followup_note": note_history_text(followup),
+            })
+
+        detail_rows.sort(key=student_prep_priority_key)
+        for row in detail_rows:
+            detail_sheet.append([
+                row["teacher_name"],
+                row["class_name"],
+                row["name"],
+                row["account"],
+                preparation_export_percent(row["average_completion"]),
+                row["followup_status"],
+                row["followup_priority"],
+                row["current_blocker"],
+                "已报名" if row["enrolled"] else "未报名",
+                row["followup_time"],
+                row["latest_methods"],
+                row["followup_count"],
+                row["followup_note"],
+            ])
+
+    style_preparation_export_sheet(
+        class_sheet,
+        class_headers,
+        [16, 34, 20, 12, 14, 14, 14, 12, 14, 20],
+        percentage_columns=(8,),
+    )
+    style_preparation_export_sheet(
+        detail_sheet,
+        detail_headers,
+        [16, 34, 14, 20, 16, 16, 16, 18, 12, 20, 18, 12, 54],
+        percentage_columns=(5,),
+    )
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return output
+
+
+def build_project_followup_export_workbook(project, classes_by_id):
+    """Build the concise per-class follow-up export available to administrators."""
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "跟进明细"
+    headers = ["姓名", "账号", "跟进情况", "顾虑", "备注"]
+    worksheet.append(headers)
+
+    detail = serialize_project_detail(project, classes_by_id)
+    for student in detail.get("students", []):
+        worksheet.append([
+            str(student.get("name") or "").strip(),
+            str(student.get("account") or "").strip(),
+            str(student.get("followup_status") or "").strip(),
+            str(student.get("current_blocker") or "").strip(),
+            str(student.get("followup_note") or "").strip(),
+        ])
+
+    style_preparation_export_sheet(
+        worksheet,
+        headers,
+        [16, 22, 16, 18, 56],
+    )
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return output
+
+
+def renewal_export_filename_component(value):
+    text = re.sub(r'[\\/:*?"<>|]+', "_", str(value or "").strip())
+    return text.strip(" ._")[:80] or "未命名班级"
+
+
+def build_payload(followup_date=None):
+    store = load_store()
+    classes_by_id = class_lookup()
+    changed = refresh_project_snapshots(store, classes_by_id)
     if changed:
         save_store(store)
     projects = [
@@ -1908,6 +2291,7 @@ def build_payload(followup_date=None):
     ]
     available_classes.sort(key=lambda item: (item.get("teacher_name", ""), item.get("name", "")))
     projects.sort(key=lambda item: (RENEWAL_STAGES.index(item["stage"]), item.get("teacher_name", ""), item.get("class_name", "")))
+    legacy_followups = serialize_legacy_followups(store, classes_by_id)
     return {
         "stages": RENEWAL_STAGES,
         "followup_statuses": FOLLOWUP_STATUSES,
@@ -1922,6 +2306,8 @@ def build_payload(followup_date=None):
         "summary": project_summary(projects),
         "teacher_overview": teacher_overview(projects, classes_by_id),
         "followup_overview": renewal_followup_overview(visible_raw_projects, classes_by_id, followup_date),
+        "legacy_followups": legacy_followups,
+        "legacy_available_projects": legacy_followup_available_projects(store, classes_by_id) if can_manage_accounts() else [],
         "can_manage_all": can_manage_accounts(),
         "current_teacher_id": current_teacher_id(),
     }
@@ -1931,6 +2317,59 @@ def build_payload(followup_date=None):
 @login_required
 def renewal_home():
     return jsonify(build_payload(request.args.get("followup_date")))
+
+
+@renewal_bp.get("/exports/preparation")
+@login_required
+def export_preparation_projects():
+    if not can_manage_accounts():
+        return jsonify({"error": "只有管理员可以下载续费数据。"}), 403
+    store = load_store()
+    classes_by_id = class_lookup()
+    if refresh_project_snapshots(store, classes_by_id):
+        save_store(store)
+
+    projects = [
+        project
+        for project in visible_projects(store)
+        if normalize_stage(project.get("stage")) == RENEWAL_STAGES[0]
+    ]
+    if not projects:
+        return jsonify({"error": "暂无可导出的铺垫阶段续费班级。"}), 404
+
+    output = build_preparation_export_workbook(projects, classes_by_id, store)
+    filename = f"续费铺垫班级数据_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@renewal_bp.get("/projects/<project_id>/export")
+@login_required
+def export_project_followups(project_id):
+    if not can_manage_accounts():
+        return jsonify({"error": "只有管理员可以下载班级跟进数据。"}), 403
+
+    store = load_store()
+    project = find_project(store, project_id)
+    if project is None:
+        return jsonify({"error": "续费项目不存在。"}), 404
+
+    classes_by_id = class_lookup()
+    output = build_project_followup_export_workbook(project, classes_by_id)
+    class_name = renewal_export_filename_component(
+        serialize_project(project, classes_by_id).get("class_name")
+    )
+    filename = f"续费跟进明细_{class_name}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @renewal_bp.post("/blockers")
@@ -1995,6 +2434,148 @@ def create_project():
     store.setdefault("projects", []).append(project)
     save_store(store)
     return jsonify(build_payload()), 201
+
+
+@renewal_bp.post("/legacy-followups")
+@login_required
+def create_legacy_followup_list():
+    if not can_manage_accounts():
+        return jsonify({"error": "只有管理员可以添加老班续费跟进班级。"}), 403
+    payload = request.get_json(silent=True) or {}
+    project_id = str(payload.get("project_id") or "").strip()
+    if not project_id:
+        return jsonify({"error": "请先选择续费项目里的班级。"}), 400
+
+    store = load_store()
+    project = find_project(store, project_id)
+    if project is None:
+        return jsonify({"error": "未找到对应的续费班级。"}), 404
+    if any(str(item.get("project_id") or "") == project_id for item in store.get("legacy_followups", []) if isinstance(item, dict)):
+        return jsonify({"error": "这个班级已经在老班续费跟进名单里。"}), 400
+
+    classes_by_id = class_lookup()
+    source_class = classes_by_id.get(project.get("class_id"))
+    ensure_project_student_snapshot(project, source_class)
+    student_rows = project_student_rows(project, source_class)
+    teacher_id = class_teacher_id(source_class) if source_class else normalize_teacher_id(project.get("teacher_id"))
+    legacy_list = {
+        "id": uuid.uuid4().hex,
+        "project_id": project_id,
+        "class_id": str(project.get("class_id") or ""),
+        "class_name": str((source_class or {}).get("name") or project.get("class_name") or "").strip(),
+        "owner": str((source_class or {}).get("owner") or project.get("owner") or "").strip(),
+        "teacher_id": teacher_id,
+        "students": [
+            legacy_followup_student_snapshot(student)
+            for student in student_rows
+            if legacy_completion_above_threshold(student)
+        ],
+        "created_by": current_owner(),
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    store.setdefault("legacy_followups", []).append(legacy_list)
+    project["updated_at"] = now_iso()
+    save_store(store)
+    return jsonify(build_payload()), 201
+
+
+@renewal_bp.post("/legacy-followups/<legacy_list_id>/students")
+@login_required
+def add_legacy_followup_student(legacy_list_id):
+    payload = request.get_json(silent=True) or {}
+    student_id = str(payload.get("student_id") or "").strip()
+    if not student_id:
+        return jsonify({"error": "请先选择要加入名单的学员。"}), 400
+
+    store = load_store()
+    legacy_list = find_legacy_followup_list(store, legacy_list_id)
+    if legacy_list is None or not can_edit_legacy_followup(legacy_list):
+        return jsonify({"error": "老班续费跟进名单不存在。"}), 404
+    project = find_project(store, legacy_list.get("project_id"))
+    if project is None:
+        return jsonify({"error": "原续费班级已移出项目，无法再添加学员。"}), 400
+    source_class = class_lookup().get(project.get("class_id"))
+    ensure_project_student_snapshot(project, source_class)
+    student = next(
+        (item for item in project_student_rows(project, source_class) if str(item.get("id") or "") == student_id),
+        None,
+    )
+    if student is None:
+        return jsonify({"error": "未找到该续费班级中的学员。"}), 404
+
+    students = legacy_followup_students(legacy_list)
+    if any(item["id"] == student_id for item in students):
+        return jsonify({"error": "该学员已经在跟进名单中。"}), 400
+    students.append(legacy_followup_student_snapshot(student))
+    legacy_list["students"] = students
+    legacy_list["updated_at"] = now_iso()
+    project["updated_at"] = now_iso()
+    save_store(store)
+    return jsonify(build_payload()), 201
+
+
+@renewal_bp.patch("/legacy-followups/<legacy_list_id>/students/<student_id>")
+@login_required
+def update_legacy_followup_student(legacy_list_id, student_id):
+    payload = request.get_json(silent=True) or {}
+    allowed_fields = {"current_blocker", "judgement"}
+    if not any(field in payload for field in allowed_fields):
+        return jsonify({"error": "没有可保存的跟进信息。"}), 400
+
+    store = load_store()
+    legacy_list = find_legacy_followup_list(store, legacy_list_id)
+    if legacy_list is None or not can_edit_legacy_followup(legacy_list):
+        return jsonify({"error": "老班续费跟进名单不存在。"}), 404
+    target_id = str(student_id or "").strip()
+    students = legacy_followup_students(legacy_list)
+    student = next((item for item in students if item["id"] == target_id), None)
+    if student is None:
+        return jsonify({"error": "该学员不在跟进名单中。"}), 404
+
+    if "current_blocker" in payload:
+        student["current_blocker"] = str(payload.get("current_blocker") or "").strip()[:100]
+    if "judgement" in payload:
+        student["judgement"] = str(payload.get("judgement") or "").strip()[:500]
+    legacy_list["students"] = students
+    legacy_list["updated_at"] = now_iso()
+    save_store(store)
+    return jsonify(build_payload())
+
+
+@renewal_bp.delete("/legacy-followups/<legacy_list_id>/students/<student_id>")
+@login_required
+def delete_legacy_followup_student(legacy_list_id, student_id):
+    store = load_store()
+    legacy_list = find_legacy_followup_list(store, legacy_list_id)
+    if legacy_list is None or not can_edit_legacy_followup(legacy_list):
+        return jsonify({"error": "老班续费跟进名单不存在。"}), 404
+    target_id = str(student_id or "").strip()
+    students = legacy_followup_students(legacy_list)
+    next_students = [item for item in students if item["id"] != target_id]
+    if len(next_students) == len(students):
+        return jsonify({"error": "该学员不在跟进名单中。"}), 404
+    legacy_list["students"] = next_students
+    legacy_list["updated_at"] = now_iso()
+    save_store(store)
+    return jsonify(build_payload())
+
+
+@renewal_bp.delete("/legacy-followups/<legacy_list_id>")
+@login_required
+def delete_legacy_followup_list(legacy_list_id):
+    if not can_manage_accounts():
+        return jsonify({"error": "只有管理员可以移出老班续费跟进班级。"}), 403
+    store = load_store()
+    legacy_list = find_legacy_followup_list(store, legacy_list_id)
+    if legacy_list is None:
+        return jsonify({"error": "老班续费跟进名单不存在。"}), 404
+    store["legacy_followups"] = [
+        item for item in store.get("legacy_followups", [])
+        if item is not legacy_list
+    ]
+    save_store(store)
+    return jsonify(build_payload())
 
 
 @renewal_bp.patch("/projects/<project_id>")

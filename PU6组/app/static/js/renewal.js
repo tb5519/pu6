@@ -1,6 +1,7 @@
 const renewalAddForm = document.querySelector("#renewal-addForm");
 const renewalClassSelect = document.querySelector("#renewal-classSelect");
 const renewalStageSelect = document.querySelector("#renewal-stageSelect");
+const renewalPreparationExportButton = document.querySelector("#renewal-preparationExportButton");
 const renewalMessage = document.querySelector("#renewal-message");
 const renewalTeacherPanel = document.querySelector("#renewal-teacherPanel");
 const renewalTeacherList = document.querySelector("#renewal-teacherList");
@@ -13,6 +14,10 @@ const renewalGoalSummary = document.querySelector("#renewal-goalSummary");
 const renewalGoalRows = document.querySelector("#renewal-goalRows");
 const renewalIntentOverview = document.querySelector("#renewal-intentOverview");
 const renewalFollowupOverview = document.querySelector("#renewal-followupOverview");
+const renewalLegacyFollowupPanel = document.querySelector("#renewal-legacyFollowupPanel");
+const renewalLegacyFollowupList = document.querySelector("#renewal-legacyList");
+const renewalLegacyAddForm = document.querySelector("#renewal-legacyAddForm");
+const renewalLegacyProjectSelect = document.querySelector("#renewal-legacyProjectSelect");
 const renewalSectionHub = document.querySelector("#renewal-sectionHub");
 const renewalSectionToolbar = document.querySelector("#renewal-sectionToolbar");
 const renewalSectionBack = document.querySelector("#renewal-sectionBack");
@@ -25,6 +30,7 @@ const renewalBackButton = document.querySelector("#renewal-backButton");
 const renewalDetailTitle = document.querySelector("#renewal-detailTitle");
 const renewalDetailMeta = document.querySelector("#renewal-detailMeta");
 const renewalDetailSummary = document.querySelector("#renewal-detailSummary");
+const renewalDetailExportButton = document.querySelector("#renewal-detailExportButton");
 const renewalStudentList = document.querySelector("#renewal-studentList");
 const renewalWeekSelect = document.querySelector("#renewal-weekSelect");
 const renewalModule = document.querySelector('[data-module-panel="续费"]');
@@ -137,6 +143,83 @@ async function renewalApiRequest(url, options = {}) {
   }
   return data;
 }
+
+function renewalDownloadFilename(response, fallback) {
+  const contentDisposition = response.headers.get("Content-Disposition") || "";
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch (_error) {
+      return fallback;
+    }
+  }
+  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  return filenameMatch?.[1] || fallback;
+}
+
+
+async function downloadRenewalPreparationExport() {
+  if (!renewalPreparationExportButton || renewalPreparationExportButton.disabled) return;
+  renewalPreparationExportButton.disabled = true;
+  setRenewalMessage("正在生成铺垫班级 Excel...");
+  try {
+    const response = await fetch("/api/renewal/exports/preparation", {
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "铺垫班级导出失败，请稍后重试。");
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = renewalDownloadFilename(response, "续费铺垫班级数据.xlsx");
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    setRenewalMessage("铺垫班级 Excel 已开始下载。");
+  } catch (error) {
+    setRenewalMessage(error.message, true);
+  } finally {
+    renewalPreparationExportButton.disabled = false;
+  }
+}
+
+
+async function downloadRenewalProjectExport(projectId) {
+  if (!renewalDetailExportButton || !projectId || renewalDetailExportButton.disabled) return;
+  renewalDetailExportButton.disabled = true;
+  setRenewalMessage("正在生成班级跟进明细...");
+  try {
+    const response = await fetch(`/api/renewal/projects/${encodeURIComponent(projectId)}/export`, {
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "班级跟进明细导出失败，请稍后重试。");
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = renewalDownloadFilename(response, "续费班级跟进明细.xlsx");
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    setRenewalMessage("班级跟进明细 Excel 已开始下载。");
+  } catch (error) {
+    setRenewalMessage(error.message, true);
+  } finally {
+    renewalDetailExportButton.disabled = false;
+  }
+}
+
 
 function renderRenewalClassOptions(classes = []) {
   if (!renewalClassSelect) return;
@@ -252,6 +335,7 @@ function renewalSectionLabel(section) {
     goals: "本月目标",
     projects: "续费班级",
     intent: "意向看板",
+    legacy: "老班续费跟进",
     teachers: "老师跟进",
   };
   return labels[section] || "续费项目";
@@ -288,6 +372,7 @@ function renewalHubCards(projects = []) {
   const goal = renewalHubGoalSummary(projects);
   const intentProjects = renewalData?.can_manage_all ? renewalData.projects || [] : projects;
   const intent = renewalHubIntentSummary(intentProjects);
+  const legacyLists = Array.isArray(renewalData?.legacy_followups) ? renewalData.legacy_followups : [];
   const teacherCount = (renewalData?.teacher_overview || []).length;
   const cards = [
     {
@@ -310,6 +395,13 @@ function renewalHubCards(projects = []) {
       value: projects.length,
       meta: "添加班级、进入跟进、移动阶段",
       tone: projects.length ? "default" : "muted",
+    },
+    {
+      section: "legacy",
+      title: "老班续费跟进",
+      value: legacyLists.length,
+      meta: "默认筛选上月完课高于 30% 的学员",
+      tone: legacyLists.length ? "default" : "muted",
     },
   ];
   if (renewalData?.can_manage_all) {
@@ -367,6 +459,7 @@ function applyRenewalSectionVisibility() {
   renewalFollowupOverview?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "followup" || !visibleProjects.length);
   renewalGoalPanel?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "goals" || !targetProjects.length);
   renewalIntentOverview?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "intent" || !(renewalData?.can_manage_all && allProjects.length));
+  renewalLegacyFollowupPanel?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "legacy");
   renewalStageBoard?.classList.toggle("is-hidden", isDetail || renewalActiveSection !== "projects");
 }
 
@@ -2115,6 +2208,161 @@ function renderRenewalBoard(projects = []) {
   }).join("");
 }
 
+function renderRenewalLegacyProjectOptions(projects = []) {
+  if (!renewalLegacyProjectSelect) return;
+  const currentValue = renewalLegacyProjectSelect.value;
+  renewalLegacyProjectSelect.innerHTML = [
+    `<option value="">选择续费班级</option>`,
+    ...projects.map((project) => `
+      <option value="${escapeRenewalAttr(project.id)}">
+        ${escapeRenewalText(`${project.teacher_name || "未分配"} · ${project.class_name || "未命名班级"}`)}
+      </option>
+    `),
+  ].join("");
+  renewalLegacyProjectSelect.disabled = !projects.length;
+  if (projects.some((project) => project.id === currentValue)) {
+    renewalLegacyProjectSelect.value = currentValue;
+  }
+}
+
+function renderRenewalLegacyStudentName(list, student, disabledAttr) {
+  const completionText = student.average_completion === null || student.average_completion === undefined || student.average_completion === ""
+    ? "上月完课暂无数据"
+    : `上月完课 ${formatRenewalRate(student.average_completion)}`;
+  const removeButton = list.can_edit ? `
+    <button
+      class="renewal-legacy-remove-student"
+      type="button"
+      data-renewal-legacy-remove-student="${escapeRenewalAttr(list.id)}"
+      data-renewal-legacy-student-id="${escapeRenewalAttr(student.id)}"
+      aria-label="移出跟进名单"
+      title="移出跟进名单"
+      ${disabledAttr}
+    >&times;</button>
+  ` : "";
+  return `
+    <div class="renewal-legacy-student-name">
+      <div>
+        <strong>${escapeRenewalText(student.name || "未命名学员")}</strong>
+        <small>${escapeRenewalText(student.account || "无学习账号")} · ${escapeRenewalText(completionText)}</small>
+      </div>
+      ${removeButton}
+    </div>
+  `;
+}
+
+function renderRenewalLegacyListTable(list) {
+  const students = Array.isArray(list.students) ? list.students : [];
+  const rowSpan = Math.max(students.length, 1);
+  const disabledAttr = list.can_edit ? "" : "disabled";
+  const classRemoveButton = list.can_remove_class ? `
+    <button
+      class="renewal-legacy-remove-class"
+      type="button"
+      data-renewal-legacy-delete="${escapeRenewalAttr(list.id)}"
+      aria-label="移出老班名单"
+      title="移出老班名单"
+    >&times;</button>
+  ` : "";
+  const classCell = `
+    <td class="renewal-legacy-class-cell" rowspan="${rowSpan}">
+      <div>
+        <strong>${escapeRenewalText(list.class_name || "未命名班级")}</strong>
+        ${list.class_missing ? `<small>原续费项目已移出，保留当前名单</small>` : ""}
+      </div>
+      ${classRemoveButton}
+    </td>
+  `;
+  const teacherCell = `
+    <td class="renewal-legacy-teacher-cell" rowspan="${rowSpan}">
+      ${escapeRenewalText(list.teacher_name || "未分配")}
+    </td>
+  `;
+  const studentRows = students.length ? students.map((student, index) => `
+    <tr>
+      ${index === 0 ? classCell : ""}
+      ${index === 0 ? teacherCell : ""}
+      <td>${renderRenewalLegacyStudentName(list, student, disabledAttr)}</td>
+      <td>
+        <input
+          class="renewal-legacy-field"
+          type="text"
+          maxlength="100"
+          value="${escapeRenewalAttr(student.current_blocker || "")}"
+          placeholder="填写当前卡点"
+          data-renewal-legacy-blocker="${escapeRenewalAttr(list.id)}"
+          data-renewal-legacy-student-id="${escapeRenewalAttr(student.id)}"
+          ${disabledAttr}
+        >
+      </td>
+      <td>
+        <textarea
+          class="renewal-legacy-field renewal-legacy-judgement"
+          rows="2"
+          maxlength="500"
+          placeholder="填写意向判断或跟进情况"
+          data-renewal-legacy-judgement="${escapeRenewalAttr(list.id)}"
+          data-renewal-legacy-student-id="${escapeRenewalAttr(student.id)}"
+          ${disabledAttr}
+        >${escapeRenewalText(student.judgement || "")}</textarea>
+      </td>
+    </tr>
+  `).join("") : `
+    <tr>
+      ${classCell}
+      ${teacherCell}
+      <td colspan="3" class="renewal-legacy-empty-cell">当前名单暂无学员，可从续费班级中补充。</td>
+    </tr>
+  `;
+  const availableStudents = Array.isArray(list.available_students) ? list.available_students : [];
+  const addStudentRow = list.can_edit ? `
+    <div class="renewal-legacy-add-student">
+      <select data-renewal-legacy-student-select="${escapeRenewalAttr(list.id)}" ${availableStudents.length ? "" : "disabled"}>
+        <option value="">${availableStudents.length ? "添加续费班级内学员" : "没有可添加的学员"}</option>
+        ${availableStudents.map((student) => `
+          <option value="${escapeRenewalAttr(student.id)}">
+            ${escapeRenewalText(`${student.name || "未命名学员"} · ${student.account || "无账号"}`)}
+          </option>
+        `).join("")}
+      </select>
+      <button
+        class="ghost-button compact-button"
+        type="button"
+        data-renewal-legacy-add-student="${escapeRenewalAttr(list.id)}"
+        ${availableStudents.length ? "" : "disabled"}
+      >添加学员</button>
+    </div>
+  ` : "";
+  return `
+    <article class="renewal-legacy-class-list" data-renewal-legacy-list="${escapeRenewalAttr(list.id)}">
+      <div class="renewal-legacy-table-wrap">
+        <table class="renewal-legacy-table">
+          <thead>
+            <tr>
+              <th>班级名称</th>
+              <th>班主任</th>
+              <th>跟进名单</th>
+              <th>当前卡点</th>
+              <th>意向判断</th>
+            </tr>
+          </thead>
+          <tbody>${studentRows}</tbody>
+        </table>
+      </div>
+      ${addStudentRow}
+    </article>
+  `;
+}
+
+function renderRenewalLegacyFollowups(data = renewalData) {
+  if (!renewalLegacyFollowupList) return;
+  const legacyLists = Array.isArray(data?.legacy_followups) ? data.legacy_followups : [];
+  renderRenewalLegacyProjectOptions(data?.legacy_available_projects || []);
+  renewalLegacyFollowupList.innerHTML = legacyLists.length
+    ? legacyLists.map(renderRenewalLegacyListTable).join("")
+    : `<div class="empty-state compact-empty">${data?.can_manage_all ? "请先选择一个续费班级加入名单。" : "管理员暂未为你的班级创建老班续费跟进名单。"}</div>`;
+}
+
 function renderRenewal(data) {
   renewalData = data;
   ensureRenewalTeacherSelection();
@@ -2125,6 +2373,7 @@ function renderRenewal(data) {
   renderRenewalFollowupOverview();
   renderRenewalGoalPanel(visibleProjects);
   renderRenewalIntentOverview(data.projects || []);
+  renderRenewalLegacyFollowups(data);
   renderRenewalBoard(visibleProjects);
   renderRenewalSectionHub(visibleProjects);
   applyRenewalSectionVisibility();
@@ -2153,6 +2402,7 @@ function refreshRenewalShellFromData(data) {
   renderRenewalFollowupOverview();
   renderRenewalGoalPanel(visibleProjects);
   renderRenewalIntentOverview(renewalData.projects || []);
+  renderRenewalLegacyFollowups(renewalData);
   renderRenewalBoard(visibleProjects);
   renderRenewalSectionHub(visibleProjects);
   applyRenewalSectionVisibility();
@@ -2449,6 +2699,11 @@ function renderRenewalDetail(project) {
   renewalDetailView.dataset.renewalActiveProject = project.id || "";
   renewalActiveDetailProject = project.id || null;
   renewalActiveDetailData = project;
+  if (renewalDetailExportButton) {
+    renewalDetailExportButton.dataset.renewalProjectExport = project.id || "";
+    renewalDetailExportButton.disabled = !project.id || !renewalData?.can_manage_all;
+    renewalDetailExportButton.classList.toggle("is-hidden", !renewalData?.can_manage_all);
+  }
   renderRenewalWeekSelect(project);
   if (renewalDetailTitle) renewalDetailTitle.textContent = project.class_name || "班级续费明细";
   if (renewalDetailMeta) {
@@ -3031,9 +3286,103 @@ async function deleteRenewalProject(projectId) {
   }
 }
 
+async function createRenewalLegacyFollowupList(event) {
+  event.preventDefault();
+  const projectId = renewalLegacyProjectSelect?.value || "";
+  if (!projectId) {
+    setRenewalMessage("请先选择要加入名单的续费班级。", true);
+    return;
+  }
+  setRenewalMessage("正在创建老班续费跟进名单...");
+  try {
+    const data = await renewalApiRequest("/api/renewal/legacy-followups", {
+      method: "POST",
+      body: JSON.stringify({ project_id: projectId }),
+    });
+    renderRenewal(data);
+    if (renewalLegacyAddForm) renewalLegacyAddForm.reset();
+    setRenewalMessage("已按上月完课率带出初始跟进名单。");
+  } catch (error) {
+    setRenewalMessage(error.message, true);
+  }
+}
+
+async function addRenewalLegacyFollowupStudent(listId, select) {
+  const studentId = select?.value || "";
+  if (!listId || !studentId) {
+    setRenewalMessage("请先选择要添加的学员。", true);
+    return;
+  }
+  setRenewalMessage("正在添加跟进学员...");
+  try {
+    const data = await renewalApiRequest(`/api/renewal/legacy-followups/${encodeURIComponent(listId)}/students`, {
+      method: "POST",
+      body: JSON.stringify({ student_id: studentId }),
+    });
+    renderRenewal(data);
+    setRenewalMessage("学员已加入老班续费跟进名单。");
+  } catch (error) {
+    setRenewalMessage(error.message, true);
+  }
+}
+
+async function updateRenewalLegacyFollowupStudent(listId, studentId, payload) {
+  if (!listId || !studentId) return;
+  setRenewalMessage("正在保存老班跟进情况...");
+  try {
+    const data = await renewalApiRequest(`/api/renewal/legacy-followups/${encodeURIComponent(listId)}/students/${encodeURIComponent(studentId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    renderRenewal(data);
+    setRenewalMessage("老班跟进情况已保存。");
+  } catch (error) {
+    setRenewalMessage(error.message, true);
+  }
+}
+
+async function removeRenewalLegacyFollowupStudent(listId, studentId) {
+  if (!listId || !studentId) return;
+  const confirmed = window.confirm("确认把这位学员移出老班续费跟进名单吗？");
+  if (!confirmed) return;
+  setRenewalMessage("正在移出跟进名单...");
+  try {
+    const data = await renewalApiRequest(`/api/renewal/legacy-followups/${encodeURIComponent(listId)}/students/${encodeURIComponent(studentId)}`, {
+      method: "DELETE",
+    });
+    renderRenewal(data);
+    setRenewalMessage("已移出跟进名单，不会影响原续费项目。");
+  } catch (error) {
+    setRenewalMessage(error.message, true);
+  }
+}
+
+async function deleteRenewalLegacyFollowupList(listId) {
+  if (!listId) return;
+  const confirmed = window.confirm("确认把这个班级移出老班续费跟进名单吗？原续费项目不会受到影响。");
+  if (!confirmed) return;
+  setRenewalMessage("正在移出老班名单...");
+  try {
+    const data = await renewalApiRequest(`/api/renewal/legacy-followups/${encodeURIComponent(listId)}`, {
+      method: "DELETE",
+    });
+    renderRenewal(data);
+    setRenewalMessage("已移出老班续费跟进名单。");
+  } catch (error) {
+    setRenewalMessage(error.message, true);
+  }
+}
+
 function initRenewal() {
   if (!renewalStageBoard) return;
   renewalAddForm?.addEventListener("submit", addRenewalProject);
+  renewalPreparationExportButton?.addEventListener("click", downloadRenewalPreparationExport);
+  renewalDetailExportButton?.addEventListener("click", () => {
+    downloadRenewalProjectExport(
+      renewalDetailExportButton.dataset.renewalProjectExport || renewalActiveDetailProject
+    );
+  });
+  renewalLegacyAddForm?.addEventListener("submit", createRenewalLegacyFollowupList);
   renewalMenuButton?.addEventListener("click", () => {
     renewalActiveSection = "home";
     showRenewalDetail(false);
@@ -3126,6 +3475,60 @@ function initRenewal() {
     if (isRenewalInteractiveClick(event.target) || !event.target.closest(".renewal-intent-overview-head")) return;
     renewalIntentOverviewExpanded = !renewalIntentOverviewExpanded;
     renderRenewalIntentOverview(renewalData?.projects || []);
+  });
+  renewalLegacyFollowupList?.addEventListener("click", (event) => {
+    const addStudentButton = event.target.closest("[data-renewal-legacy-add-student]");
+    if (addStudentButton) {
+      const listId = addStudentButton.dataset.renewalLegacyAddStudent || "";
+      const list = addStudentButton.closest("[data-renewal-legacy-list]");
+      const select = list?.querySelector("[data-renewal-legacy-student-select]");
+      addRenewalLegacyFollowupStudent(listId, select);
+      return;
+    }
+    const removeStudentButton = event.target.closest("[data-renewal-legacy-remove-student]");
+    if (removeStudentButton) {
+      removeRenewalLegacyFollowupStudent(
+        removeStudentButton.dataset.renewalLegacyRemoveStudent || "",
+        removeStudentButton.dataset.renewalLegacyStudentId || ""
+      );
+      return;
+    }
+    const deleteListButton = event.target.closest("[data-renewal-legacy-delete]");
+    if (deleteListButton) {
+      deleteRenewalLegacyFollowupList(deleteListButton.dataset.renewalLegacyDelete || "");
+    }
+  });
+  renewalLegacyFollowupList?.addEventListener("change", (event) => {
+    const blockerInput = event.target.closest("[data-renewal-legacy-blocker]");
+    if (blockerInput) {
+      updateRenewalLegacyFollowupStudent(
+        blockerInput.dataset.renewalLegacyBlocker || "",
+        blockerInput.dataset.renewalLegacyStudentId || "",
+        { current_blocker: blockerInput.value }
+      );
+      return;
+    }
+    const judgementInput = event.target.closest("[data-renewal-legacy-judgement]");
+    if (judgementInput) {
+      updateRenewalLegacyFollowupStudent(
+        judgementInput.dataset.renewalLegacyJudgement || "",
+        judgementInput.dataset.renewalLegacyStudentId || "",
+        { judgement: judgementInput.value }
+      );
+    }
+  });
+  renewalLegacyFollowupList?.addEventListener("keydown", (event) => {
+    const blockerInput = event.target.closest("[data-renewal-legacy-blocker]");
+    if (blockerInput && event.key === "Enter") {
+      event.preventDefault();
+      blockerInput.blur();
+      return;
+    }
+    const judgementInput = event.target.closest("[data-renewal-legacy-judgement]");
+    if (judgementInput && event.key === "Enter" && event.ctrlKey) {
+      event.preventDefault();
+      judgementInput.blur();
+    }
   });
   renewalGoalPanel?.addEventListener("keydown", (event) => {
     const targetInput = event.target.closest("[data-renewal-target-count]");
