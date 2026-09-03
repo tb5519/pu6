@@ -4,11 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PU6组工作集</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260807-legacy-renewal-followup') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css', v='20260902-completion-certificates') }}">
     <script src="{{ url_for('static', filename='js/dashboard.js', v='20260621-sidebar-collapse') }}" defer></script>
     <script src="{{ url_for('static', filename='js/work-navigation.js', v='20260704-work-nav-stable') }}" defer></script>
     <script src="{{ url_for('static', filename='js/talk-library.js', v='20260729-track-image-upload') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/completion.js', v='20260804-completion-roster-reset') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/completion.js', v='20260902-completion-certificates') }}" defer></script>
     <script src="{{ url_for('static', filename='js/daily-report.js', v='20260716-todo-targets') }}" defer></script>
     <script src="{{ url_for('static', filename='js/learning-coaching.js', v='20260806-flexible-coaching') }}" defer></script>
   <script src="{{ url_for('static', filename='js/database.js', v='20260806-completion-month-delta') }}" defer></script>
@@ -523,6 +523,13 @@
                   <input id="cc-imageWeekNumber" type="text" inputmode="numeric" placeholder="例如 24">
                 </label>
                 <button id="cc-generateCurrentImage" class="ghost-button" type="button">生成所选周图片</button>
+                <button
+                  id="cc-generateCertificates"
+                  class="completion-certificate-button"
+                  type="button"
+                  data-certificate-template="{{ url_for('static', filename='assets/certificates/weekly-completion-certificate-party.png') }}"
+                  title="为所选周每天都 100% 完课的学员批量制作奖状"
+                >批量制作完课奖状</button>
                 <button id="cc-generateActivityImage" class="primary-button compact-button" type="button">生成活动展示图</button>
               </section>
 

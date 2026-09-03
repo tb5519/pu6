@@ -4609,6 +4609,26 @@ input {
   background: rgba(255, 255, 255, 0.9);
 }
 
+.completion-certificate-button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #f0a21a;
+  border-radius: 8px;
+  background: #ffbd33;
+  color: #4c2a00;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.completion-certificate-button:hover:not(:disabled) {
+  background: #ffd166;
+}
+
+.completion-certificate-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .image-option-toggle {
   min-height: 42px;
   display: inline-flex;

@@ -47,6 +47,7 @@ const classGenerateImage = document.querySelector("#cc-generateImage");
 const classImageWeekSelect = document.querySelector("#cc-imageWeekSelect");
 const classImageWeekNumber = document.querySelector("#cc-imageWeekNumber");
 const classGenerateCurrentImage = document.querySelector("#cc-generateCurrentImage");
+const classGenerateCertificates = document.querySelector("#cc-generateCertificates");
 const classGenerateActivityImage = document.querySelector("#cc-generateActivityImage");
 const classImagePanel = document.querySelector("#cc-imagePanel");
 const classImagePanelTitle = document.querySelector("#cc-imagePanelTitle");
@@ -95,6 +96,7 @@ const ACTIVITY_MAX_PROGRESS = DEFAULT_WEEK_COUNT;
 const ACTIVITY_RULE_WEEKLY = "weekly_full";
 const ACTIVITY_RULE_DAILY_POINTS = "daily_points";
 const ACTIVITY_DEFAULT_TARGET_POINTS = 48;
+const CERTIFICATE_TEMPLATE_FALLBACK = "/static/assets/certificates/weekly-completion-certificate-party.png";
 const ACTIVITY_POINT_RULE_DEFAULTS = [
   { min_rate: 100, points: 2 },
   { min_rate: 90, points: 1 },
@@ -127,6 +129,7 @@ let reminderPlanContext = {};
 let reminderCurrentPlanData = null;
 let editingClassId = null;
 let editingActivityId = "";
+let certificateTemplateImagePromise = null;
 
 function clampInteger(value, defaultValue, minValue, maxValue) {
   const number = Number.parseInt(value, 10);
@@ -1813,6 +1816,339 @@ function generateCompletionImage() {
     fileName,
     `已生成 ${title} ${weekLabel(week)}完课表图片，可预览或下载。`
   );
+}
+
+function certificateTemplateUrl() {
+  return classGenerateCertificates?.dataset.certificateTemplate || CERTIFICATE_TEMPLATE_FALLBACK;
+}
+
+function loadCertificateTemplateImage() {
+  if (certificateTemplateImagePromise) return certificateTemplateImagePromise;
+  certificateTemplateImagePromise = new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("奖状模板加载失败，请刷新页面后重试。"));
+    image.src = certificateTemplateUrl();
+  });
+  return certificateTemplateImagePromise;
+}
+
+function certificateDateText(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}年${values.month}月${values.day}日`;
+}
+
+function certificateEligibleStudents(week) {
+  return (activeClass?.students || []).filter((student) => {
+    const weeks = normalizeWeeks(student.weeks);
+    return weekCompleted(weeks[String(week)] || []);
+  });
+}
+
+function certificateDisplayName(student) {
+  const name = String(student?.name || "").trim();
+  if (!name) return "同学";
+  return name.endsWith("同学") ? name : `${name}同学`;
+}
+
+function drawAutoFitCertificateText(ctx, text, x, y, maxWidth, options = {}) {
+  const {
+    maxFontSize = 64,
+    minFontSize = 34,
+    weight = 900,
+    color = "#ffffff",
+    align = "center",
+  } = options;
+  let size = maxFontSize;
+  while (size > minFontSize) {
+    ctx.font = `${weight} ${size}px Microsoft YaHei, Microsoft JhengHei, Arial, sans-serif`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    size -= 2;
+  }
+  ctx.font = `${weight} ${size}px Microsoft YaHei, Microsoft JhengHei, Arial, sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x, y);
+}
+
+function drawCertificateStar(ctx, x, y, outerRadius, innerRadius, color) {
+  ctx.save();
+  ctx.beginPath();
+  for (let index = 0; index < 10; index += 1) {
+    const angle = -Math.PI / 2 + index * Math.PI / 5;
+    const radius = index % 2 === 0 ? outerRadius : innerRadius;
+    const pointX = x + Math.cos(angle) * radius;
+    const pointY = y + Math.sin(angle) * radius;
+    if (index === 0) ctx.moveTo(pointX, pointY);
+    else ctx.lineTo(pointX, pointY);
+  }
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+}
+
+function createCompletionCertificateCanvas(template, student, week) {
+  const width = template.naturalWidth || template.width || 1492;
+  const height = template.naturalHeight || template.height || 1054;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(template, 0, 0, width, height);
+
+  // Replace the sample name banner with the student's actual name.
+  const bannerGradient = ctx.createLinearGradient(0, 426, 0, 588);
+  bannerGradient.addColorStop(0, "#3ca8ff");
+  bannerGradient.addColorStop(1, "#0875df");
+  fillRoundedRect(ctx, 355, 430, 780, 152, 30, bannerGradient);
+  ctx.save();
+  roundedRectPath(ctx, 374, 447, 742, 118, 24);
+  ctx.setLineDash([12, 10]);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.92)";
+  ctx.stroke();
+  ctx.restore();
+  drawCertificateStar(ctx, 460, 506, 28, 12, "#ffd842");
+  drawCertificateStar(ctx, 1030, 506, 28, 12, "#ffd842");
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 76, 168, 0.32)";
+  ctx.shadowBlur = 5;
+  ctx.shadowOffsetY = 3;
+  drawAutoFitCertificateText(ctx, certificateDisplayName(student), width / 2, 508, 500);
+  ctx.restore();
+
+  // The artwork contains a sample paragraph and date, so cover that clear area
+  // and redraw the confirmed wording with today's China-time date.
+  ctx.save();
+  ctx.globalAlpha = 0.98;
+  fillRoundedRect(ctx, 372, 625, 748, 198, 24, "#fffdf8");
+  fillRoundedRect(ctx, 530, 882, 432, 72, 18, "#fffdf8");
+  ctx.restore();
+  drawAutoFitCertificateText(ctx, "恭喜你在本次「每周完课挑战」活动中，", width / 2, 670, 710, {
+    maxFontSize: 38,
+    minFontSize: 28,
+    weight: 800,
+    color: "#77400d",
+  });
+  drawAutoFitCertificateText(ctx, `100%完成【${weekLabel(week)}】的全部课程，表现优异，`, width / 2, 727, 700, {
+    maxFontSize: 38,
+    minFontSize: 28,
+    weight: 900,
+    color: "#77400d",
+  });
+  drawAutoFitCertificateText(ctx, "特发此状，以资鼓励。", width / 2, 784, 580, {
+    maxFontSize: 40,
+    minFontSize: 28,
+    weight: 900,
+    color: "#77400d",
+  });
+  drawAutoFitCertificateText(ctx, certificateDateText(), width / 2, 920, 410, {
+    maxFontSize: 38,
+    minFontSize: 28,
+    weight: 900,
+    color: "#77400d",
+  });
+  return canvas;
+}
+
+function canvasToPngBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("奖状图片生成失败，请重试。"));
+    }, "image/png");
+  });
+}
+
+function certificateSafeFileName(value, fallback = "完课奖状") {
+  const text = String(value || "")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+  return (text || fallback).slice(0, 80);
+}
+
+function certificateFileName(student, nameCounts) {
+  const name = certificateSafeFileName(student?.name, "学员");
+  const count = (nameCounts.get(name) || 0) + 1;
+  nameCounts.set(name, count);
+  const suffix = count > 1 ? `（${count}）` : "";
+  return `${name}${suffix}-完课奖状.png`;
+}
+
+const ZIP_CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let index = 0; index < 256; index += 1) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit += 1) {
+      value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
+    }
+    table[index] = value >>> 0;
+  }
+  return table;
+})();
+
+function zipCrc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc = ZIP_CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function zipDosDateTime(date = new Date()) {
+  const year = Math.max(1980, date.getFullYear());
+  return {
+    time: (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2),
+    date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
+  };
+}
+
+function concatZipParts(parts) {
+  const length = parts.reduce((total, part) => total + part.length, 0);
+  const output = new Uint8Array(length);
+  let offset = 0;
+  parts.forEach((part) => {
+    output.set(part, offset);
+    offset += part.length;
+  });
+  return output;
+}
+
+function buildStoredZip(entries) {
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  const dateTime = zipDosDateTime();
+  let localOffset = 0;
+
+  entries.forEach((entry) => {
+    const nameBytes = encoder.encode(entry.name);
+    const data = entry.data;
+    const crc = zipCrc32(data);
+    const localHeader = new Uint8Array(30 + nameBytes.length);
+    const localView = new DataView(localHeader.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(4, 20, true);
+    localView.setUint16(6, 0x0800, true);
+    localView.setUint16(8, 0, true);
+    localView.setUint16(10, dateTime.time, true);
+    localView.setUint16(12, dateTime.date, true);
+    localView.setUint32(14, crc, true);
+    localView.setUint32(18, data.length, true);
+    localView.setUint32(22, data.length, true);
+    localView.setUint16(26, nameBytes.length, true);
+    localView.setUint16(28, 0, true);
+    localHeader.set(nameBytes, 30);
+    localParts.push(localHeader, data);
+
+    const centralHeader = new Uint8Array(46 + nameBytes.length);
+    const centralView = new DataView(centralHeader.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(4, 20, true);
+    centralView.setUint16(6, 20, true);
+    centralView.setUint16(8, 0x0800, true);
+    centralView.setUint16(10, 0, true);
+    centralView.setUint16(12, dateTime.time, true);
+    centralView.setUint16(14, dateTime.date, true);
+    centralView.setUint32(16, crc, true);
+    centralView.setUint32(20, data.length, true);
+    centralView.setUint32(24, data.length, true);
+    centralView.setUint16(28, nameBytes.length, true);
+    centralView.setUint16(30, 0, true);
+    centralView.setUint16(32, 0, true);
+    centralView.setUint16(34, 0, true);
+    centralView.setUint16(36, 0, true);
+    centralView.setUint32(38, 0, true);
+    centralView.setUint32(42, localOffset, true);
+    centralHeader.set(nameBytes, 46);
+    centralParts.push(centralHeader);
+    localOffset += localHeader.length + data.length;
+  });
+
+  const centralDirectory = concatZipParts(centralParts);
+  const endRecord = new Uint8Array(22);
+  const endView = new DataView(endRecord.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(4, 0, true);
+  endView.setUint16(6, 0, true);
+  endView.setUint16(8, entries.length, true);
+  endView.setUint16(10, entries.length, true);
+  endView.setUint32(12, centralDirectory.length, true);
+  endView.setUint32(16, localOffset, true);
+  endView.setUint16(20, 0, true);
+  return concatZipParts([...localParts, centralDirectory, endRecord]);
+}
+
+function triggerCertificateDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+async function downloadCompletionCertificates() {
+  if (!activeClass) {
+    setDetailMessage("请先进入班级后再制作奖状。", true);
+    return;
+  }
+  let week = selectedImageWeek();
+  if (!hasWeekCompletionData(activeClass.students || [], week)) {
+    week = completionWeeksWithData(activeClass.students || []).pop();
+  }
+  if (!week) {
+    setDetailMessage("当前班级还没有可用于制作奖状的完课数据，请先上传表格。", true);
+    return;
+  }
+  setSelectedCompletionWeek(week);
+  const students = certificateEligibleStudents(week);
+  if (!students.length) {
+    setDetailMessage(`${weekLabel(week)}暂无每天都 100% 完课的学员，暂不生成奖状。`, true);
+    return;
+  }
+
+  const originalText = classGenerateCertificates?.textContent || "批量制作完课奖状";
+  if (classGenerateCertificates) classGenerateCertificates.disabled = true;
+  try {
+    const template = await loadCertificateTemplateImage();
+    const entries = [];
+    const nameCounts = new Map();
+    for (let index = 0; index < students.length; index += 1) {
+      if (classGenerateCertificates) {
+        classGenerateCertificates.textContent = `正在制作 ${index + 1}/${students.length}`;
+      }
+      const canvas = createCompletionCertificateCanvas(template, students[index], week);
+      const png = await canvasToPngBlob(canvas);
+      entries.push({
+        name: certificateFileName(students[index], nameCounts),
+        data: new Uint8Array(await png.arrayBuffer()),
+      });
+    }
+    const zip = new Blob([buildStoredZip(entries)], { type: "application/zip" });
+    const className = certificateSafeFileName(activeClass.name, "班级");
+    triggerCertificateDownload(zip, `${className}-${weekLabel(week)}完课奖状.zip`);
+    setDetailMessage(`已为${students.length}位${weekLabel(week)}每天都 100% 完课的学员制作奖状，ZIP 已开始下载。`);
+  } catch (error) {
+    setDetailMessage(error.message || "批量制作奖状失败，请刷新后重试。", true);
+  } finally {
+    if (classGenerateCertificates) {
+      classGenerateCertificates.disabled = false;
+      classGenerateCertificates.textContent = originalText;
+    }
+  }
 }
 
 function toggleCompletionImagePreview() {
@@ -4241,6 +4577,7 @@ function initCompletion() {
   });
 
   classGenerateCurrentImage?.addEventListener("click", generateCompletionImage);
+  classGenerateCertificates?.addEventListener("click", downloadCompletionCertificates);
   classGenerateActivityImage?.addEventListener("click", () => {
     generateActivityImage().catch((error) => setDetailMessage(error.message, true));
   });
